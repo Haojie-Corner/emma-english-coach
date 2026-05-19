@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
-import { modules } from '../data/phonics'
+import { modules, phonicsLessons } from '../data/phonics'
 
 /* ── 进度环 ── */
 const ProgressRing = ({ pct, size = 52, color = '#d97757' }) => {
@@ -46,12 +46,17 @@ const Card = ({ children, onClick, style = {} }) => (
 
 const Dashboard = () => {
   const { user } = useUserStore()
-  const { streak, checkedInToday, fetchProgress, doCheckIn, getModuleCompletion } = useProgressStore()
+  const { progress, streak, checkedInToday, fetchProgress, doCheckIn, getModuleCompletion } = useProgressStore()
   const navigate = useNavigate()
 
   useEffect(() => { if (user) fetchProgress(user.id) }, [user])
 
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
+
+  const nextLesson = phonicsLessons.find(lesson => {
+    const p = progress.find(p => p.lesson_id === lesson.id)
+    return !p || p.status !== 'completed'
+  }) ?? phonicsLessons[phonicsLessons.length - 1]
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px' }}>
@@ -90,7 +95,7 @@ const Dashboard = () => {
       </Card>
 
       {/* ── 继续学习 ── */}
-      <div onClick={() => navigate('/course/phonics/phonics_01')} style={{
+      <div onClick={() => navigate(`/course/phonics/${nextLesson.id}`)} style={{
         background: 'linear-gradient(135deg, #d97757 0%, #c05e3a 100%)',
         borderRadius: 14, padding: '20px 24px', marginBottom: 28,
         cursor: 'pointer', boxShadow: '0 4px 16px rgba(217,119,87,0.35)',
@@ -103,7 +108,7 @@ const Dashboard = () => {
         <div>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginBottom: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>继续学习</p>
           <p className="font-title" style={{ fontSize: 17, color: '#fff', lineHeight: 1.3 }}>
-            Lesson 1 — 26个字母发音
+            {nextLesson.title}
           </p>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>
             🔤 自然拼读 · Phonics

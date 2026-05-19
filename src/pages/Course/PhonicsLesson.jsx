@@ -148,9 +148,12 @@ const PhonicsLesson = () => {
           {allDone && (
             <div style={{ background: '#fdf0ea', border: '1px solid #f5c4a8', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }} className="fade-in">
               <p style={{ fontSize: 28, marginBottom: 8 }}>🎉</p>
-              <p className="font-title" style={{ fontSize: 16, color: '#d97757', marginBottom: 6 }}>第一课完成！</p>
-              <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 16 }}>你已掌握26个字母的发音，继续加油！</p>
-              <Button onClick={() => navigate('/dashboard')}>返回首页</Button>
+              <p className="font-title" style={{ fontSize: 16, color: '#d97757', marginBottom: 6 }}>{lesson.title.split(' — ')[0]} 完成！</p>
+              <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 16 }}>继续下一课，离流利英语更近一步！</p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <Button onClick={() => navigate('/course/phonics')}>查看全部课程</Button>
+                <Button variant="secondary" onClick={() => navigate('/dashboard')}>返回首页</Button>
+              </div>
             </div>
           )}
         </div>

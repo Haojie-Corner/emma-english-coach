@@ -233,7 +233,6 @@ const AudioRecorder = ({ targetText, targetZh }) => {
                         <button
                           onClick={() => {
                             stopSpeaking()
-                            setIsSpeaking(false)
                             speakMultilingual(issue.tip_demo)
                           }}
                           style={{
