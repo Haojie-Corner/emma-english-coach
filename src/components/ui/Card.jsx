@@ -1,7 +1,19 @@
-const Card = ({ children, className = '', onClick }) => (
+const Card = ({ children, className = '', onClick, style = {} }) => (
   <div
     onClick={onClick}
-    className={`bg-white border border-[#e8e6dc] rounded-2xl p-5 shadow-[0_1px_3px_rgba(20,20,19,0.06)] ${onClick ? 'cursor-pointer hover:shadow-[0_4px_12px_rgba(20,20,19,0.08)] transition-shadow duration-150' : ''} ${className}`}
+    className={className}
+    style={{
+      background: '#ffffff',
+      border: '1px solid #dedad0',
+      borderRadius: 14,
+      padding: '16px 20px',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      cursor: onClick ? 'pointer' : 'default',
+      transition: onClick ? 'box-shadow 0.15s' : 'none',
+      ...style,
+    }}
+    onMouseEnter={e => { if (onClick) e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.1)' }}
+    onMouseLeave={e => { if (onClick) e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)' }}
   >
     {children}
   </div>

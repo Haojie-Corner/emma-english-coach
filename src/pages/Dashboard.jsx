@@ -3,127 +3,157 @@ import { useNavigate } from 'react-router-dom'
 import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
 import { modules } from '../data/phonics'
-import Card from '../components/ui/Card'
-import Button from '../components/ui/Button'
 
-const ProgressRing = ({ pct, size = 56, color = '#d97757' }) => {
-  const r = (size - 8) / 2
+/* ── 进度环 ── */
+const ProgressRing = ({ pct, size = 52, color = '#d97757' }) => {
+  const r = (size - 7) / 2
   const circ = 2 * Math.PI * r
   const offset = circ - (pct / 100) * circ
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#e8e6dc" strokeWidth="5" />
-      <circle
-        cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5"
-        strokeDasharray={circ} strokeDashoffset={offset}
-        strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`}
-        style={{ transition: 'stroke-dashoffset 1s ease-out' }}
-      />
-      <text x={size/2} y={size/2 + 5} textAnchor="middle" fontSize="13" fontWeight="700" fill={color} fontFamily="Poppins,Arial,sans-serif">
+    <svg width={size} height={size} style={{ flexShrink: 0 }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#dedad0" strokeWidth="5.5" />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5.5"
+        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+        transform={`rotate(-90 ${size/2} ${size/2})`}
+        style={{ transition: 'stroke-dashoffset 0.8s ease-out' }} />
+      <text x={size/2} y={size/2 + 4.5} textAnchor="middle"
+        fontSize="11" fontWeight="700" fill={color}
+        fontFamily="-apple-system,Arial,sans-serif">
         {pct}%
       </text>
     </svg>
   )
 }
 
+/* ── 通用卡片 ── */
+const Card = ({ children, onClick, style = {} }) => (
+  <div onClick={onClick} style={{
+    background: '#ffffff',
+    border: '1px solid #dedad0',
+    borderRadius: 14,
+    padding: '16px 20px',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+    cursor: onClick ? 'pointer' : 'default',
+    transition: onClick ? 'box-shadow 0.15s, transform 0.15s' : 'none',
+    ...style,
+  }}
+    onMouseEnter={e => { if (onClick) { e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.1)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+    onMouseLeave={e => { if (onClick) { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'translateY(0)' } }}
+  >
+    {children}
+  </div>
+)
+
 const Dashboard = () => {
   const { user } = useUserStore()
-  const { streak, checkedInToday, fetchProgress, doCheckIn, getModuleCompletion, loading } = useProgressStore()
+  const { streak, checkedInToday, fetchProgress, doCheckIn, getModuleCompletion } = useProgressStore()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    if (user) fetchProgress(user.id)
-  }, [user])
-
-  const handleCheckIn = async () => {
-    if (!checkedInToday) await doCheckIn(user.id)
-  }
+  useEffect(() => { if (user) fetchProgress(user.id) }, [user])
 
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      {/* 顶部欢迎 */}
-      <div className="mb-8">
-        <p className="text-sm text-[#b0aea5] mb-1">Good morning 早上好，</p>
-        <h1 className="text-2xl font-bold text-[#141413]" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px' }}>
+
+      {/* ── 欢迎语 ── */}
+      <div style={{ marginBottom: 28 }}>
+        <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 4 }}>Good day · 你好，</p>
+        <h1 className="font-title" style={{ fontSize: 26, color: '#1a1917', lineHeight: 1.2 }}>
           {displayName} 👋
         </h1>
       </div>
 
-      {/* 打卡卡片 */}
-      <Card className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="text-3xl">🔥</div>
+      {/* ── 打卡卡片 ── */}
+      <Card style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: checkedInToday ? '#f0f7ea' : '#fff', borderColor: checkedInToday ? '#b8d4a0' : '#dedad0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ fontSize: 32 }}>🔥</span>
           <div>
-            <p className="font-bold text-[#141413]" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-              连续打卡 {streak} 天
+            <p className="font-title" style={{ fontSize: 16, color: '#1a1917' }}>
+              连续打卡 <span style={{ color: '#d97757' }}>{streak}</span> 天
             </p>
-            <p className="text-sm text-[#b0aea5]">
-              {checkedInToday ? '今天已打卡 ✅' : '今天还没打卡'}
+            <p style={{ fontSize: 12, color: '#7a7870', marginTop: 2 }}>
+              {checkedInToday ? '✅ 今天已完成打卡' : '今天还没打卡，快来！'}
             </p>
           </div>
         </div>
         {!checkedInToday && (
-          <Button onClick={handleCheckIn} size="sm">打卡</Button>
+          <button onClick={() => doCheckIn(user.id)} style={{
+            background: '#d97757', color: '#fff', border: 'none',
+            borderRadius: 9, padding: '8px 18px', fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', transition: 'background 0.15s',
+          }}
+            onMouseEnter={e => e.currentTarget.style.background = '#b85f3e'}
+            onMouseLeave={e => e.currentTarget.style.background = '#d97757'}
+          >打卡</button>
         )}
       </Card>
 
-      {/* 快速开始 */}
-      <Card className="mb-6 bg-[#d97757] border-[#d97757] text-white" onClick={() => navigate('/course/phonics/phonics_01')}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm opacity-80 mb-1" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>继续学习</p>
-            <p className="text-lg font-bold" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-              Lesson 1 — 26个字母发音
-            </p>
-            <p className="text-sm opacity-80">自然拼读 · Phonics</p>
-          </div>
-          <span className="text-3xl">▶</span>
+      {/* ── 继续学习 ── */}
+      <div onClick={() => navigate('/course/phonics/phonics_01')} style={{
+        background: 'linear-gradient(135deg, #d97757 0%, #c05e3a 100%)',
+        borderRadius: 14, padding: '20px 24px', marginBottom: 28,
+        cursor: 'pointer', boxShadow: '0 4px 16px rgba(217,119,87,0.35)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        transition: 'transform 0.15s, box-shadow 0.15s',
+      }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(217,119,87,0.45)' }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(217,119,87,0.35)' }}
+      >
+        <div>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginBottom: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>继续学习</p>
+          <p className="font-title" style={{ fontSize: 17, color: '#fff', lineHeight: 1.3 }}>
+            Lesson 1 — 26个字母发音
+          </p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>
+            🔤 自然拼读 · Phonics
+          </p>
         </div>
-      </Card>
+        <span style={{ fontSize: 28, color: 'rgba(255,255,255,0.9)' }}>▶</span>
+      </div>
 
-      {/* 模块进度 */}
-      <h2 className="text-base font-semibold text-[#141413] mb-4" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
+      {/* ── 模块进度 ── */}
+      <h2 className="font-title" style={{ fontSize: 15, color: '#1a1917', marginBottom: 12 }}>
         学习进度
       </h2>
-      <div className="grid grid-cols-2 gap-3 mb-8">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 28 }}>
         {modules.map(mod => {
           const pct = getModuleCompletion(mod.id)
           return (
-            <Card
-              key={mod.id}
-              className="flex items-center gap-3"
-              onClick={() => navigate(`/course/${mod.id}`)}
-            >
+            <Card key={mod.id} onClick={() => navigate(`/course/${mod.id}`)}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
               <ProgressRing pct={pct} color={mod.color} />
-              <div className="min-w-0">
-                <p className="font-semibold text-sm text-[#141413] truncate" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
+              <div style={{ minWidth: 0 }}>
+                <p className="font-title" style={{ fontSize: 13, color: '#1a1917', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {mod.icon} {mod.name}
                 </p>
-                <p className="text-xs text-[#b0aea5]">{mod.totalLessons} 节课</p>
+                <p style={{ fontSize: 11, color: '#7a7870', marginTop: 2 }}>{mod.totalLessons} 节课</p>
               </div>
             </Card>
           )
         })}
       </div>
 
-      {/* 今日推荐 */}
-      <h2 className="text-base font-semibold text-[#141413] mb-4" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-        今日推荐练习
+      {/* ── 今日推荐 ── */}
+      <h2 className="font-title" style={{ fontSize: 15, color: '#1a1917', marginBottom: 12 }}>
+        今日推荐
       </h2>
-      <div className="space-y-3">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {[
-          { icon: '🔤', title: 'Lesson 1 — 26个字母发音', sub: '自然拼读 · 约10分钟', to: '/course/phonics/phonics_01' },
-          { icon: '💬', title: '自由口语练习', sub: 'AI 实时纠错', to: '/practice/speaking' },
+          { icon: '🔤', title: 'Lesson 1 — 26个字母发音', sub: '自然拼读 · 约10分钟', to: '/course/phonics/phonics_01', tag: '推荐' },
+          { icon: '💬', title: '语法纠错练习', sub: '输入英文，AI 实时批改', to: '/practice/speaking', tag: '练习' },
         ].map((item, i) => (
-          <Card key={i} className="flex items-center gap-4" onClick={() => navigate(item.to)}>
-            <span className="text-2xl">{item.icon}</span>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm text-[#141413]" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>{item.title}</p>
-              <p className="text-xs text-[#b0aea5]">{item.sub}</p>
+          <Card key={i} onClick={() => navigate(item.to)}
+            style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px' }}>
+            <span style={{ fontSize: 24 }}>{item.icon}</span>
+            <div style={{ flex: 1 }}>
+              <p className="font-title" style={{ fontSize: 14, color: '#1a1917' }}>{item.title}</p>
+              <p style={{ fontSize: 12, color: '#7a7870', marginTop: 2 }}>{item.sub}</p>
             </div>
-            <span className="text-[#b0aea5]">›</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, background: '#fdf0ea', color: '#d97757', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{item.tag}</span>
+              <span style={{ color: '#7a7870', fontSize: 16 }}>›</span>
+            </div>
           </Card>
         ))}
       </div>

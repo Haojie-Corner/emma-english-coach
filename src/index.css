@@ -1,63 +1,58 @@
 @import "tailwindcss";
 
 :root {
-  --color-bg-primary:    #faf9f5;
-  --color-bg-secondary:  #f0ede4;
-  --color-bg-elevated:   #ffffff;
-  --color-text-primary:  #141413;
-  --color-text-secondary:#b0aea5;
-  --color-text-light:    #faf9f5;
-  --color-border:        #e8e6dc;
-  --color-accent:        #d97757;
-  --color-accent-hover:  #c4633e;
-  --color-accent-light:  #f5e6df;
-  --color-success:       #788c5d;
-  --color-info:          #6a9bcc;
+  --bg-primary:    #f5f3ee;
+  --bg-secondary:  #ece9e0;
+  --bg-card:       #ffffff;
+  --text-primary:  #1a1917;
+  --text-secondary:#7a7870;
+  --border:        #dedad0;
+  --accent:        #d97757;
+  --accent-dark:   #b85f3e;
+  --accent-light:  #fdf0ea;
+  --success:       #5a7a3a;
+  --info:          #3a6fa8;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  font-family: 'Lora', Georgia, serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
-h1, h2, h3, h4, h5, h6, button {
-  font-family: 'Poppins', Arial, sans-serif;
+.font-title {
+  font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
-#root {
-  min-height: 100svh;
+.font-mono {
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
 }
 
-@keyframes pulse-orange {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 87, 0.4); }
-  50%       { box-shadow: 0 0 0 18px rgba(217, 119, 87, 0); }
+/* 录音脉冲动画 */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0   rgba(217,119,87,0.5); }
+  70%  { box-shadow: 0 0 0 18px rgba(217,119,87,0); }
+  100% { box-shadow: 0 0 0 0   rgba(217,119,87,0); }
 }
-.recording-pulse { animation: pulse-orange 1.5s ease-in-out infinite; }
+.recording-pulse { animation: pulse-ring 1.5s ease-out infinite; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
-.spin { animation: spin 1s linear infinite; }
+.spin { animation: spin 0.8s linear infinite; }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.fade-in { animation: fadeIn 0.2s ease-out; }
+.fade-in { animation: fadeUp 0.25s ease-out; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg-primary:    #1a1917;
-    --color-bg-secondary:  #141413;
-    --color-bg-elevated:   #242320;
-    --color-text-primary:  #faf9f5;
-    --color-text-secondary:#b0aea5;
-    --color-border:        #2e2c29;
-  }
-}
+/* 滚动条美化 */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }

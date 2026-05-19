@@ -6,25 +6,29 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
-
-const speak = (text) => {
-  window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.lang = 'en-US'
-  u.rate = 0.85
-  window.speechSynthesis.speak(u)
-}
+import { speak } from '../../utils/tts'
 
 const LetterCard = ({ item }) => (
-  <Card className="flex flex-col items-center gap-2 py-4 cursor-pointer hover:border-[#d97757] transition-colors" onClick={() => speak(item.letter)}>
-    <span className="text-4xl font-bold text-[#141413]" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>{item.letter}</span>
-    <span className="text-xs font-mono text-[#b0aea5]">{item.ipa}</span>
-    <div className="text-center">
-      <span className="text-sm font-semibold text-[#d97757]">{item.example}</span>
-      <span className="text-xs text-[#b0aea5] block">{item.example_zh}</span>
+  <div
+    onClick={() => speak(item.letter + '. ' + item.example)}
+    style={{
+      background: '#fff', border: '1.5px solid #dedad0', borderRadius: 14,
+      padding: '16px 12px', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', gap: 6, cursor: 'pointer',
+      transition: 'border-color 0.15s, box-shadow 0.15s',
+    }}
+    onMouseEnter={e => { e.currentTarget.style.borderColor = '#d97757'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(217,119,87,0.15)' }}
+    onMouseLeave={e => { e.currentTarget.style.borderColor = '#dedad0'; e.currentTarget.style.boxShadow = 'none' }}
+  >
+    <span className="font-title" style={{ fontSize: 36, fontWeight: 800, color: '#1a1917' }}>{item.letter}</span>
+    <span className="font-mono" style={{ fontSize: 12, color: '#7a7870' }}>{item.ipa}</span>
+    <div style={{ textAlign: 'center' }}>
+      <span style={{ fontSize: 14, fontWeight: 700, color: '#d97757' }}>{item.example}</span>
+      <span style={{ fontSize: 11, color: '#7a7870', display: 'block', marginTop: 1 }}>{item.example_zh}</span>
     </div>
-    <p className="text-xs text-[#b0aea5] text-center px-2">{item.tip}</p>
-  </Card>
+    <p style={{ fontSize: 11, color: '#7a7870', textAlign: 'center', lineHeight: 1.4 }}>{item.tip}</p>
+    <p style={{ fontSize: 10, color: '#b0aea5', marginTop: 2 }}>🔊 点击听发音</p>
+  </div>
 )
 
 const PhonicsLesson = () => {
@@ -32,20 +36,18 @@ const PhonicsLesson = () => {
   const navigate = useNavigate()
   const { user } = useUserStore()
   const { updateProgress } = useProgressStore()
-  const [tab, setTab] = useState('learn')    // learn | practice
+  const [tab, setTab] = useState('learn')
   const [practiceIndex, setPracticeIndex] = useState(0)
   const [completedTargets, setCompletedTargets] = useState(new Set())
 
   const lesson = getLesson(lessonId)
 
-  if (!lesson) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-        <p className="text-[#b0aea5]">课程不存在</p>
-        <Button onClick={() => navigate('/course/phonics')} className="mt-4" variant="secondary">返回</Button>
-      </div>
-    )
-  }
+  if (!lesson) return (
+    <div style={{ maxWidth: 640, margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
+      <p style={{ color: '#7a7870' }}>课程不存在</p>
+      <Button onClick={() => navigate('/course/phonics')} variant="secondary" style={{ marginTop: 16 }}>返回</Button>
+    </div>
+  )
 
   const currentTarget = lesson.practice.targets[practiceIndex]
 
@@ -57,118 +59,100 @@ const PhonicsLesson = () => {
       const allDone = next.size >= lesson.practice.targets.length
       await updateProgress(user.id, 'phonics', lesson.id, allDone ? 'completed' : 'in_progress', null)
     }
-    if (practiceIndex < lesson.practice.targets.length - 1) {
-      setPracticeIndex(practiceIndex + 1)
-    }
+    if (practiceIndex < lesson.practice.targets.length - 1) setPracticeIndex(practiceIndex + 1)
   }
 
   const allDone = completedTargets.size >= lesson.practice.targets.length
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      {/* 返回 + 标题 */}
-      <button onClick={() => navigate('/course/phonics')} className="flex items-center gap-1 text-sm text-[#b0aea5] hover:text-[#141413] mb-4 transition-colors">
-        ← 自然拼读
-      </button>
-      <h1 className="text-xl font-bold text-[#141413] mb-1" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-        {lesson.title}
-      </h1>
-      <p className="text-sm text-[#b0aea5] mb-6">{lesson.description}</p>
+    <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 24px' }}>
 
-      {/* Tab */}
-      <div className="flex bg-[#f0ede4] rounded-xl p-1 mb-6">
+      {/* 返回 */}
+      <button onClick={() => navigate('/course/phonics')} style={{
+        display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
+        color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer',
+        marginBottom: 16, padding: 0,
+      }}
+        onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
+        onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
+      >← 自然拼读</button>
+
+      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 6 }}>{lesson.title}</h1>
+      <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 24, lineHeight: 1.6 }}>{lesson.description}</p>
+
+      {/* Tab 切换 */}
+      <div style={{ display: 'flex', background: '#ece9e0', borderRadius: 12, padding: 4, marginBottom: 24 }}>
         {[['learn', '📖 学习内容'], ['practice', '🎤 发音练习']].map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${tab === key ? 'bg-white text-[#141413] shadow-sm' : 'text-[#b0aea5]'}`}
-            style={{ fontFamily: 'Poppins, Arial, sans-serif' }}
-          >
-            {label}
-          </button>
+          <button key={key} onClick={() => setTab(key)} style={{
+            flex: 1, padding: '9px 0', borderRadius: 9, fontSize: 14, fontWeight: 600,
+            border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+            background: tab === key ? '#fff' : 'transparent',
+            color: tab === key ? '#1a1917' : '#7a7870',
+            boxShadow: tab === key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+            fontFamily: 'inherit',
+          }}>{label}</button>
         ))}
       </div>
 
       {/* 学习内容 */}
       {tab === 'learn' && (
-        <div className="space-y-8">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
           {lesson.sections.map(section => (
             <div key={section.id}>
-              <div className="mb-4">
-                <h2 className="text-base font-semibold text-[#141413]" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-                  {section.title}
-                </h2>
-                <p className="text-sm text-[#b0aea5]">{section.subtitle}</p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {section.items.map(item => (
-                  <LetterCard key={item.letter} item={item} />
-                ))}
+              <h2 className="font-title" style={{ fontSize: 15, color: '#1a1917', marginBottom: 4 }}>{section.title}</h2>
+              <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 14 }}>{section.subtitle}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+                {section.items.map(item => <LetterCard key={item.letter} item={item} />)}
               </div>
             </div>
           ))}
-
-          <div className="pt-4">
-            <Button onClick={() => setTab('practice')} className="w-full" size="lg">
-              开始发音练习 🎤
-            </Button>
-          </div>
+          <Button onClick={() => setTab('practice')} size="lg" style={{ width: '100%', justifyContent: 'center' }}>
+            开始发音练习 🎤
+          </Button>
         </div>
       )}
 
       {/* 发音练习 */}
       {tab === 'practice' && (
-        <div>
-          <div className="mb-6">
-            <p className="text-sm text-[#b0aea5] mb-3">{lesson.practice.instructions}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ fontSize: 13, color: '#7a7870' }}>{lesson.practice.instructions}</p>
 
-            {/* 练习目标选择 */}
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-              {lesson.practice.targets.map((t, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPracticeIndex(i)}
-                  className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    i === practiceIndex
-                      ? 'bg-[#d97757] text-white'
-                      : completedTargets.has(i)
-                      ? 'bg-[#788c5d]/20 text-[#788c5d] border border-[#788c5d]/40'
-                      : 'bg-[#f0ede4] text-[#b0aea5]'
-                  }`}
-                  style={{ fontFamily: 'Poppins, Arial, sans-serif' }}
-                >
-                  {completedTargets.has(i) ? '✅' : `${i + 1}`}
-                  {t.zh}
-                </button>
-              ))}
-            </div>
-
-            <AudioRecorder
-              key={practiceIndex}
-              targetText={currentTarget.text}
-              targetZh={currentTarget.zh}
-              lessonId={lesson.id}
-            />
-
-            {!allDone && (
-              <Button
-                variant="secondary"
-                onClick={handleMarkComplete}
-                className="w-full mt-4"
-              >
-                ✅ 完成这个练习，下一个
-              </Button>
-            )}
-
-            {allDone && (
-              <Card className="mt-4 text-center bg-[#f5e6df] border-[#f5e6df]">
-                <p className="text-lg">🎉</p>
-                <p className="font-semibold text-[#d97757]">第一课完成！</p>
-                <p className="text-sm text-[#b0aea5] mb-3">继续保持，你做得很棒！</p>
-                <Button onClick={() => navigate('/dashboard')}>返回首页</Button>
-              </Card>
-            )}
+          {/* 练习目标选项卡 */}
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+            {lesson.practice.targets.map((t, i) => (
+              <button key={i} onClick={() => setPracticeIndex(i)} style={{
+                flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
+                padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                border: 'none', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
+                background: i === practiceIndex ? '#d97757' : completedTargets.has(i) ? '#eaf2e3' : '#ece9e0',
+                color: i === practiceIndex ? '#fff' : completedTargets.has(i) ? '#5a7a3a' : '#7a7870',
+              }}>
+                {completedTargets.has(i) ? '✅ ' : `${i + 1}. `}{t.zh}
+              </button>
+            ))}
           </div>
+
+          <AudioRecorder
+            key={practiceIndex}
+            targetText={currentTarget.text}
+            targetZh={currentTarget.zh}
+            lessonId={lesson.id}
+          />
+
+          {!allDone && (
+            <Button variant="secondary" onClick={handleMarkComplete} style={{ width: '100%', justifyContent: 'center' }}>
+              ✅ 完成这个，进入下一个
+            </Button>
+          )}
+
+          {allDone && (
+            <div style={{ background: '#fdf0ea', border: '1px solid #f5c4a8', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }} className="fade-in">
+              <p style={{ fontSize: 28, marginBottom: 8 }}>🎉</p>
+              <p className="font-title" style={{ fontSize: 16, color: '#d97757', marginBottom: 6 }}>第一课完成！</p>
+              <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 16 }}>你已掌握26个字母的发音，继续加油！</p>
+              <Button onClick={() => navigate('/dashboard')}>返回首页</Button>
+            </div>
+          )}
         </div>
       )}
     </div>

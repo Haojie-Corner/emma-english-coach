@@ -1,5 +1,7 @@
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
+
+// 使用稳定的 gemini-1.5-flash，支持音频 + 图片多模态输入
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
 const callGemini = async (parts) => {
   const res = await fetch(GEMINI_URL, {
@@ -7,7 +9,10 @@ const callGemini = async (parts) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ contents: [{ parts }] }),
   })
-  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`)
+  if (!res.ok) {
+    const errBody = await res.text()
+    throw new Error(`Gemini API error: ${res.status} — ${errBody.slice(0, 200)}`)
+  }
   const data = await res.json()
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 }
@@ -31,27 +36,21 @@ export const analyzePronunciation = async (audioBase64, targetText) => {
   ],
   "positive_feedback": "鼓励性反馈（中文，1-2句）",
   "next_focus": "下次重点练习的建议（中文，1句）"
-}
+}`
 
-请用鼓励和友善的语气，适合零基础学习者。`
-
-  const parts = [
+  const raw = await callGemini([
     { text: prompt },
     { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
-  ]
-
-  const raw = await callGemini(parts)
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Gemini 返回格式错误')
-  return JSON.parse(jsonMatch[0])
+  ])
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('AI 返回格式异常，请重试')
+  return JSON.parse(match[0])
 }
 
 export const analyzeImage = async (imageBase64, mimeType = 'image/jpeg') => {
   const prompt = `你是一位专业且亲切的英语老师，正在辅导一位中文母语的零基础成人学习者。
 
-学生刚刚拍了一张生活中看到的英文照片，请你：
-1. 识别图片中所有英文文字
-2. 以老师的口吻，用中文逐步教学
+学生刚刚拍了一张生活中看到的英文照片，请识别并教学。
 
 只输出 JSON，不要有任何额外文字：
 {
@@ -72,13 +71,11 @@ export const analyzeImage = async (imageBase64, mimeType = 'image/jpeg') => {
   "teacher_comment": "老师点评或鼓励（亲切友善语气）"
 }`
 
-  const parts = [
+  const raw = await callGemini([
     { text: prompt },
     { inline_data: { mime_type: mimeType, data: imageBase64 } },
-  ]
-
-  const raw = await callGemini(parts)
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Gemini 返回格式错误')
-  return JSON.parse(jsonMatch[0])
+  ])
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('AI 返回格式异常，请重试')
+  return JSON.parse(match[0])
 }
