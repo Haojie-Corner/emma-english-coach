@@ -91,6 +91,67 @@ export const checkIn = async (userId) => {
   if (error) throw error
 }
 
+export const getVocabulary = async (userId) => {
+  const { data, error } = await supabase
+    .from('vocabulary')
+    .select('*')
+    .eq('user_id', userId)
+    .order('next_review', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export const addVocabularyWord = async (userId, word, phonetic, meaning, example, exampleZh, source) => {
+  const { data, error } = await supabase.from('vocabulary').upsert({
+    user_id: userId,
+    word,
+    phonetic,
+    meaning,
+    example,
+    example_zh: exampleZh,
+    source,
+    familiarity: 0,
+    next_review: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,word' })
+  if (error) throw error
+  return data
+}
+
+export const updateVocabularyFamiliarity = async (userId, word, familiarity) => {
+  // familiarity 0-3 → next review: 1/3/7/14 days
+  const days = [1, 3, 7, 14][familiarity] ?? 14
+  const nextReview = new Date()
+  nextReview.setDate(nextReview.getDate() + days)
+  const { error } = await supabase
+    .from('vocabulary')
+    .update({ familiarity, next_review: nextReview.toISOString() })
+    .eq('user_id', userId)
+    .eq('word', word)
+  if (error) throw error
+}
+
+export const deleteVocabularyWord = async (userId, word) => {
+  const { error } = await supabase
+    .from('vocabulary')
+    .delete()
+    .eq('user_id', userId)
+    .eq('word', word)
+  if (error) throw error
+}
+
+export const getDueVocabulary = async (userId) => {
+  const now = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('vocabulary')
+    .select('*')
+    .eq('user_id', userId)
+    .lte('next_review', now)
+    .order('next_review', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
 export const getStreak = async (userId) => {
   const { data } = await supabase
     .from('check_ins')

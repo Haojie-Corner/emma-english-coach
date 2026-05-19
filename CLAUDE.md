@@ -42,7 +42,8 @@ src/
 ├── utils/
 │   └── tts.js             # ElevenLabs TTS（主力）+ Web Speech API（结构保留，不再用于降级）
 └── data/
-    └── phonics.js         # 课程内容硬编码
+    ├── phonics.js         # 自然拼读全22课
+    └── intonation.js      # 语音语调全11课（结构同 phonics.js）
 ```
 
 ---
@@ -101,9 +102,13 @@ src/
 Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度）。页面直接 import，无 Provider 包裹。`progressStore.fetchProgress()` 依赖 `user.id`，务必在确认 user 存在后才调用。
 
 ### 课程数据
-`src/data/phonics.js` 硬编码全22课自然拼读，`lessonId` 格式 `phonics_01`～`phonics_22`，与 `user_progress.lesson_id` 对应。新增课程只需在此文件追加。
+课程内容硬编码在 `src/data/` 目录下：
+- `phonics.js`：22课自然拼读，ID `phonics_01`～`phonics_22`，导出 `phonicsLessons`、`modules`、`getLesson(id)`
+- `intonation.js`：11课语音语调，ID `intonation_01`～`intonation_11`，导出 `intonationLessons`、`getIntonationLesson(id)`
 
-**phonicsLessons 单项结构**（未来添加 Intonation 等模块时参照此格式）：
+两者结构相同，`lessonId` 与 `user_progress.lesson_id` 对应。
+
+**课程数据单项结构**（scenes/mindset/demo 模块新增时参照）：
 ```js
 {
   id: 'phonics_XX',
@@ -157,8 +162,11 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 - ✅ 自然拼读 **全22课**（字母→短元音→魔法E长元音→辅音连缀→二合字母→R控元音→双元音→不规则词）
 - ✅ 练习页（自由录音 + 语法纠错）
 - ✅ Emma 老师语音反馈（中英混合口播，暂停/继续/重新讲解/按词听示范）
-- 🚧 其余模块（Intonation / Mindset / Scenes / Demo / Tech）—— 路由已占位，内容待填
-- 🚧 词汇本（Supabase `vocabulary` 表已设计，UI 待开发）
+- ✅ 语音语调数据（`src/data/intonation.js` 全11课）—— UI 待开发
+- 🚧 语音语调 UI（IntonationModule / IntonationLesson 页面）
+- 🚧 场景实战 / 认知重塑 / 场景演绎（数据 + UI 待开发）
+- 🚧 编程英语 / 随拍学英语（UI 待开发，`analyzeImage` 已实现）
+- 🚧 词汇本（Supabase `vocabulary` 表已创建，UI 待开发）
 
 ---
 

@@ -69,6 +69,33 @@ export const analyzePronunciation = async (audioBase64, targetText) => {
   return JSON.parse(match[0])
 }
 
+export const scoreSpeechSimilarity = async (audioBase64, targetText, targetZh) => {
+  const prompt = `你是一位专业英语语音教练。学生正在练习模仿跟读，请对比学生录音与目标文本，评估相似度和质量。
+
+目标句子（英文）：${targetText}
+目标句子（中文）：${targetZh}
+
+请分析学生的录音，只输出 JSON，不要任何额外文字：
+{
+  "similarity_score": 0到100的整数（与目标文本的内容相似度，主要看词语是否说对）,
+  "pronunciation_score": 0到100的整数（发音清晰度和准确性）,
+  "intonation_score": 0到100的整数（语调和节奏是否接近自然英文）,
+  "overall_score": 0到100的整数（综合评分）,
+  "words_missed": ["遗漏或说错的单词"],
+  "highlight": "说得最好的部分（中文，1句）",
+  "feedback": "具体改进建议（中文，2-3句，重点说最需要改进的地方）",
+  "voice_script": "用中文写3-4句口语化老师反馈，遇到英文发音示范时直接嵌入英文词，供 speakMultilingual 朗读。格式：全中文，发音示范时插英文词，不整句英文。"
+}`
+
+  const raw = await callGemini([
+    { text: prompt },
+    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+  ])
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('AI 返回格式异常，请重试')
+  return JSON.parse(match[0])
+}
+
 export const analyzeImage = async (imageBase64, mimeType = 'image/jpeg') => {
   const prompt = `你是一位专业且亲切的英语老师，正在辅导一位中文母语的零基础成人学习者。
 
