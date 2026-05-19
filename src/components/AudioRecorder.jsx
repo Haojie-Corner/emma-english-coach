@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import useAudioRecorder from '../hooks/useAudioRecorder'
 import { analyzePronunciation } from '../services/gemini'
-import { speak } from '../utils/tts'
+import { speak, speakMultilingual, stopSpeaking, pauseSpeaking, resumeSpeaking } from '../utils/tts'
 import Button from './ui/Button'
 import Card from './ui/Card'
 
@@ -23,7 +23,13 @@ const ScoreRing = ({ score }) => {
   )
 }
 
-const TeacherAvatar = ({ isSpeaking, onReplay }) => (
+const btnBase = {
+  display: 'flex', alignItems: 'center', gap: 4,
+  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+  border: '1.5px solid', cursor: 'pointer',
+}
+
+const TeacherAvatar = ({ speakState, hasPlayed, onPause, onResume, onReplay, onRestart }) => (
   <div style={{
     display: 'flex', alignItems: 'center', gap: 14,
     padding: '14px 18px', borderRadius: 14,
@@ -35,25 +41,48 @@ const TeacherAvatar = ({ isSpeaking, onReplay }) => (
       background: 'linear-gradient(135deg, #d97757 0%, #e8a06a 100%)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: 26,
-      boxShadow: isSpeaking ? '0 0 0 5px rgba(217,119,87,0.25)' : 'none',
-      animation: isSpeaking ? 'pulse-ring 1.4s ease infinite' : 'none',
+      boxShadow: speakState === 'playing' ? '0 0 0 5px rgba(217,119,87,0.25)' : 'none',
+      animation: speakState === 'playing' ? 'pulse-ring 1.4s ease infinite' : 'none',
       transition: 'box-shadow 0.3s',
     }}>👩‍🏫</div>
+
     <div style={{ flex: 1 }}>
       <p style={{ fontSize: 13, fontWeight: 700, color: '#1a1917', marginBottom: 1 }}>Emma 老师</p>
-      <p style={{ fontSize: 11, color: isSpeaking ? '#d97757' : '#7a7870' }}>
-        {isSpeaking ? '🔴 正在讲解…' : 'AI 发音教练'}
+      <p style={{ fontSize: 11, color: speakState !== 'idle' ? '#d97757' : '#7a7870' }}>
+        {speakState === 'playing' ? '🔴 正在讲解…'
+          : speakState === 'paused' ? '⏸ 已暂停'
+          : 'AI 发音教练'}
       </p>
     </div>
-    <button onClick={onReplay} style={{
-      display: 'flex', alignItems: 'center', gap: 5,
-      padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500,
-      background: '#f5f3ee', border: '1.5px solid #dedad0',
-      color: '#7a7870', cursor: 'pointer',
-    }}
-      onMouseEnter={e => e.currentTarget.style.background = '#ece9e0'}
-      onMouseLeave={e => e.currentTarget.style.background = '#f5f3ee'}
-    >🔊 再听一遍</button>
+
+    <div style={{ display: 'flex', gap: 8 }}>
+      {speakState === 'idle' && (
+        <button onClick={onReplay} style={{
+          ...btnBase,
+          background: hasPlayed ? '#f5f3ee' : '#d97757',
+          borderColor: hasPlayed ? '#dedad0' : '#d97757',
+          color: hasPlayed ? '#7a7870' : '#fff',
+        }}>
+          {hasPlayed ? '🔊 再听一遍' : '▶ 开始讲解'}
+        </button>
+      )}
+      {speakState === 'playing' && (<>
+        <button onClick={onPause} style={{ ...btnBase, background: '#fef2f2', borderColor: '#fca5a5', color: '#dc2626' }}>
+          ⏸ 暂停
+        </button>
+        <button onClick={onRestart} style={{ ...btnBase, background: '#f5f3ee', borderColor: '#dedad0', color: '#7a7870' }}>
+          ↩ 重新讲解
+        </button>
+      </>)}
+      {speakState === 'paused' && (<>
+        <button onClick={onResume} style={{ ...btnBase, background: '#eaf2e3', borderColor: '#a3c98a', color: '#3d7a20' }}>
+          ▶ 继续
+        </button>
+        <button onClick={onRestart} style={{ ...btnBase, background: '#f5f3ee', borderColor: '#dedad0', color: '#7a7870' }}>
+          ↩ 重新讲解
+        </button>
+      </>)}
+    </div>
   </div>
 )
 
@@ -62,14 +91,8 @@ const AudioRecorder = ({ targetText, targetZh }) => {
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState(null)
   const [analyzeError, setAnalyzeError] = useState(null)
-  const [isSpeaking, setIsSpeaking] = useState(false)
-
-  useEffect(() => {
-    if (result?.voice_script) {
-      setIsSpeaking(true)
-      speak(result.voice_script, 0.88, () => setIsSpeaking(false))
-    }
-  }, [result])
+  const [speakState, setSpeakState] = useState('idle') // 'idle' | 'playing' | 'paused'
+  const [hasPlayed, setHasPlayed] = useState(false)
 
   const handleAnalyze = async () => {
     setAnalyzing(true)
@@ -89,14 +112,21 @@ const AudioRecorder = ({ targetText, targetZh }) => {
     reset()
     setResult(null)
     setAnalyzeError(null)
-    setIsSpeaking(false)
+    stopSpeaking()
+    setSpeakState('idle')
+    setHasPlayed(false)
   }
 
   const handleReplay = () => {
     if (!result?.voice_script) return
-    setIsSpeaking(true)
-    speak(result.voice_script, 0.88, () => setIsSpeaking(false))
+    setHasPlayed(true)
+    setSpeakState('playing')
+    speakMultilingual(result.voice_script, () => setSpeakState('idle'))
   }
+
+  const handlePause = () => { pauseSpeaking(); setSpeakState('paused') }
+  const handleResume = () => { resumeSpeaking(); setSpeakState('playing') }
+  const handleRestart = () => { stopSpeaking(); handleReplay() }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -170,7 +200,14 @@ const AudioRecorder = ({ targetText, targetZh }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} className="fade-in">
 
           {/* 老师头像 */}
-          <TeacherAvatar isSpeaking={isSpeaking} onReplay={handleReplay} />
+          <TeacherAvatar
+            speakState={speakState}
+            hasPlayed={hasPlayed}
+            onPause={handlePause}
+            onResume={handleResume}
+            onReplay={handleReplay}
+            onRestart={handleRestart}
+          />
 
           {/* 总评分 */}
           <Card style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -192,9 +229,13 @@ const AudioRecorder = ({ targetText, targetZh }) => {
                       <p className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: '#1a1917' }}>
                         {issue.word} <span style={{ fontSize: 12, fontWeight: 400, color: '#7a7870' }}>{issue.correct_ipa}</span>
                       </p>
-                      {issue.tip_en && (
+                      {issue.tip_demo && (
                         <button
-                          onClick={() => speak(`The word "${issue.word}". ${issue.tip_en}`, 0.82)}
+                          onClick={() => {
+                            stopSpeaking()
+                            setIsSpeaking(false)
+                            speakMultilingual(issue.tip_demo)
+                          }}
                           style={{
                             padding: '2px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600,
                             background: '#fdf0ea', border: '1px solid #f5c4a8',

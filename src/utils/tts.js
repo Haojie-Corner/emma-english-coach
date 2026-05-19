@@ -1,12 +1,15 @@
 const ELEVENLABS_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY
 
-// Rachel — warm, clear, natural American English female voice
-const VOICE_ID = '21m00Tcm4TlvDq8ikWAM'
-const MODEL_ID = 'eleven_turbo_v2_5'
+// Sarah — young, clear, professional American female voice
+const VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'
 
 let currentAudio = null
+let currentAbort = null  // cancels any in-flight ElevenLabs fetch
 
-const stopCurrent = () => {
+export const stopSpeaking = () => {
+  // Cancel in-flight request so it never plays
+  if (currentAbort) { currentAbort.abort(); currentAbort = null }
+  window.speechSynthesis.cancel()
   if (currentAudio) {
     currentAudio.pause()
     currentAudio.src = ''
@@ -14,30 +17,62 @@ const stopCurrent = () => {
   }
 }
 
-const speakElevenLabs = async (text, rate, onEnd) => {
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-    method: 'POST',
-    headers: {
-      'Accept': 'audio/mpeg',
-      'Content-Type': 'application/json',
-      'xi-api-key': ELEVENLABS_KEY,
-    },
-    body: JSON.stringify({
-      text,
-      model_id: MODEL_ID,
-      voice_settings: {
-        stability: 0.45,
-        similarity_boost: 0.80,
-        style: 0.25,
-        use_speaker_boost: true,
+export const pauseSpeaking = () => {
+  if (currentAudio && !currentAudio.paused) currentAudio.pause()
+  if (window.speechSynthesis.speaking) window.speechSynthesis.pause()
+}
+
+export const resumeSpeaking = () => {
+  if (currentAudio && currentAudio.paused && currentAudio.src) currentAudio.play()
+  else if (window.speechSynthesis.paused) window.speechSynthesis.resume()
+}
+
+// ---- ElevenLabs fetch (shared by both speak & speakMultilingual) ----
+const elevenLabsFetch = async (text, modelId, rate, onEnd) => {
+  // Cancel any previous in-flight request before starting a new one
+  if (currentAbort) currentAbort.abort()
+  const abort = new AbortController()
+  currentAbort = abort
+
+  let res
+  try {
+    res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      signal: abort.signal,
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': ELEVENLABS_KEY,
       },
-    }),
-  })
+      body: JSON.stringify({
+        text,
+        model_id: modelId,
+        voice_settings: {
+          stability: 0.32,
+          similarity_boost: 0.70,
+          style: 0.45,
+          use_speaker_boost: true,
+        },
+      }),
+    })
+  } catch (e) {
+    if (e.name === 'AbortError') return  // Cancelled — do nothing, newer request takes over
+    throw e
+  }
+
+  // If another request was started while we were fetching, discard this result
+  if (currentAbort !== abort) return
+  currentAbort = null
+
   if (!res.ok) {
     const msg = await res.text()
-    throw new Error(`ElevenLabs ${res.status}: ${msg.slice(0, 120)}`)
+    throw new Error(`ElevenLabs ${res.status}: ${msg.slice(0, 160)}`)
   }
+
   const blob = await res.blob()
+  // Double-check: still the latest request?
+  if (currentAbort !== null) return
+
   const url = URL.createObjectURL(blob)
   const audio = new Audio(url)
   audio.playbackRate = rate
@@ -50,34 +85,27 @@ const speakElevenLabs = async (text, rate, onEnd) => {
   }
 }
 
-// ---- Web Speech API fallback ----
+// ---- Web Speech API fallback (English, fixed voice) ----
 const FEMALE_VOICE_NAMES = [
   'Samantha', 'Victoria', 'Karen', 'Moira', 'Tessa', 'Allison', 'Ava',
-  'Susan', 'Zoe', 'Nicky', 'Google US English', 'Microsoft Zira',
-  'Microsoft Eva', 'en-US-AriaNeural',
+  'Google US English', 'Microsoft Zira', 'Microsoft Eva',
 ]
-let cachedVoice = null
+let cachedEnVoice = null
 
 const getFemaleVoice = () => {
-  if (cachedVoice) return cachedVoice
+  if (cachedEnVoice) return cachedEnVoice
   const voices = window.speechSynthesis.getVoices()
-  if (!voices.length) return null
   for (const name of FEMALE_VOICE_NAMES) {
     const v = voices.find(v => v.name.includes(name) && v.lang.startsWith('en'))
-    if (v) { cachedVoice = v; return v }
+    if (v) { cachedEnVoice = v; return v }
   }
-  const byGender = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female'))
-  if (byGender) { cachedVoice = byGender; return byGender }
-  const enVoice = voices.find(v => v.lang.startsWith('en'))
-  if (enVoice) { cachedVoice = enVoice; return enVoice }
-  return null
+  return voices.find(v => v.lang.startsWith('en')) ?? null
 }
 
 const speakFallback = (text, rate, onEnd) => {
-  window.speechSynthesis.cancel()
   const go = () => {
     const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'en-US'; u.rate = rate; u.pitch = 1.1
+    u.lang = 'en-US'; u.rate = rate; u.pitch = 1.05
     if (onEnd) u.onend = onEnd
     const v = getFemaleVoice()
     if (v) u.voice = v
@@ -87,15 +115,29 @@ const speakFallback = (text, rate, onEnd) => {
   else window.speechSynthesis.addEventListener('voiceschanged', go, { once: true })
 }
 
-export const speak = async (text, rate = 0.85, onEnd = null) => {
-  stopCurrent()
-  if (ELEVENLABS_KEY) {
-    try {
-      await speakElevenLabs(text, rate, onEnd)
-      return
-    } catch (e) {
-      console.warn('[TTS] ElevenLabs failed, fallback to Web Speech:', e.message)
-    }
+// ---- Public API ----
+
+// Both functions use the same model so Sarah always sounds identical
+const MODEL = 'eleven_multilingual_v2'
+
+/** English TTS (ElevenLabs Sarah). Each call cancels any in-progress audio. */
+export const speak = async (text, rate = 0.78, onEnd = null) => {
+  stopSpeaking()
+  if (!ELEVENLABS_KEY) { console.warn('[TTS] No ElevenLabs key'); return }
+  try {
+    await elevenLabsFetch(text, MODEL, rate, onEnd)
+  } catch (e) {
+    if (e.name !== 'AbortError') console.warn('[TTS] ElevenLabs error:', e.message)
   }
-  speakFallback(text, rate, onEnd)
+}
+
+/** Bilingual mixed Chinese+English. Same voice (Sarah), same model. */
+export const speakMultilingual = async (text, onEnd = null) => {
+  stopSpeaking()
+  if (!ELEVENLABS_KEY) { console.warn('[TTS] No ElevenLabs key'); return }
+  try {
+    await elevenLabsFetch(text, MODEL, 1.0, onEnd)
+  } catch (e) {
+    if (e.name !== 'AbortError') console.warn('[TTS] ElevenLabs error:', e.message)
+  }
 }

@@ -1,19 +1,40 @@
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
+// 主模型 + 备用模型（503 过载时自动切换）
+const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash-lite']
+
+const geminiUrl = (model) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`
 
 const callGemini = async (parts) => {
-  const res = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts }] }),
-  })
-  if (!res.ok) {
-    const errBody = await res.text()
-    throw new Error(`Gemini API error: ${res.status} — ${errBody.slice(0, 200)}`)
+  let lastError
+  for (const model of MODELS) {
+    try {
+      const res = await fetch(geminiUrl(model), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts }] }),
+      })
+      if (res.status === 503 || res.status === 429) {
+        const errBody = await res.text()
+        lastError = new Error(`Gemini API error: ${res.status} — ${errBody.slice(0, 200)}`)
+        continue  // 换下一个模型重试
+      }
+      if (!res.ok) {
+        const errBody = await res.text()
+        throw new Error(`Gemini API error: ${res.status} — ${errBody.slice(0, 200)}`)
+      }
+      const data = await res.json()
+      return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+    } catch (e) {
+      if (e.message.includes('503') || e.message.includes('429')) {
+        lastError = e
+        continue
+      }
+      throw e
+    }
   }
-  const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  throw lastError
 }
 
 export const analyzePronunciation = async (audioBase64, targetText) => {
@@ -31,12 +52,12 @@ export const analyzePronunciation = async (audioBase64, targetText) => {
       "issue": "具体问题描述（中文）",
       "correct_ipa": "正确音标",
       "tip": "改正建议（中文，简单易懂）",
-      "tip_en": "One sentence English coaching tip for this word, for TTS playback"
+      "tip_demo": "2到3句中文句子，其中英文单词直接嵌入用于发音示范。全部用中文写，只有发音示范时插英文。示例格式：'这个词 the 发音要注意，来听我说：the，the，舌头要轻轻放在牙齿之间，再来一次：the，对了！'"
     }
   ],
   "positive_feedback": "鼓励性反馈（中文，1-2句）",
   "next_focus": "下次重点练习的建议（中文，1句）",
-  "voice_script": "2-3 sentence warm English teacher voice feedback for TTS. Mention the score, one strength, and one key area to improve. Sound like a real teacher talking to a beginner. Do not use markdown."
+  "voice_script": "用中文写4到6句口语化的老师反馈。语言规则：全部用中文，只有在需要示范英文发音的时候才插入英文单词或短句，示范完立即回到中文继续说。严格按照这个格式输出，不要整句用英文。正确示例：'你这次练习得了78分，整体发音还不错！不过 the 这个词要注意，来听我说：the，the，对，舌头轻轻碰上下牙齿。还有 think 这个词：think，think，感受一下气流从齿间穿过。进步很明显，继续加油！' 错误示例（不要这样）：'Your pronunciation is good. The word the needs work.' 请根据本次实际分析结果生成，不要markdown，不要括号。"
 }`
 
   const raw = await callGemini([
