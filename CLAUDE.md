@@ -101,7 +101,38 @@ src/
 Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度）。页面直接 import，无 Provider 包裹。`progressStore.fetchProgress()` 依赖 `user.id`，务必在确认 user 存在后才调用。
 
 ### 课程数据
-`src/data/phonics.js` 硬编码，`lessonId` 格式 `phonics_01`，与 `user_progress.lesson_id` 对应。新增课程只需在此文件追加。
+`src/data/phonics.js` 硬编码全22课自然拼读，`lessonId` 格式 `phonics_01`～`phonics_22`，与 `user_progress.lesson_id` 对应。新增课程只需在此文件追加。
+
+**phonicsLessons 单项结构**（未来添加 Intonation 等模块时参照此格式）：
+```js
+{
+  id: 'phonics_XX',
+  title: 'Lesson N — 标题',
+  subtitle: '副标题',
+  description: '课程简介',
+  objectives: ['学习目标1', '...'],
+  sections: [{
+    id: 'section_id',
+    title: '段落标题',
+    subtitle: '副标题',
+    items: [{
+      letter: '展示的大字（字母/音素/拼写模式）',
+      ipa: '/音标/',
+      example: '例词或例句',
+      example_ipa: '/例词音标/',
+      example_zh: '中文释义',
+      tip: '中文发音技巧'
+    }]
+  }],
+  practice: {
+    title: '练习标题',
+    instructions: '练习说明',
+    targets: [{ text: '练习文本', zh: '中文说明', type: 'alphabet|words|sentence' }]
+  }
+}
+```
+
+Dashboard 的"继续学习"卡片：遍历 `phonicsLessons`，找到第一个 `progress.status !== 'completed'` 的课程自动跳转，而非硬编码。
 
 ---
 
@@ -122,11 +153,12 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 ## 当前实现状态
 
 - ✅ 登录/注册（Supabase Auth）
-- ✅ Dashboard（打卡、进度环、继续学习入口）
-- ✅ 自然拼读 Lesson 1（26字母，TTS示范，录音 + Gemini 评分）
+- ✅ Dashboard（打卡、进度环、动态继续学习入口 — 自动跳转当前进度课程）
+- ✅ 自然拼读 **全22课**（字母→短元音→魔法E长元音→辅音连缀→二合字母→R控元音→双元音→不规则词）
 - ✅ 练习页（自由录音 + 语法纠错）
 - ✅ Emma 老师语音反馈（中英混合口播，暂停/继续/重新讲解/按词听示范）
 - 🚧 其余模块（Intonation / Mindset / Scenes / Demo / Tech）—— 路由已占位，内容待填
+- 🚧 词汇本（Supabase `vocabulary` 表已设计，UI 待开发）
 
 ---
 
@@ -180,6 +212,6 @@ Level 1 ── 语音地基：自然拼读（22课）+ 语音语调（11课）
 
 ## 五、开发路线图
 
-- **Phase 2**：自然拼读全22课 / 语音语调模块 / 场景对话 / 随拍学英语 / 词汇本
+- **Phase 2**：~~自然拼读全22课~~ ✅ / 语音语调模块 / 场景对话 / 随拍学英语（`analyzeImage` 已实现，待 UI）/ 词汇本
 - **Phase 3**：认知重塑 / 场景实战全部 / 编程英语 / PWA
 - **Phase 4**：遗忘曲线复习 / 学习数据可视化 / AI 个性化推荐
