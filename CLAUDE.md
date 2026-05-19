@@ -54,7 +54,7 @@ src/
 **不依赖 Tailwind 类做关键布局**。Layout 的 fixed 侧边栏和主内容区 `marginLeft` 用 inline style 写死像素值，因为 Tailwind v4 的 CSS-first 模式下 `lg:ml-60` 等响应式类有时无法可靠生效。Card/Button 组件的 hover 状态也用 `onMouseEnter/Leave` + inline style 实现。Tailwind 只用于少量辅助类（`hidden lg:block` 等断点切换）。
 
 ### AI 服务调用
-- **Gemini**：使用 `gemini-1.5-flash`（非 `gemini-2.0-flash`，后者会 404）。直接 fetch REST API，音频以 `audio/webm` base64 inline_data 发送，图片同理。AI 回复要用 `raw.match(/\{[\s\S]*\}/)` 提取 JSON，因为模型可能包裹额外文字。
+- **Gemini**：使用 `gemini-2.5-flash`（`gemini-1.5-flash` 和 `gemini-2.0-flash` 均已对新用户下线）。直接 fetch REST API，音频以 `audio/webm` base64 inline_data 发送，图片同理。AI 回复要用 `raw.match(/\{[\s\S]*\}/)` 提取 JSON，因为模型可能包裹额外文字。
 - **DeepSeek**：`https://api.deepseek.com/chat/completions`，model `deepseek-chat`。
 - **TTS**：`src/utils/tts.js` 的 `speak(text, rate)` 统一调用，不要在各页面内联写 `SpeechSynthesisUtterance`。
 
@@ -72,6 +72,18 @@ Zustand store 只有两个：`userStore`（认证）和 `progressStore`（学习
 
 ---
 
+### AI 老师语音反馈（Emma 老师）
+
+`AudioRecorder` 分析完成后，自动触发 Emma 老师头像 + 语音讲解，而非单纯展示文字：
+
+- **voice_script**：Gemini 返回的英文口播稿（2-3句，自然口语），结果到达后自动调用 `speak(voice_script, 0.88, onEnd)` 播放，播放期间头像显示脉冲动画
+- **tip_en**：每个 `pronunciation_issues` 条目额外返回的英文建议，供"🔊 听示范"按钮点击播放
+- **"再听一遍"**：重新播放 voice_script
+- TTS 使用 ElevenLabs Rachel（美式女声），`speak()` 第三参数 `onEnd` 回调用于控制"正在讲解"动画状态
+- 中文字段（`issue`、`tip`、`positive_feedback`）仍保留用于文字展示
+
+---
+
 ## 环境变量（`.env.local`）
 
 ```
@@ -79,6 +91,7 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_GEMINI_API_KEY=
 VITE_DEEPSEEK_API_KEY=
+VITE_ELEVENLABS_API_KEY=
 ```
 
 ---

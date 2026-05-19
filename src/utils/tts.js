@@ -14,7 +14,7 @@ const stopCurrent = () => {
   }
 }
 
-const speakElevenLabs = async (text, rate) => {
+const speakElevenLabs = async (text, rate, onEnd) => {
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
     method: 'POST',
     headers: {
@@ -46,6 +46,7 @@ const speakElevenLabs = async (text, rate) => {
   audio.onended = () => {
     URL.revokeObjectURL(url)
     if (currentAudio === audio) currentAudio = null
+    onEnd?.()
   }
 }
 
@@ -72,11 +73,12 @@ const getFemaleVoice = () => {
   return null
 }
 
-const speakFallback = (text, rate) => {
+const speakFallback = (text, rate, onEnd) => {
   window.speechSynthesis.cancel()
   const go = () => {
     const u = new SpeechSynthesisUtterance(text)
     u.lang = 'en-US'; u.rate = rate; u.pitch = 1.1
+    if (onEnd) u.onend = onEnd
     const v = getFemaleVoice()
     if (v) u.voice = v
     window.speechSynthesis.speak(u)
@@ -85,15 +87,15 @@ const speakFallback = (text, rate) => {
   else window.speechSynthesis.addEventListener('voiceschanged', go, { once: true })
 }
 
-export const speak = async (text, rate = 0.85) => {
+export const speak = async (text, rate = 0.85, onEnd = null) => {
   stopCurrent()
   if (ELEVENLABS_KEY) {
     try {
-      await speakElevenLabs(text, rate)
+      await speakElevenLabs(text, rate, onEnd)
       return
     } catch (e) {
       console.warn('[TTS] ElevenLabs failed, fallback to Web Speech:', e.message)
     }
   }
-  speakFallback(text, rate)
+  speakFallback(text, rate, onEnd)
 }

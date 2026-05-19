@@ -1,7 +1,6 @@
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
-// 使用稳定的 gemini-1.5-flash，支持音频 + 图片多模态输入
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`
 
 const callGemini = async (parts) => {
   const res = await fetch(GEMINI_URL, {
@@ -31,11 +30,13 @@ export const analyzePronunciation = async (audioBase64, targetText) => {
       "word": "发音有问题的单词",
       "issue": "具体问题描述（中文）",
       "correct_ipa": "正确音标",
-      "tip": "改正建议（中文，简单易懂）"
+      "tip": "改正建议（中文，简单易懂）",
+      "tip_en": "One sentence English coaching tip for this word, for TTS playback"
     }
   ],
   "positive_feedback": "鼓励性反馈（中文，1-2句）",
-  "next_focus": "下次重点练习的建议（中文，1句）"
+  "next_focus": "下次重点练习的建议（中文，1句）",
+  "voice_script": "2-3 sentence warm English teacher voice feedback for TTS. Mention the score, one strength, and one key area to improve. Sound like a real teacher talking to a beginner. Do not use markdown."
 }`
 
   const raw = await callGemini([
