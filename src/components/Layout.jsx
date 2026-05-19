@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import useUserStore from '../store/userStore'
 
 const navItems = [
@@ -80,7 +81,7 @@ const BottomNav = () => (
     display: 'flex', alignItems: 'center', justifyContent: 'space-around',
     height: 60, paddingBottom: 'env(safe-area-inset-bottom)',
     zIndex: 100,
-  }} className="lg:hidden">
+  }}>
     {navItems.map(({ to, icon, label }) => (
       <NavLink key={to} to={to} style={({ isActive }) => ({
         display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -95,9 +96,18 @@ const BottomNav = () => (
   </nav>
 )
 
+const BREAKPOINT = 1024
+
 const Layout = () => {
   const { logout } = useUserStore()
   const navigate = useNavigate()
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= BREAKPOINT)
+
+  useEffect(() => {
+    const handler = () => setIsDesktop(window.innerWidth >= BREAKPOINT)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
 
   const handleLogout = async () => {
     await logout()
@@ -106,21 +116,17 @@ const Layout = () => {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f3ee' }}>
-      {/* 桌面侧边栏 */}
-      <div className="hidden lg:block">
-        <SidebarNav onLogout={handleLogout} />
-      </div>
+      {isDesktop && <SidebarNav onLogout={handleLogout} />}
 
-      {/* 主内容区 */}
-      <main style={{ paddingBottom: 80 }} className="lg:hidden">
-        <Outlet />
-      </main>
-      <main style={{ marginLeft: SIDEBAR_W, minHeight: '100vh' }} className="hidden lg:block">
+      <main style={{
+        marginLeft: isDesktop ? SIDEBAR_W : 0,
+        paddingBottom: isDesktop ? 40 : 80,
+        minHeight: '100vh',
+      }}>
         <Outlet />
       </main>
 
-      {/* 移动端底部导航 */}
-      <BottomNav />
+      {!isDesktop && <BottomNav />}
     </div>
   )
 }

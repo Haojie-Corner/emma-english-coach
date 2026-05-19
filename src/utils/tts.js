@@ -1,65 +1,99 @@
-// 按优先级排列的女声名称（Mac / Windows / Chrome / iOS 均有覆盖）
-const FEMALE_VOICE_NAMES = [
-  'Samantha',   // macOS 默认女声（美式英语）
-  'Victoria',   // macOS 女声
-  'Karen',      // macOS 澳洲女声
-  'Moira',      // macOS 爱尔兰女声
-  'Tessa',      // macOS 南非女声
-  'Allison',    // macOS 女声
-  'Ava',        // macOS 女声
-  'Susan',      // macOS 女声
-  'Zoe',        // macOS 女声
-  'Nicky',      // macOS 女声
-  'Google US English',  // Chrome TTS（通常为女声）
-  'Microsoft Zira',     // Windows 女声
-  'Microsoft Eva',      // Windows 女声
-  'en-US-AriaNeural',   // Edge 女声
-]
+const ELEVENLABS_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY
 
+// Rachel — warm, clear, natural American English female voice
+const VOICE_ID = '21m00Tcm4TlvDq8ikWAM'
+const MODEL_ID = 'eleven_turbo_v2_5'
+
+let currentAudio = null
+
+const stopCurrent = () => {
+  if (currentAudio) {
+    currentAudio.pause()
+    currentAudio.src = ''
+    currentAudio = null
+  }
+}
+
+const speakElevenLabs = async (text, rate) => {
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'audio/mpeg',
+      'Content-Type': 'application/json',
+      'xi-api-key': ELEVENLABS_KEY,
+    },
+    body: JSON.stringify({
+      text,
+      model_id: MODEL_ID,
+      voice_settings: {
+        stability: 0.45,
+        similarity_boost: 0.80,
+        style: 0.25,
+        use_speaker_boost: true,
+      },
+    }),
+  })
+  if (!res.ok) {
+    const msg = await res.text()
+    throw new Error(`ElevenLabs ${res.status}: ${msg.slice(0, 120)}`)
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const audio = new Audio(url)
+  audio.playbackRate = rate
+  currentAudio = audio
+  audio.play()
+  audio.onended = () => {
+    URL.revokeObjectURL(url)
+    if (currentAudio === audio) currentAudio = null
+  }
+}
+
+// ---- Web Speech API fallback ----
+const FEMALE_VOICE_NAMES = [
+  'Samantha', 'Victoria', 'Karen', 'Moira', 'Tessa', 'Allison', 'Ava',
+  'Susan', 'Zoe', 'Nicky', 'Google US English', 'Microsoft Zira',
+  'Microsoft Eva', 'en-US-AriaNeural',
+]
 let cachedVoice = null
 
 const getFemaleVoice = () => {
   if (cachedVoice) return cachedVoice
-
   const voices = window.speechSynthesis.getVoices()
   if (!voices.length) return null
-
-  // 按优先级匹配
   for (const name of FEMALE_VOICE_NAMES) {
-    const match = voices.find(v => v.name.includes(name) && v.lang.startsWith('en'))
-    if (match) { cachedVoice = match; return match }
+    const v = voices.find(v => v.name.includes(name) && v.lang.startsWith('en'))
+    if (v) { cachedVoice = v; return v }
   }
-
-  // 找任意 en-US 女声（部分浏览器 voice.name 包含 "female"）
   const byGender = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female'))
   if (byGender) { cachedVoice = byGender; return byGender }
-
-  // 最后兜底：取第一个英语语音
   const enVoice = voices.find(v => v.lang.startsWith('en'))
   if (enVoice) { cachedVoice = enVoice; return enVoice }
-
   return null
 }
 
-export const speak = (text, rate = 0.82) => {
+const speakFallback = (text, rate) => {
   window.speechSynthesis.cancel()
-
   const go = () => {
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'en-US'
-    utterance.rate = rate
-    utterance.pitch = 1.1   // 稍高音调，听起来更女性化
-
-    const voice = getFemaleVoice()
-    if (voice) utterance.voice = voice
-
-    window.speechSynthesis.speak(utterance)
+    const u = new SpeechSynthesisUtterance(text)
+    u.lang = 'en-US'; u.rate = rate; u.pitch = 1.1
+    const v = getFemaleVoice()
+    if (v) u.voice = v
+    window.speechSynthesis.speak(u)
   }
+  if (window.speechSynthesis.getVoices().length > 0) go()
+  else window.speechSynthesis.addEventListener('voiceschanged', go, { once: true })
+}
 
-  // 语音列表异步加载，需等待 voiceschanged
-  if (window.speechSynthesis.getVoices().length > 0) {
-    go()
-  } else {
-    window.speechSynthesis.addEventListener('voiceschanged', go, { once: true })
+export const speak = async (text, rate = 0.85) => {
+  stopCurrent()
+  if (ELEVENLABS_KEY) {
+    try {
+      await speakElevenLabs(text, rate)
+      return
+    } catch (e) {
+      console.warn('[TTS] ElevenLabs failed, fallback to Web Speech:', e.message)
+    }
   }
+  speakFallback(text, rate)
 }
