@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import { speakMultilingual } from '../../utils/tts'
+import LessonValueBanner from '../../components/ui/LessonValueBanner'
 
 const MindsetLesson = () => {
   const { lessonId } = useParams()
@@ -102,13 +103,13 @@ const MindsetLesson = () => {
         onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
       >← 认知重塑</button>
 
-      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 6 }}>{lesson.title}</h1>
-      <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 20, lineHeight: 1.6 }}>{lesson.description}</p>
+      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 12 }}>{lesson.title}</h1>
+      <LessonValueBanner lesson={lesson} color="#788c5d" bg="#f2f6ec" borderColor="#c4ddb0" />
 
       {/* 思维提示 */}
       {lesson.tips?.length > 0 && (
         <Card style={{ marginBottom: 20, background: '#faf9f5' }}>
-          <p style={{ fontWeight: 700, fontSize: 13, color: '#1a1917', marginBottom: 10 }}>💡 本课要点</p>
+          <p style={{ fontWeight: 700, fontSize: 13, color: '#1a1917', marginBottom: 10 }}>📌 本课核心要点</p>
           <ul style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 16 }}>
             {lesson.tips.map((tip, i) => (
               <li key={i} style={{ fontSize: 13, color: '#7a7870', lineHeight: 1.5 }}>{tip}</li>

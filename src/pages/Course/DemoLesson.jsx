@@ -8,6 +8,7 @@ import Button from '../../components/ui/Button'
 import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import { speak, speakMultilingual, stopSpeaking } from '../../utils/tts'
+import LessonValueBanner from '../../components/ui/LessonValueBanner'
 
 const ScoreBar = ({ label, score }) => (
   <div style={{ marginBottom: 8 }}>
@@ -103,8 +104,8 @@ const DemoLesson = () => {
         onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
       >← 场景演绎</button>
 
-      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 4 }}>{lesson.title}</h1>
-      <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 20, lineHeight: 1.6 }}>{lesson.description}</p>
+      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 12 }}>{lesson.title}</h1>
+      <LessonValueBanner lesson={lesson} color="#c4a35a" bg="#fdf8ed" borderColor="#e8d4a0" />
 
       {/* Tab */}
       <div style={{ display: 'flex', background: '#ece9e0', borderRadius: 12, padding: 4, marginBottom: 24 }}>

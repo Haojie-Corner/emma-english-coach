@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import { speak } from '../../utils/tts'
+import LessonValueBanner from '../../components/ui/LessonValueBanner'
 
 const LetterCard = ({ item }) => (
   <div
@@ -77,8 +78,8 @@ const PhonicsLesson = () => {
         onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
       >← 自然拼读</button>
 
-      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 6 }}>{lesson.title}</h1>
-      <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 24, lineHeight: 1.6 }}>{lesson.description}</p>
+      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 12 }}>{lesson.title}</h1>
+      <LessonValueBanner lesson={lesson} />
 
       {/* Tab 切换 */}
       <div style={{ display: 'flex', background: '#ece9e0', borderRadius: 12, padding: 4, marginBottom: 24 }}>

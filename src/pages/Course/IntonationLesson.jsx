@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import { speak } from '../../utils/tts'
+import LessonValueBanner from '../../components/ui/LessonValueBanner'
 
 const ItemCard = ({ item }) => (
   <div
@@ -80,8 +81,8 @@ const IntonationLesson = () => {
         onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
       >← 语音语调</button>
 
-      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 6 }}>{lesson.title}</h1>
-      <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 24, lineHeight: 1.6 }}>{lesson.description}</p>
+      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 12 }}>{lesson.title}</h1>
+      <LessonValueBanner lesson={lesson} color="#6a9bcc" bg="#f0f5fb" borderColor="#b8d0e8" />
 
       {/* Tab 切换 */}
       <div style={{ display: 'flex', background: '#ece9e0', borderRadius: 12, padding: 4, marginBottom: 24 }}>

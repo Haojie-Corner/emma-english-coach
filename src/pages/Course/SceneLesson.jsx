@@ -117,13 +117,25 @@ const SceneLesson = () => {
       {/* 对话区 */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 16 }}>
         {!started && (
-          <Card style={{ textAlign: 'center', padding: '32px 24px' }}>
-            <p style={{ fontSize: 36, marginBottom: 12 }}>🎭</p>
+          <Card style={{ textAlign: 'center', padding: '28px 24px' }}>
+            <p style={{ fontSize: 36, marginBottom: 10 }}>🎭</p>
             <p className="font-title" style={{ fontSize: 16, color: '#1a1917', marginBottom: 8 }}>准备好了吗？</p>
-            <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 20, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 12, lineHeight: 1.6 }}>
               AI 会扮演 <strong>{scene.aiRole}</strong>，你扮演 <strong>{scene.role}</strong>。<br />
               尽量用英语对话，不会的单词可以先猜猜！
             </p>
+            {scene.objectives?.length > 0 && (
+              <div style={{ textAlign: 'left', background: '#f5f0ff', border: '1px solid #d0c0e8', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#9b7ec8', marginBottom: 6 }}>💡 本场景你将练习</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {scene.objectives.map((obj, i) => (
+                    <span key={i} style={{ fontSize: 11, color: '#9b7ec8', background: '#fff', border: '1px solid #d0c0e8', borderRadius: 16, padding: '2px 8px' }}>
+                      ✓ {obj}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             <Button onClick={handleStart} size="lg">开始对话 🎬</Button>
           </Card>
         )}
