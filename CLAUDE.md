@@ -28,11 +28,20 @@ src/
 ├── components/
 │   ├── Layout.jsx         # 响应式布局（JS 检测，非 Tailwind 断点类）
 │   ├── AudioRecorder.jsx  # 录音 → Gemini 分析 → Emma 老师语音反馈，核心交互组件
-│   └── ui/                # Button、Card：inline style + onMouseEnter/Leave 实现 hover
+│   └── ui/
+│       ├── Button.jsx / Card.jsx   # inline style + onMouseEnter/Leave 实现 hover
+│       ├── ModuleLockGate.jsx      # 模块锁定守卫：未解锁时显示进度要求，已解锁则渲染 children
+│       └── LessonValueBanner.jsx   # 课程价值卡片：显示 description + objectives/focusPoints/tips，可折叠
 ├── pages/
+│   ├── Dashboard.jsx      # 打卡、跨模块进度环、动态"继续学习"（LEARNING_PATH 顺序查找）
+│   ├── Profile.jsx        # 学习统计（完成课数、平均分、连续打卡）+ 模块进度条
+│   ├── Vocabulary.jsx     # 词汇本（复习/遗忘曲线/按熟练度筛选）
+│   ├── Course/            # 各模块入口页（*Module.jsx）+ 课时页（*Lesson.jsx）
+│   └── Practice/
+│       └── Speaking.jsx   # 4-tab 练习中心（自由录音/语法纠错/编程英语/随拍学英语）
 ├── store/
 │   ├── userStore.js       # Zustand：user / session / loading
-│   └── progressStore.js   # Zustand：进度、打卡、streak
+│   └── progressStore.js   # Zustand：进度、打卡、streak、getModuleCompletion、isModuleUnlocked
 ├── services/
 │   ├── supabase.js        # Supabase 客户端 + DB/Storage/Auth 操作
 │   ├── gemini.js          # Gemini REST API（多模型降级重试）
@@ -42,8 +51,11 @@ src/
 ├── utils/
 │   └── tts.js             # ElevenLabs TTS（主力）+ Web Speech API（结构保留，不再用于降级）
 └── data/
-    ├── phonics.js         # 自然拼读全22课
-    └── intonation.js      # 语音语调全11课（结构同 phonics.js）
+    ├── phonics.js         # 自然拼读全22课 + modules 数组（含解锁规则）
+    ├── intonation.js      # 语音语调全11课
+    ├── mindset.js         # 认知重塑30课（6单元），含 getMindsetUnits()
+    ├── demo.js            # 场景演绎21课（4分组），含 getDemoLesson(id)
+    └── scenes.js          # 场景实战84场景（8分类 accordion），含 getScene(id)
 ```
 
 ---
@@ -102,42 +114,31 @@ src/
 Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度）。页面直接 import，无 Provider 包裹。`progressStore.fetchProgress()` 依赖 `user.id`，务必在确认 user 存在后才调用。
 
 ### 课程数据
-课程内容硬编码在 `src/data/` 目录下：
-- `phonics.js`：22课自然拼读，ID `phonics_01`～`phonics_22`，导出 `phonicsLessons`、`modules`、`getLesson(id)`
-- `intonation.js`：11课语音语调，ID `intonation_01`～`intonation_11`，导出 `intonationLessons`、`getIntonationLesson(id)`
 
-两者结构相同，`lessonId` 与 `user_progress.lesson_id` 对应。
+所有课程内容硬编码在 `src/data/`，按模块分文件。`lessonId` 与 `user_progress.lesson_id` 对应。
 
-**课程数据单项结构**（scenes/mindset/demo 模块新增时参照）：
+| 文件 | 导出 | 课数 |
+|------|------|------|
+| `phonics.js` | `phonicsLessons`, `modules`, `getLesson(id)` | 22 |
+| `intonation.js` | `intonationLessons`, `getIntonationLesson(id)` | 11 |
+| `mindset.js` | `mindsetLessons`, `getMindsetLesson(id)`, `getMindsetUnits()` | 30 |
+| `demo.js` | `demoLessons`, `getDemoLesson(id)` | 21 |
+| `scenes.js` | `sceneCategories`, `getScene(id)` | 84 |
+
+**`phonics.js` 还导出 `modules` 数组**，是全局模块注册表（含解锁规则），被 `progressStore`、`CourseOverview`、`ModuleLockGate` 共同引用。每个 module 对象含：
 ```js
 {
-  id: 'phonics_XX',
-  title: 'Lesson N — 标题',
-  subtitle: '副标题',
-  description: '课程简介',
-  objectives: ['学习目标1', '...'],
-  sections: [{
-    id: 'section_id',
-    title: '段落标题',
-    subtitle: '副标题',
-    items: [{
-      letter: '展示的大字（字母/音素/拼写模式）',
-      ipa: '/音标/',
-      example: '例词或例句',
-      example_ipa: '/例词音标/',
-      example_zh: '中文释义',
-      tip: '中文发音技巧'
-    }]
-  }],
-  practice: {
-    title: '练习标题',
-    instructions: '练习说明',
-    targets: [{ text: '练习文本', zh: '中文说明', type: 'alphabet|words|sentence' }]
-  }
+  id, name, nameEn, icon, totalLessons, color,
+  requires: { moduleId, pct, label } | null,  // 解锁前置条件
+  levelTag, desc,
 }
 ```
 
-Dashboard 的"继续学习"卡片：遍历 `phonicsLessons`，找到第一个 `progress.status !== 'completed'` 的课程自动跳转，而非硬编码。
+**解锁路径**（硬闸）：phonics(无) → intonation(phonics≥50%) → mindset(intonation≥55%) → demo(mindset≥30%) → scenes(demo≥50%)。`tech` 模块无前置。
+
+**LessonValueBanner**（`src/components/ui/LessonValueBanner.jsx`）在每个 *Lesson 页顶部显示"为什么学这课"，自动读取 `lesson.objectives || lesson.focusPoints || lesson.tips`，可折叠，颜色由父页面传入。
+
+**Dashboard 的"继续学习"**：定义 `LEARNING_PATH`（phonics→intonation→mindset→demo），用 `useMemo` + `isModuleUnlocked` 找首个未完成课程，而非硬编码。
 
 ---
 
@@ -158,19 +159,21 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 ## 当前实现状态
 
 - ✅ 登录/注册（Supabase Auth）
-- ✅ Dashboard（打卡、进度环、动态继续学习入口 — 自动跳转当前进度课程）
+- ✅ Dashboard（打卡、进度环、跨模块"继续学习" — LEARNING_PATH 顺序查找首个未完成课）
 - ✅ 自然拼读 **全22课**（字母→短元音→魔法E长元音→辅音连缀→二合字母→R控元音→双元音→不规则词）
 - ✅ 语音语调 **全11课**（IntonationModule + IntonationLesson，结构同 Phonics）
-- ✅ 场景实战（ScenesModule 8分类 accordion + SceneLesson DeepSeek 角色扮演对话）
-- ✅ 认知重塑（MindsetModule 6单元30课 + MindsetLesson DeepSeek 出题评估）
-- ✅ 场景演绎（DemoModule 4分组21课 + DemoLesson TTS示范+跟读+Gemini评分）
-- ✅ 练习页（自由录音 + 语法纠错 + 编程英语 + 随拍学英语，4个 tab）
+- ✅ 认知重塑 **30课**（MindsetModule 6单元 + MindsetLesson DeepSeek 出题评估）
+- ✅ 场景演绎 **21课**（DemoModule 4分组 + DemoLesson TTS示范+跟读+Gemini评分）
+- ✅ 场景实战 **84场景**（ScenesModule 8分类 accordion + SceneLesson DeepSeek 角色扮演）
+- ✅ 练习页（自由录音 / 语法纠错 / 编程英语 / 随拍学英语，4-tab）
 - ✅ Emma 老师语音反馈（中英混合口播，暂停/继续/重新讲解/按词听示范）
 - ✅ 词汇本（Vocabulary 全功能：添加/复习/遗忘曲线/按熟练度筛选）
-- 🚧 场景实战完整84课数据（当前 `src/data/scenes.js` 可能不足84课）
-- 🚧 PWA / 学习数据可视化 / AI 个性化推荐（Phase 3-4）
-- 🚧 编程英语 / 随拍学英语（UI 待开发，`analyzeImage` 已实现）
-- 🚧 词汇本（Supabase `vocabulary` 表已创建，UI 待开发）
+- ✅ 课程解锁体系（ModuleLockGate 守卫，5级前置门槛）
+- ✅ 课程价值说明（LessonValueBanner 显示"为什么学这课"，含目标标签，可折叠）
+- ✅ Profile 学习统计（完成课数/练习记录/平均分/连续打卡 + 模块进度条）
+- 🚧 PWA（离线支持、添加到主屏幕）
+- 🚧 学习数据可视化（按日统计图表）
+- 🚧 AI 个性化推荐（基于进度的智能路径推荐）
 
 ---
 
@@ -225,5 +228,5 @@ Level 1 ── 语音地基：自然拼读（22课）+ 语音语调（11课）
 ## 五、开发路线图
 
 - **Phase 2**：~~自然拼读全22课~~ ✅ / ~~语音语调模块~~ ✅ / ~~场景对话~~ ✅ / ~~随拍学英语~~ ✅ / ~~词汇本~~ ✅
-- **Phase 3**：~~认知重塑~~ ✅ / ~~场景演绎~~ ✅ / ~~编程英语~~ ✅ / 场景实战完整84课 / PWA
+- **Phase 3**：~~认知重塑~~ ✅ / ~~场景演绎~~ ✅ / ~~编程英语~~ ✅ / ~~场景实战完整84课~~ ✅ / ~~课程解锁体系~~ ✅ / ~~课程价值说明~~ ✅ / PWA
 - **Phase 4**：遗忘曲线复习 / 学习数据可视化 / AI 个性化推荐
