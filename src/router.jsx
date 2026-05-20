@@ -6,17 +6,17 @@ import Dashboard from './pages/Dashboard'
 import CourseOverview from './pages/Course/CourseOverview'
 import PhonicsModule from './pages/Course/PhonicsModule'
 import PhonicsLesson from './pages/Course/PhonicsLesson'
+import IntonationModule from './pages/Course/IntonationModule'
+import IntonationLesson from './pages/Course/IntonationLesson'
+import ScenesModule from './pages/Course/ScenesModule'
+import SceneLesson from './pages/Course/SceneLesson'
+import MindsetModule from './pages/Course/MindsetModule'
+import MindsetLesson from './pages/Course/MindsetLesson'
+import DemoModule from './pages/Course/DemoModule'
+import DemoLesson from './pages/Course/DemoLesson'
 import Speaking from './pages/Practice/Speaking'
 import Vocabulary from './pages/Vocabulary'
 import Profile from './pages/Profile'
-
-const ComingSoon = ({ name }) => (
-  <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-    <p className="text-4xl mb-4">🚧</p>
-    <p className="font-semibold text-[#141413]" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>{name} 即将上线</p>
-    <p className="text-sm text-[#b0aea5] mt-2">正在开发中，敬请期待</p>
-  </div>
-)
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -32,11 +32,15 @@ export const router = createBrowserRouter([
           { path: 'course', element: <CourseOverview /> },
           { path: 'course/phonics', element: <PhonicsModule /> },
           { path: 'course/phonics/:lessonId', element: <PhonicsLesson /> },
-          { path: 'course/intonation', element: <ComingSoon name="语音语调" /> },
-          { path: 'course/mindset', element: <ComingSoon name="认知重塑" /> },
-          { path: 'course/scenes', element: <ComingSoon name="场景实战" /> },
-          { path: 'course/demo', element: <ComingSoon name="场景演绎" /> },
-          { path: 'course/tech', element: <ComingSoon name="编程英语" /> },
+          { path: 'course/intonation', element: <IntonationModule /> },
+          { path: 'course/intonation/:lessonId', element: <IntonationLesson /> },
+          { path: 'course/scenes', element: <ScenesModule /> },
+          { path: 'course/scenes/:sceneId', element: <SceneLesson /> },
+          { path: 'course/mindset', element: <MindsetModule /> },
+          { path: 'course/mindset/:lessonId', element: <MindsetLesson /> },
+          { path: 'course/demo', element: <DemoModule /> },
+          { path: 'course/demo/:lessonId', element: <DemoLesson /> },
+          { path: 'course/tech', element: <Navigate to="/practice/speaking" replace /> },
           { path: 'practice/speaking', element: <Speaking /> },
           { path: 'vocabulary', element: <Vocabulary /> },
           { path: 'profile', element: <Profile /> },
