@@ -160,11 +160,15 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 - ✅ 登录/注册（Supabase Auth）
 - ✅ Dashboard（打卡、进度环、动态继续学习入口 — 自动跳转当前进度课程）
 - ✅ 自然拼读 **全22课**（字母→短元音→魔法E长元音→辅音连缀→二合字母→R控元音→双元音→不规则词）
-- ✅ 练习页（自由录音 + 语法纠错）
+- ✅ 语音语调 **全11课**（IntonationModule + IntonationLesson，结构同 Phonics）
+- ✅ 场景实战（ScenesModule 8分类 accordion + SceneLesson DeepSeek 角色扮演对话）
+- ✅ 认知重塑（MindsetModule 6单元30课 + MindsetLesson DeepSeek 出题评估）
+- ✅ 场景演绎（DemoModule 4分组21课 + DemoLesson TTS示范+跟读+Gemini评分）
+- ✅ 练习页（自由录音 + 语法纠错 + 编程英语 + 随拍学英语，4个 tab）
 - ✅ Emma 老师语音反馈（中英混合口播，暂停/继续/重新讲解/按词听示范）
-- ✅ 语音语调数据（`src/data/intonation.js` 全11课）—— UI 待开发
-- 🚧 语音语调 UI（IntonationModule / IntonationLesson 页面）
-- 🚧 场景实战 / 认知重塑 / 场景演绎（数据 + UI 待开发）
+- ✅ 词汇本（Vocabulary 全功能：添加/复习/遗忘曲线/按熟练度筛选）
+- 🚧 场景实战完整84课数据（当前 `src/data/scenes.js` 可能不足84课）
+- 🚧 PWA / 学习数据可视化 / AI 个性化推荐（Phase 3-4）
 - 🚧 编程英语 / 随拍学英语（UI 待开发，`analyzeImage` 已实现）
 - 🚧 词汇本（Supabase `vocabulary` 表已创建，UI 待开发）
 
@@ -220,6 +224,6 @@ Level 1 ── 语音地基：自然拼读（22课）+ 语音语调（11课）
 
 ## 五、开发路线图
 
-- **Phase 2**：~~自然拼读全22课~~ ✅ / 语音语调模块 / 场景对话 / 随拍学英语（`analyzeImage` 已实现，待 UI）/ 词汇本
-- **Phase 3**：认知重塑 / 场景实战全部 / 编程英语 / PWA
+- **Phase 2**：~~自然拼读全22课~~ ✅ / ~~语音语调模块~~ ✅ / ~~场景对话~~ ✅ / ~~随拍学英语~~ ✅ / ~~词汇本~~ ✅
+- **Phase 3**：~~认知重塑~~ ✅ / ~~场景演绎~~ ✅ / ~~编程英语~~ ✅ / 场景实战完整84课 / PWA
 - **Phase 4**：遗忘曲线复习 / 学习数据可视化 / AI 个性化推荐
