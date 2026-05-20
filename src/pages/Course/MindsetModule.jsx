@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { getMindsetUnits } from '../../data/mindset'
 import Card from '../../components/ui/Card'
+import ModuleLockGate from '../../components/ui/ModuleLockGate'
 import useProgressStore from '../../store/progressStore'
 
 const unitIcons = {
@@ -23,6 +24,7 @@ const MindsetModule = () => {
   }
 
   return (
+    <ModuleLockGate moduleId="mindset">
     <div className="max-w-2xl mx-auto px-4 py-6">
       <button onClick={() => navigate('/course')} className="flex items-center gap-1 text-sm text-[#b0aea5] hover:text-[#141413] mb-4 transition-colors">
         ← 课程中心
@@ -77,6 +79,7 @@ const MindsetModule = () => {
         })}
       </div>
     </div>
+    </ModuleLockGate>
   )
 }
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sceneCategories } from '../../data/scenes'
 import Card from '../../components/ui/Card'
+import ModuleLockGate from '../../components/ui/ModuleLockGate'
 
 const difficultyColor = { '入门': '#788c5d', '初级': '#d97757', '中级': '#7a6bba', '进阶': '#c45c5c' }
 const difficultyBg = { '入门': '#eaf2e3', '初级': '#fdf0ea', '中级': '#f0eeff', '进阶': '#fdeaea' }
@@ -11,6 +12,7 @@ const ScenesModule = () => {
   const [openCategory, setOpenCategory] = useState(null)
 
   return (
+    <ModuleLockGate moduleId="scenes">
     <div className="max-w-2xl mx-auto px-4 py-6">
       <button onClick={() => navigate('/course')} className="flex items-center gap-1 text-sm text-[#b0aea5] hover:text-[#141413] mb-4 transition-colors">
         ← 课程中心
@@ -18,7 +20,7 @@ const ScenesModule = () => {
       <h1 className="text-xl font-bold text-[#141413] mb-1" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
         🎭 场景实战 Scenes
       </h1>
-      <p className="text-sm text-[#b0aea5] mb-6">与 AI 角色扮演，练真实英语对话 · 8 大主题 · 46 个场景</p>
+      <p className="text-sm text-[#b0aea5] mb-6">与 AI 角色扮演，练真实英语对话 · 8 大主题 · 84 个场景</p>
 
       <div className="space-y-3">
         {sceneCategories.map(category => {
@@ -83,6 +85,7 @@ const ScenesModule = () => {
         })}
       </div>
     </div>
+    </ModuleLockGate>
   )
 }
 

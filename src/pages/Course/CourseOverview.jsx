@@ -1,63 +1,139 @@
 import { useNavigate } from 'react-router-dom'
 import { modules } from '../../data/phonics'
-import Card from '../../components/ui/Card'
 import useProgressStore from '../../store/progressStore'
+
+const routeMap = {
+  phonics: '/course/phonics',
+  intonation: '/course/intonation',
+  scenes: '/course/scenes',
+  mindset: '/course/mindset',
+  demo: '/course/demo',
+  tech: '/course/tech',
+}
 
 const CourseOverview = () => {
   const navigate = useNavigate()
-  const { getModuleCompletion } = useProgressStore()
-
-  const routeMap = {
-    phonics: '/course/phonics',
-    intonation: '/course/intonation',
-    scenes: '/course/scenes',
-    mindset: '/course/mindset',
-    demo: '/course/demo',
-    tech: '/course/tech',
-  }
+  const { getModuleCompletion, isModuleUnlocked } = useProgressStore()
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-[#141413] mb-2" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-        课程中心
-      </h1>
-      <p className="text-sm text-[#b0aea5] mb-8">从发音地基到自如交流，7个模块系统进阶</p>
+    <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 20px' }}>
+      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 4 }}>课程中心</h1>
+      <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 28 }}>
+        体系化学习路径 · 完成前置课程后自动解锁下一关
+      </p>
 
-      <div className="space-y-3">
-        {modules.map((mod, index) => {
-          const pct = getModuleCompletion(mod.id)
-          const isLocked = index > 0 && getModuleCompletion(modules[index - 1].id) < 30
+      {/* 路径示意 */}
+      <div style={{
+        background: 'linear-gradient(135deg, #fdf0ea, #fff)', border: '1px solid #f5c4a8',
+        borderRadius: 14, padding: '14px 18px', marginBottom: 24,
+        display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+      }}>
+        <span style={{ fontSize: 12, color: '#7a7870' }}>学习路径：</span>
+        {modules.filter(m => m.requires !== null || m.id === 'phonics').map((mod, i, arr) => (
+          <span key={mod.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: isModuleUnlocked(mod.id) ? '#d97757' : '#b0aea5' }}>
+              {mod.icon} {mod.name}
+            </span>
+            {i < arr.length - 1 && <span style={{ color: '#dedad0', fontSize: 14 }}>→</span>}
+          </span>
+        ))}
+        <span style={{ fontSize: 12, color: '#b0aea5', marginLeft: 4 }}>
+          ···
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {modules.map((mod) => {
+          const pct = getModuleCompletion(mod.id, mod.totalLessons)
+          const unlocked = isModuleUnlocked(mod.id)
+          const reqMod = mod.requires ? modules.find(m => m.id === mod.requires.moduleId) : null
+          const reqPct = reqMod ? getModuleCompletion(reqMod.id, reqMod.totalLessons) : 0
 
           return (
-            <Card
+            <div
               key={mod.id}
-              className={isLocked ? 'opacity-60' : ''}
-              onClick={() => !isLocked && navigate(routeMap[mod.id] || '#')}
+              onClick={() => unlocked && navigate(routeMap[mod.id] || '#')}
+              style={{
+                background: '#fff',
+                border: `1.5px solid ${unlocked ? '#dedad0' : '#ece9e0'}`,
+                borderRadius: 16,
+                padding: '18px 20px',
+                cursor: unlocked ? 'pointer' : 'default',
+                opacity: unlocked ? 1 : 0.7,
+                transition: 'box-shadow 0.15s, transform 0.15s, border-color 0.15s',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+              }}
+              onMouseEnter={e => { if (unlocked) { e.currentTarget.style.boxShadow = `0 4px 16px ${mod.color}22`; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.borderColor = mod.color } }}
+              onMouseLeave={e => { if (unlocked) { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#dedad0' } }}
             >
-              <div className="flex items-center gap-4">
-                <div className="text-3xl">{mod.icon}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-semibold text-[#141413]" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-                      {mod.name}
-                    </p>
-                    <span className="text-xs text-[#b0aea5]">{mod.nameEn}</span>
-                    {isLocked && <span className="text-xs bg-[#f0ede4] text-[#b0aea5] px-2 py-0.5 rounded-full">🔒 未解锁</span>}
-                  </div>
-                  <p className="text-xs text-[#b0aea5] mb-2">{mod.totalLessons} 节课</p>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-[#e8e6dc] rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${pct}%`, backgroundColor: mod.color }}
-                      />
-                    </div>
-                    <span className="text-xs text-[#b0aea5] whitespace-nowrap">{pct}%</span>
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                {/* 图标 */}
+                <div style={{
+                  width: 48, height: 48, borderRadius: 14, flexShrink: 0,
+                  background: unlocked ? `${mod.color}18` : '#f5f3ee',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                  border: `1.5px solid ${unlocked ? mod.color + '40' : '#ece9e0'}`,
+                }}>
+                  {unlocked ? mod.icon : '🔒'}
                 </div>
-                <span className="text-[#b0aea5]">›</span>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <span className="font-title" style={{ fontSize: 15, color: '#1a1917' }}>
+                      {mod.name}
+                    </span>
+                    <span style={{ fontSize: 10, color: unlocked ? mod.color : '#b0aea5', background: unlocked ? `${mod.color}18` : '#f5f3ee', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
+                      {mod.levelTag}
+                    </span>
+                    {!unlocked && (
+                      <span style={{ fontSize: 10, color: '#b0aea5', background: '#f5f3ee', padding: '2px 8px', borderRadius: 20 }}>
+                        🔒 未解锁
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 8 }}>{mod.desc}</p>
+
+                  {/* 已解锁：显示本模块完成进度 */}
+                  {unlocked && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ flex: 1, height: 5, background: '#ece9e0', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: mod.color, transition: 'width 0.8s' }} />
+                      </div>
+                      <span style={{ fontSize: 11, color: '#b0aea5', whiteSpace: 'nowrap' }}>
+                        {pct}% · {mod.totalLessons}课
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 未解锁：显示解锁进度 */}
+                  {!unlocked && mod.requires && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <div style={{ flex: 1, height: 5, background: '#ece9e0', borderRadius: 3, overflow: 'hidden', position: 'relative' }}>
+                          <div style={{
+                            height: '100%', borderRadius: 3,
+                            width: `${reqPct}%`, background: reqMod.color, transition: 'width 0.8s',
+                          }} />
+                          <div style={{
+                            position: 'absolute', top: 0, bottom: 0,
+                            left: `${mod.requires.pct}%`, width: 2,
+                            background: '#1a1917', opacity: 0.2,
+                          }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: '#b0aea5', whiteSpace: 'nowrap' }}>
+                          {reqPct}% / {mod.requires.pct}%
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 11, color: '#b0aea5' }}>
+                        需先完成：{reqMod.icon} {mod.requires.label}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {unlocked && <span style={{ color: '#b0aea5', fontSize: 18 }}>›</span>}
               </div>
-            </Card>
+            </div>
           )
         })}
       </div>

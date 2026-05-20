@@ -773,10 +773,40 @@ export const phonicsLessons = [
 export const getLesson = (lessonId) => phonicsLessons.find(l => l.id === lessonId)
 
 export const modules = [
-  { id: 'phonics',     name: '自然拼读',   nameEn: 'Phonics',     icon: '🔤', totalLessons: 22, color: '#d97757' },
-  { id: 'intonation',  name: '语音语调',   nameEn: 'Intonation',  icon: '🎵', totalLessons: 11, color: '#6a9bcc' },
-  { id: 'mindset',     name: '认知重塑',   nameEn: 'Mindset',     icon: '🧠', totalLessons: 30, color: '#788c5d' },
-  { id: 'scenes',      name: '场景实战',   nameEn: 'Scenes',      icon: '💬', totalLessons: 84, color: '#9b7ec8' },
-  { id: 'demo',        name: '场景演绎',   nameEn: 'Demo',        icon: '🎬', totalLessons: 21, color: '#c4a35a' },
-  { id: 'tech',        name: '编程英语',   nameEn: 'Tech English', icon: '💻', totalLessons: 20, color: '#5a8c7c' },
+  {
+    id: 'phonics', name: '自然拼读', nameEn: 'Phonics', icon: '🔤', totalLessons: 22, color: '#d97757',
+    requires: null,
+    levelTag: 'Level 1',
+    desc: '26个字母→音素→拼读规则，打牢发音地基',
+  },
+  {
+    id: 'intonation', name: '语音语调', nameEn: 'Intonation', icon: '🎵', totalLessons: 11, color: '#6a9bcc',
+    requires: { moduleId: 'phonics', pct: 50, label: '完成自然拼读 50%（11课）' },
+    levelTag: 'Level 1',
+    desc: '重音·节奏·连读·语调，说出英文感觉',
+  },
+  {
+    id: 'mindset', name: '认知重塑', nameEn: 'Mindset', icon: '🧠', totalLessons: 30, color: '#788c5d',
+    requires: { moduleId: 'intonation', pct: 55, label: '完成语音语调 55%（6课）' },
+    levelTag: 'Level 2',
+    desc: '打破翻译思维，建立真正的英文直觉',
+  },
+  {
+    id: 'demo', name: '场景演绎', nameEn: 'Demo', icon: '🎬', totalLessons: 21, color: '#c4a35a',
+    requires: { moduleId: 'mindset', pct: 30, label: '完成认知重塑 30%（9课）' },
+    levelTag: 'Level 3',
+    desc: '听示范→跟读录音→AI评分，练地道语感',
+  },
+  {
+    id: 'scenes', name: '场景实战', nameEn: 'Scenes', icon: '💬', totalLessons: 84, color: '#9b7ec8',
+    requires: { moduleId: 'demo', pct: 50, label: '完成场景演绎 50%（11课）' },
+    levelTag: 'Level 4',
+    desc: '8大主题·AI角色扮演·真实对话实战',
+  },
+  {
+    id: 'tech', name: '编程英语', nameEn: 'Tech English', icon: '💻', totalLessons: 20, color: '#5a8c7c',
+    requires: null,
+    levelTag: '工具',
+    desc: '粘贴报错/代码，AI中英文讲解',
+  },
 ]

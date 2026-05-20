@@ -1,8 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
 import { modules, phonicsLessons } from '../data/phonics'
+import { intonationLessons } from '../data/intonation'
+import { mindsetLessons } from '../data/mindset'
+import { demoLessons } from '../data/demo'
 
 /* ── 进度环 ── */
 const ProgressRing = ({ pct, size = 52, color = '#d97757' }) => {
@@ -44,19 +47,57 @@ const Card = ({ children, onClick, style = {} }) => (
   </div>
 )
 
+/* 学习主线顺序 */
+const LEARNING_PATH = [
+  { moduleId: 'phonics',    lessons: phonicsLessons,    getPath: id => `/course/phonics/${id}`,    label: '自然拼读 · Phonics',    icon: '🔤' },
+  { moduleId: 'intonation', lessons: intonationLessons, getPath: id => `/course/intonation/${id}`, label: '语音语调 · Intonation',  icon: '🎵' },
+  { moduleId: 'mindset',    lessons: mindsetLessons,    getPath: id => `/course/mindset/${id}`,    label: '认知重塑 · Mindset',    icon: '🧠' },
+  { moduleId: 'demo',       lessons: demoLessons,       getPath: id => `/course/demo/${id}`,       label: '场景演绎 · Demo',       icon: '🎬' },
+]
+
 const Dashboard = () => {
   const { user } = useUserStore()
-  const { progress, streak, checkedInToday, fetchProgress, doCheckIn, getModuleCompletion } = useProgressStore()
+  const { progress, streak, checkedInToday, fetchProgress, doCheckIn, getModuleCompletion, isModuleUnlocked } = useProgressStore()
   const navigate = useNavigate()
 
   useEffect(() => { if (user) fetchProgress(user.id) }, [user])
 
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
 
-  const nextLesson = phonicsLessons.find(lesson => {
-    const p = progress.find(p => p.lesson_id === lesson.id)
-    return !p || p.status !== 'completed'
-  }) ?? phonicsLessons[phonicsLessons.length - 1]
+  /* 跨模块找下一课（只在已解锁的模块中找） */
+  const nextLessonInfo = useMemo(() => {
+    for (const track of LEARNING_PATH) {
+      if (!isModuleUnlocked(track.moduleId)) continue
+      const lesson = track.lessons.find(l => {
+        const p = progress.find(p => p.lesson_id === l.id)
+        return !p || p.status !== 'completed'
+      })
+      if (lesson) return { lesson, ...track }
+    }
+    // 全部完成或全部锁定，回到拼读第一课
+    const first = LEARNING_PATH[0]
+    return { lesson: first.lessons[0], ...first }
+  }, [progress, isModuleUnlocked])
+
+  /* 今日推荐（动态，基于进度和解锁状态） */
+  const recommendations = useMemo(() => {
+    const list = []
+    // 当前主线模块
+    list.push({
+      icon: nextLessonInfo.icon,
+      title: nextLessonInfo.lesson.title,
+      sub: nextLessonInfo.label,
+      to: nextLessonInfo.getPath(nextLessonInfo.lesson.id),
+      tag: '主线',
+    })
+    // 额外推荐
+    if (isModuleUnlocked('scenes')) {
+      list.push({ icon: '💬', title: '场景实战对话', sub: '8大主题 · AI角色扮演', to: '/course/scenes', tag: '练习' })
+    } else {
+      list.push({ icon: '📝', title: '语法纠错练习', sub: '输入英文，AI 实时批改', to: '/practice/speaking', tag: '练习' })
+    }
+    return list.slice(0, 2)
+  }, [progress, nextLessonInfo, isModuleUnlocked])
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px' }}>
@@ -95,7 +136,7 @@ const Dashboard = () => {
       </Card>
 
       {/* ── 继续学习 ── */}
-      <div onClick={() => navigate(`/course/phonics/${nextLesson.id}`)} style={{
+      <div onClick={() => navigate(nextLessonInfo.getPath(nextLessonInfo.lesson.id))} style={{
         background: 'linear-gradient(135deg, #d97757 0%, #c05e3a 100%)',
         borderRadius: 14, padding: '20px 24px', marginBottom: 28,
         cursor: 'pointer', boxShadow: '0 4px 16px rgba(217,119,87,0.35)',
@@ -108,10 +149,10 @@ const Dashboard = () => {
         <div>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginBottom: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>继续学习</p>
           <p className="font-title" style={{ fontSize: 17, color: '#fff', lineHeight: 1.3 }}>
-            {nextLesson.title}
+            {nextLessonInfo.lesson.title}
           </p>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>
-            🔤 自然拼读 · Phonics
+            {nextLessonInfo.icon} {nextLessonInfo.label}
           </p>
         </div>
         <span style={{ fontSize: 28, color: 'rgba(255,255,255,0.9)' }}>▶</span>
@@ -123,7 +164,7 @@ const Dashboard = () => {
       </h2>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 28 }}>
         {modules.map(mod => {
-          const pct = getModuleCompletion(mod.id)
+          const pct = getModuleCompletion(mod.id, mod.totalLessons)
           return (
             <Card key={mod.id} onClick={() => navigate(`/course/${mod.id}`)}
               style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
@@ -144,10 +185,7 @@ const Dashboard = () => {
         今日推荐
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {[
-          { icon: '🔤', title: 'Lesson 1 — 26个字母发音', sub: '自然拼读 · 约10分钟', to: '/course/phonics/phonics_01', tag: '推荐' },
-          { icon: '💬', title: '语法纠错练习', sub: '输入英文，AI 实时批改', to: '/practice/speaking', tag: '练习' },
-        ].map((item, i) => (
+        {recommendations.map((item, i) => (
           <Card key={i} onClick={() => navigate(item.to)}
             style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px' }}>
             <span style={{ fontSize: 24 }}>{item.icon}</span>

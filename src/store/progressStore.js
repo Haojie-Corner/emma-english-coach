@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { getProgress, saveProgress, getTodayCheckIn, checkIn, getStreak } from '../services/supabase'
+import { modules } from '../data/phonics'
 
 const useProgressStore = create((set, get) => ({
   progress: [],
@@ -29,12 +30,22 @@ const useProgressStore = create((set, get) => ({
     set({ checkedInToday: true, streak })
   },
 
-  getModuleCompletion: (moduleId) => {
+  getModuleCompletion: (moduleId, totalLessons) => {
     const { progress } = get()
-    const moduleLessons = progress.filter(p => p.module_id === moduleId)
-    if (moduleLessons.length === 0) return 0
-    const completed = moduleLessons.filter(p => p.status === 'completed').length
-    return Math.round((completed / moduleLessons.length) * 100)
+    const completed = progress.filter(p => p.module_id === moduleId && p.status === 'completed').length
+    const total = totalLessons || progress.filter(p => p.module_id === moduleId).length
+    if (total === 0) return 0
+    return Math.round((completed / total) * 100)
+  },
+
+  isModuleUnlocked: (moduleId) => {
+    const mod = modules.find(m => m.id === moduleId)
+    if (!mod || !mod.requires) return true
+    const reqMod = modules.find(m => m.id === mod.requires.moduleId)
+    const { progress } = get()
+    const completed = progress.filter(p => p.module_id === mod.requires.moduleId && p.status === 'completed').length
+    const total = reqMod?.totalLessons || 1
+    return Math.round((completed / total) * 100) >= mod.requires.pct
   },
 }))
 

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { intonationLessons } from '../../data/intonation'
 import Card from '../../components/ui/Card'
+import ModuleLockGate from '../../components/ui/ModuleLockGate'
 import useProgressStore from '../../store/progressStore'
 
 const IntonationModule = () => {
@@ -16,6 +17,7 @@ const IntonationModule = () => {
   const statusColor = { completed: 'text-[#788c5d]', in_progress: 'text-[#d97757]', locked: 'text-[#b0aea5]' }
 
   return (
+    <ModuleLockGate moduleId="intonation">
     <div className="max-w-2xl mx-auto px-4 py-6">
       <button onClick={() => navigate('/course')} className="flex items-center gap-1 text-sm text-[#b0aea5] hover:text-[#141413] mb-4 transition-colors">
         ← 课程中心
@@ -53,6 +55,7 @@ const IntonationModule = () => {
         })}
       </div>
     </div>
+    </ModuleLockGate>
   )
 }
 

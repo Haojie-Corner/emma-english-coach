@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { demoLessons } from '../../data/demo'
 import Card from '../../components/ui/Card'
+import ModuleLockGate from '../../components/ui/ModuleLockGate'
 import useProgressStore from '../../store/progressStore'
 
 const groups = [
@@ -23,6 +24,7 @@ const DemoModule = () => {
   }
 
   return (
+    <ModuleLockGate moduleId="demo">
     <div className="max-w-2xl mx-auto px-4 py-6">
       <button onClick={() => navigate('/course')} className="flex items-center gap-1 text-sm text-[#b0aea5] hover:text-[#141413] mb-4 transition-colors">
         ← 课程中心
@@ -86,6 +88,7 @@ const DemoModule = () => {
         })}
       </div>
     </div>
+    </ModuleLockGate>
   )
 }
 
