@@ -112,6 +112,12 @@ body {
 }
 .scale-in { animation: scaleIn 0.18s ease-out; }
 
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-5px); }
+}
+.bounce-dot { animation: bounce 1.2s ease-in-out infinite; }
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

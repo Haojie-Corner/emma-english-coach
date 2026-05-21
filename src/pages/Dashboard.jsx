@@ -29,6 +29,28 @@ const ProgressRing = ({ pct, size = 48, color = '#d97757' }) => {
   )
 }
 
+/* ── Emma 头像 ── */
+const EmmaAvatar = ({ size = 38 }) => (
+  <div style={{
+    width: size, height: size, borderRadius: '50%', flexShrink: 0,
+    background: 'linear-gradient(135deg, #e07c58, #be5530)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#fff', fontWeight: 800, fontSize: size * 0.38,
+  }}>E</div>
+)
+
+/* ── 规则引擎：Emma 提示语 ── */
+const getEmmaHint = (progress, streak, getModuleCompletion, isModuleUnlocked, dueVocabCount) => {
+  const total = progress.filter(p => p.status === 'completed').length
+  if (total === 0) return '从「自然拼读」开始，发音是英语的地基，打好了后面全会更轻松 🎓'
+  const phonicsPct = getModuleCompletion('phonics', 22)
+  if (phonicsPct < 50) return `拼读进度 ${phonicsPct}%，再完成 ${Math.ceil((50 - phonicsPct) * 22 / 100)} 课就解锁「语音语调」！`
+  if (dueVocabCount > 3) return `词汇本有 ${dueVocabCount} 个单词等待复习，趁热打铁效果最好 📚`
+  if (streak === 0 && total > 0) return '好久不见！每天一课，坚持比爆发更有效。一起继续吧 💪'
+  if (streak >= 7) return `连续 ${streak} 天打卡，状态绝佳 🔥 保持节奏，有问题随时来问我！`
+  return '有学习计划或语法疑问？点右边找我聊聊 😊'
+}
+
 /* 学习主线顺序 */
 const LEARNING_PATH = [
   { moduleId: 'phonics',    lessons: phonicsLessons,    getPath: id => `/course/phonics/${id}`,    label: '自然拼读 · Phonics',   icon: '🔤' },
@@ -167,6 +189,34 @@ const Dashboard = () => {
             <path d="M9 18L15 12L9 6" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
+      </div>
+
+      {/* ── Emma 顾问卡片 ── */}
+      <div style={{
+        background: '#fff', border: '1px solid #e8e4dc', borderRadius: 16,
+        padding: '14px 16px', marginBottom: 28,
+        display: 'flex', alignItems: 'center', gap: 14,
+      }}>
+        <EmmaAvatar />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 11.5, fontWeight: 700, color: '#d97757', marginBottom: 3 }}>Emma 老师</p>
+          <p style={{ fontSize: 13.5, color: '#1a1917', lineHeight: 1.5 }}>
+            {getEmmaHint(progress, streak, getModuleCompletion, isModuleUnlocked, dueVocabCount)}
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/teacher')}
+          style={{
+            fontSize: 12, fontWeight: 600, color: '#d97757',
+            background: '#fdf0ea', border: '1px solid #f5c4a8',
+            borderRadius: 10, padding: '7px 12px', cursor: 'pointer',
+            flexShrink: 0, whiteSpace: 'nowrap', transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#f8e4d6'}
+          onMouseLeave={e => e.currentTarget.style.background = '#fdf0ea'}
+        >
+          问 Emma →
+        </button>
       </div>
 
       {/* ── 学习进度 ── */}

@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import useUserStore from '../store/userStore'
+import EmmaBubble from './EmmaBubble'
 
 /* ── SVG Nav Icons ── */
 const HomeIcon = ({ active }) => {
@@ -125,6 +126,33 @@ const SidebarNav = ({ onLogout }) => (
       ))}
     </nav>
 
+    {/* Emma shortcut */}
+    <NavLink to="/teacher" style={{ textDecoration: 'none', display: 'block', marginBottom: 8 }}>
+      {({ isActive }) => (
+        <div style={{
+          borderRadius: 10, padding: '10px 12px',
+          background: isActive ? '#fdf0ea' : '#fef8f5',
+          border: `1px solid ${isActive ? '#f5c4a8' : '#f0e0d6'}`,
+          display: 'flex', alignItems: 'center', gap: 10,
+          cursor: 'pointer', transition: 'background 0.14s',
+        }}
+          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#fdf0ea' }}
+          onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = '#fef8f5' }}
+        >
+          <div style={{
+            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg, #e07c58, #be5530)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontWeight: 800, fontSize: 13,
+          }}>E</div>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#d97757', lineHeight: 1.2 }}>Emma 老师</p>
+            <p style={{ fontSize: 10.5, color: '#a09b95' }}>AI 学习顾问</p>
+          </div>
+        </div>
+      )}
+    </NavLink>
+
     {/* Logout */}
     <button onClick={onLogout} style={{
       display: 'flex', alignItems: 'center', gap: 9,
@@ -215,6 +243,7 @@ const Layout = () => {
         <Outlet />
       </main>
       {!isDesktop && <BottomNav />}
+      <EmmaBubble />
     </div>
   )
 }

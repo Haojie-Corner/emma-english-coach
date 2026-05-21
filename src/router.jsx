@@ -19,6 +19,7 @@ import FluencyLesson from './pages/Course/FluencyLesson'
 import Speaking from './pages/Practice/Speaking'
 import Vocabulary from './pages/Vocabulary'
 import Profile from './pages/Profile'
+import TeacherChat from './pages/TeacherChat'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
           { path: 'practice/speaking', element: <Speaking /> },
           { path: 'vocabulary', element: <Vocabulary /> },
           { path: 'profile', element: <Profile /> },
+          { path: 'teacher', element: <TeacherChat /> },
         ],
       },
     ],

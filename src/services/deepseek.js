@@ -173,3 +173,36 @@ export const correctGrammar = async (userText) => {
 
   return callDeepSeek([{ role: 'user', content: userText }], systemPrompt)
 }
+
+export const chatWithEmma = async (messages, progressSummary, pageContext = '') => {
+  const { name, streak, totalCompleted, moduleProgress, dueVocabCount } = progressSummary
+
+  const modLines = Object.entries(moduleProgress)
+    .map(([id, m]) => `${id}：${m.locked ? '未解锁' : `${m.pct}%（${m.completed}/${m.total}课）`}`)
+    .join('；')
+
+  const contextLine = pageContext ? `\n当前情境：用户${pageContext}，请根据情境给出针对性回答。` : ''
+
+  const systemPrompt = `你是 Emma，一位专业的 AI 英语学习顾问，专门帮助中文母语零基础成人学习英语。你了解用户的完整学习档案，能给出个性化、具体可执行的建议。
+
+用户学习档案：
+- 昵称：${name}
+- 连续打卡：${streak} 天
+- 已完成课程：${totalCompleted} 节
+- 各模块进度：${modLines}
+- 到期词汇：${dueVocabCount} 个${contextLine}
+
+你的三大职责：
+1. **学习路径建议**：根据当前进度，告诉用户接下来应该学什么、为什么、大概需要多久
+2. **知识点讲解**：当用户对某个语法/发音/词汇有疑问时，用中文+例子清晰解释（帮教功能）
+3. **练习指导**：根据用户薄弱点，设计简单练习，帮助巩固（如造句/发音练习/词汇测试）
+
+回复原则：
+- 每次回复 3-5 句话，具体有用，不说"多听多说"这类废话
+- 中文为主，仅在示范英语时使用英文
+- 鼓励为主，给具体行动建议（"去学第X课"而非"继续努力"）
+- 适当用 emoji 增加亲切感
+- 如果是知识点问题，给一个简单例句帮助理解`
+
+  return callDeepSeek(messages, systemPrompt)
+}
