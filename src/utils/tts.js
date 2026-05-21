@@ -117,27 +117,68 @@ const speakFallback = (text, rate, onEnd) => {
 
 // ---- Public API ----
 
-// Both functions use the same model so Sarah always sounds identical
-const MODEL = 'eleven_multilingual_v2'
+const MODEL_QUALITY = 'eleven_multilingual_v2'  // practice audio — highest quality
+const MODEL_FAST = 'eleven_turbo_v2_5'          // commentary / feedback — 2-3x faster, multilingual
 
 /** English TTS (ElevenLabs Sarah). Each call cancels any in-progress audio. */
 export const speak = async (text, rate = 0.78, onEnd = null) => {
   stopSpeaking()
   if (!ELEVENLABS_KEY) { console.warn('[TTS] No ElevenLabs key'); return }
   try {
-    await elevenLabsFetch(text, MODEL, rate, onEnd)
+    await elevenLabsFetch(text, MODEL_QUALITY, rate, onEnd)
   } catch (e) {
     if (e.name !== 'AbortError') console.warn('[TTS] ElevenLabs error:', e.message)
   }
 }
 
-/** Bilingual mixed Chinese+English. Same voice (Sarah), same model. */
+/** Bilingual mixed Chinese+English. Uses turbo model for faster response. */
 export const speakMultilingual = async (text, onEnd = null) => {
   stopSpeaking()
   if (!ELEVENLABS_KEY) { console.warn('[TTS] No ElevenLabs key'); return }
   try {
-    await elevenLabsFetch(text, MODEL, 1.0, onEnd)
+    await elevenLabsFetch(text, MODEL_FAST, 1.0, onEnd)
   } catch (e) {
     if (e.name !== 'AbortError') console.warn('[TTS] ElevenLabs error:', e.message)
+  }
+}
+
+/**
+ * Pre-fetch audio in the background without playing it.
+ * Returns a blob URL (call URL.revokeObjectURL when done), or null on error.
+ */
+export const prefetchAudio = async (text) => {
+  if (!ELEVENLABS_KEY) return null
+  try {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': ELEVENLABS_KEY,
+      },
+      body: JSON.stringify({
+        text,
+        model_id: MODEL_FAST,
+        voice_settings: { stability: 0.32, similarity_boost: 0.70, style: 0.45, use_speaker_boost: true },
+      }),
+    })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return URL.createObjectURL(blob)
+  } catch {
+    return null
+  }
+}
+
+/** Play a pre-fetched blob URL instantly (no network wait). */
+export const playBlobUrl = (url, rate = 1.0, onEnd = null) => {
+  stopSpeaking()
+  const audio = new Audio(url)
+  audio.playbackRate = rate
+  currentAudio = audio
+  audio.play()
+  audio.onended = () => {
+    if (currentAudio === audio) currentAudio = null
+    onEnd?.()
   }
 }

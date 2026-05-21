@@ -435,8 +435,10 @@ const FluencyLesson = () => {
             {loading && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f5f0ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🤖</div>
-                <div style={{ background: '#fff', border: '1px solid #dedad0', borderRadius: '18px 18px 18px 4px', padding: '12px 16px' }}>
-                  <span className="spin" style={{ display: 'inline-block' }}>⏳</span>
+                <div style={{ background: '#fff', border: '1px solid #dedad0', borderRadius: '18px 18px 18px 4px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {[0, 0.2, 0.4].map((delay, i) => (
+                    <div key={i} className="typing-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: '#7a6bba', animationDelay: `${delay}s` }} />
+                  ))}
                 </div>
               </div>
             )}

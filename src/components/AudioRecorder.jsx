@@ -2,9 +2,38 @@ import { useState, useEffect } from 'react'
 import useAudioRecorder from '../hooks/useAudioRecorder'
 import { analyzePronunciation } from '../services/gemini'
 import { saveRecording, getRecordings } from '../services/supabase'
-import { speak, speakMultilingual, stopSpeaking, pauseSpeaking, resumeSpeaking } from '../utils/tts'
+import { speak, speakMultilingual, stopSpeaking, pauseSpeaking, resumeSpeaking, prefetchAudio, playBlobUrl } from '../utils/tts'
 import Button from './ui/Button'
 import Card from './ui/Card'
+
+const MiniScoreChart = ({ history }) => {
+  if (history.length < 2) return null
+  const scores = [...history].reverse().slice(-8).map(h => h.ai_score)
+  const W = 140, H = 40
+  const latest = scores[scores.length - 1]
+  const color = latest >= 80 ? '#788c5d' : latest >= 60 ? '#d97757' : '#c45c5c'
+  const pts = scores.map((s, i) => {
+    const x = (i / (scores.length - 1)) * W
+    const y = H - (s / 100) * H
+    return `${x},${y}`
+  }).join(' ')
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', flexShrink: 0 }}>
+        <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {scores.map((s, i) => (
+          <circle key={i} cx={(i / (scores.length - 1)) * W} cy={H - (s / 100) * H}
+            r={i === scores.length - 1 ? 4.5 : 2.5} fill={color}
+            opacity={i === scores.length - 1 ? 1 : 0.55} />
+        ))}
+      </svg>
+      <div>
+        <p style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{latest}</p>
+        <p style={{ fontSize: 10, color: '#b0aea5', marginTop: 1 }}>最近得分</p>
+      </div>
+    </div>
+  )
+}
 
 const ScoreRing = ({ score }) => {
   const r = 32
@@ -30,7 +59,7 @@ const btnBase = {
   border: '1.5px solid', cursor: 'pointer',
 }
 
-const TeacherAvatar = ({ speakState, hasPlayed, onPause, onResume, onReplay, onRestart }) => (
+const TeacherAvatar = ({ speakState, hasPlayed, preloading, onPause, onResume, onReplay, onRestart }) => (
   <div style={{
     display: 'flex', alignItems: 'center', gap: 14,
     padding: '14px 18px', borderRadius: 14,
@@ -49,22 +78,26 @@ const TeacherAvatar = ({ speakState, hasPlayed, onPause, onResume, onReplay, onR
 
     <div style={{ flex: 1 }}>
       <p style={{ fontSize: 13, fontWeight: 700, color: '#1a1917', marginBottom: 1 }}>Emma 老师</p>
-      <p style={{ fontSize: 11, color: speakState !== 'idle' ? '#d97757' : '#7a7870' }}>
+      <p style={{ fontSize: 11, color: speakState !== 'idle' ? '#d97757' : preloading ? '#c4a35a' : '#7a7870' }}>
         {speakState === 'playing' ? '🔴 正在讲解…'
           : speakState === 'paused' ? '⏸ 已暂停'
+          : preloading ? '正在准备语音…'
           : 'AI 发音教练'}
       </p>
     </div>
 
     <div style={{ display: 'flex', gap: 8 }}>
       {speakState === 'idle' && (
-        <button onClick={onReplay} style={{
+        <button onClick={preloading ? undefined : onReplay} style={{
           ...btnBase,
-          background: hasPlayed ? '#f5f3ee' : '#d97757',
-          borderColor: hasPlayed ? '#dedad0' : '#d97757',
-          color: hasPlayed ? '#7a7870' : '#fff',
+          background: preloading ? '#f5f3ee' : hasPlayed ? '#f5f3ee' : '#d97757',
+          borderColor: preloading ? '#dedad0' : hasPlayed ? '#dedad0' : '#d97757',
+          color: preloading ? '#b0aea5' : hasPlayed ? '#7a7870' : '#fff',
+          cursor: preloading ? 'default' : 'pointer',
         }}>
-          {hasPlayed ? '🔊 再听一遍' : '▶ 开始讲解'}
+          {preloading
+            ? <><span className="spin" style={{ display: 'inline-block' }}>⟳</span> 准备中…</>
+            : hasPlayed ? '🔊 再听一遍' : '▶ 开始讲解'}
         </button>
       )}
       {speakState === 'playing' && (<>
@@ -94,6 +127,9 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
   const [analyzeError, setAnalyzeError] = useState(null)
   const [speakState, setSpeakState] = useState('idle')
   const [hasPlayed, setHasPlayed] = useState(false)
+  const [preloadedUrl, setPreloadedUrl] = useState(null)
+  const [preloading, setPreloading] = useState(false)
+  const [tipDemoUrls, setTipDemoUrls] = useState({})
   const [history, setHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
 
@@ -102,6 +138,50 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
       getRecordings(userId, lessonId).then(setHistory).catch(() => {})
     }
   }, [userId, lessonId])
+
+  // Pre-fetch TTS audio as soon as analysis result arrives, so clicking play is instant
+  useEffect(() => {
+    if (!result?.voice_script) return
+    setPreloading(true)
+    setPreloadedUrl(null)
+    prefetchAudio(result.voice_script).then(url => {
+      setPreloadedUrl(url)
+      setPreloading(false)
+    })
+    return () => { setPreloading(false) }
+  }, [result])
+
+  // Revoke blob URL on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => { if (preloadedUrl) URL.revokeObjectURL(preloadedUrl) }
+  }, [preloadedUrl])
+
+  // Pre-fetch each tip_demo audio so "🔊 听示范" clicks are instant too
+  useEffect(() => {
+    const issues = result?.pronunciation_issues?.filter(i => i.tip_demo) ?? []
+    if (!issues.length) return
+    Promise.all(issues.map(async ({ word, tip_demo }) => {
+      const url = await prefetchAudio(tip_demo)
+      return [word, url]
+    })).then(pairs => {
+      setTipDemoUrls(Object.fromEntries(pairs.filter(([, u]) => u)))
+    })
+  }, [result])
+
+  // Space bar → start / stop recording (ignore when focused on inputs)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.code !== 'Space') return
+      const tag = e.target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || e.target.isContentEditable) return
+      if (result || analyzing) return
+      e.preventDefault()
+      if (status === 'idle' || status === 'done') startRecording()
+      else if (status === 'recording') stopRecording()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [status, result, analyzing, startRecording, stopRecording])
 
   const handleAnalyze = async () => {
     setAnalyzing(true)
@@ -127,13 +207,21 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
     stopSpeaking()
     setSpeakState('idle')
     setHasPlayed(false)
+    if (preloadedUrl) { URL.revokeObjectURL(preloadedUrl); setPreloadedUrl(null) }
+    setPreloading(false)
+    Object.values(tipDemoUrls).forEach(u => URL.revokeObjectURL(u))
+    setTipDemoUrls({})
   }
 
   const handleReplay = () => {
     if (!result?.voice_script) return
     setHasPlayed(true)
     setSpeakState('playing')
-    speakMultilingual(result.voice_script, () => setSpeakState('idle'))
+    if (preloadedUrl) {
+      playBlobUrl(preloadedUrl, 1.0, () => setSpeakState('idle'))
+    } else {
+      speakMultilingual(result.voice_script, () => setSpeakState('idle'))
+    }
   }
 
   const handlePause = () => { pauseSpeaking(); setSpeakState('paused') }
@@ -186,6 +274,9 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
             {status === 'processing' && '处理中…'}
             {status === 'done'       && '录音完成'}
           </p>
+          {(status === 'idle' || status === 'recording') && (
+            <p style={{ fontSize: 11, color: '#b0aea5' }}>或按空格键</p>
+          )}
           {error && <p style={{ fontSize: 13, color: '#dc3030' }}>{error}</p>}
 
           {status === 'done' && (
@@ -215,6 +306,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
           <TeacherAvatar
             speakState={speakState}
             hasPlayed={hasPlayed}
+            preloading={preloading}
             onPause={handlePause}
             onResume={handleResume}
             onReplay={handleReplay}
@@ -245,7 +337,9 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
                         <button
                           onClick={() => {
                             stopSpeaking()
-                            speakMultilingual(issue.tip_demo)
+                            const url = tipDemoUrls[issue.word]
+                            if (url) playBlobUrl(url, 1.0)
+                            else speakMultilingual(issue.tip_demo)
                           }}
                           style={{
                             padding: '2px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600,
@@ -287,23 +381,26 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
             📋 {showHistory ? '收起' : `查看历史记录 (${history.length} 次)`}
           </button>
           {showHistory && (
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {history.map((rec, i) => (
-                <div key={rec.id} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  background: '#faf9f5', border: '1px solid #ece9e0', borderRadius: 8, padding: '8px 12px',
-                }}>
-                  <span style={{ fontSize: 12, color: '#7a7870' }}>
-                    第 {history.length - i} 次 · {new Date(rec.created_at).toLocaleDateString('zh-CN')}
-                  </span>
-                  <span style={{
-                    fontSize: 13, fontWeight: 700,
-                    color: rec.ai_score >= 80 ? '#788c5d' : rec.ai_score >= 60 ? '#d97757' : '#dc3030',
+            <div style={{ marginTop: 8, background: '#faf9f5', border: '1px solid #ece9e0', borderRadius: 12, padding: '12px 14px' }}>
+              <MiniScoreChart history={history} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
+                {history.map((rec, i) => (
+                  <div key={rec.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    borderTop: i === 0 ? '1px solid #ece9e0' : 'none', paddingTop: i === 0 ? 8 : 0,
                   }}>
-                    {rec.ai_score} 分
-                  </span>
-                </div>
-              ))}
+                    <span style={{ fontSize: 12, color: '#7a7870' }}>
+                      第 {history.length - i} 次 · {new Date(rec.created_at).toLocaleDateString('zh-CN')}
+                    </span>
+                    <span style={{
+                      fontSize: 13, fontWeight: 700,
+                      color: rec.ai_score >= 80 ? '#788c5d' : rec.ai_score >= 60 ? '#d97757' : '#dc3030',
+                    }}>
+                      {rec.ai_score} 分
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
