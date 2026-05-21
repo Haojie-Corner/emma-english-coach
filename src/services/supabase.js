@@ -181,6 +181,56 @@ export const getWeeklyLessonCounts = async (userId) => {
   return counts
 }
 
+export const getRecordings = async (userId, lessonId) => {
+  const { data } = await supabase
+    .from('recordings')
+    .select('id, ai_score, ai_feedback, created_at')
+    .eq('user_id', userId)
+    .eq('lesson_id', lessonId)
+    .order('created_at', { ascending: false })
+    .limit(5)
+  return data || []
+}
+
+export const saveConversation = async (userId, sceneId, messages) => {
+  if (!messages || messages.length < 2) return
+  const summary = messages
+    .filter(m => m.role === 'user')
+    .map(m => m.content.slice(0, 40))
+    .slice(0, 3)
+    .join(' / ')
+  const { error } = await supabase.from('conversations').insert({
+    user_id: userId,
+    scene_id: sceneId,
+    messages: messages,
+    summary,
+    message_count: messages.length,
+    created_at: new Date().toISOString(),
+  })
+  if (error) throw error
+}
+
+export const getConversations = async (userId, sceneId, limit = 3) => {
+  const { data } = await supabase
+    .from('conversations')
+    .select('id, summary, message_count, created_at')
+    .eq('user_id', userId)
+    .eq('scene_id', sceneId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return data || []
+}
+
+export const getRecentConversations = async (userId, limit = 5) => {
+  const { data } = await supabase
+    .from('conversations')
+    .select('id, scene_id, summary, message_count, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return data || []
+}
+
 export const getStreak = async (userId) => {
   const { data } = await supabase
     .from('check_ins')

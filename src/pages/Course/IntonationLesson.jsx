@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getIntonationLesson } from '../../data/intonation'
+import { getIntonationLesson, intonationLessons } from '../../data/intonation'
 import AudioRecorder from '../../components/AudioRecorder'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -47,6 +47,9 @@ const IntonationLesson = () => {
   const [completedTargets, setCompletedTargets] = useState(new Set())
 
   const lesson = getIntonationLesson(lessonId)
+  const currentIndex = intonationLessons.findIndex(l => l.id === lessonId)
+  const prevLesson = currentIndex > 0 ? intonationLessons[currentIndex - 1] : null
+  const nextLesson = currentIndex < intonationLessons.length - 1 ? intonationLessons[currentIndex + 1] : null
 
   if (!lesson) return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
@@ -72,14 +75,27 @@ const IntonationLesson = () => {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 24px' }}>
-      <button onClick={() => navigate('/course/intonation')} style={{
-        display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
-        color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer',
-        marginBottom: 16, padding: 0,
-      }}
-        onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
-        onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
-      >← 语音语调</button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <button onClick={() => navigate('/course/intonation')} style={{
+          display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
+          color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+        }}
+          onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
+          onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
+        >← 语音语调</button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button disabled={!prevLesson} onClick={() => prevLesson && navigate(`/course/intonation/${prevLesson.id}`)} style={{
+            padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: '1.5px solid #dedad0', cursor: prevLesson ? 'pointer' : 'not-allowed',
+            background: prevLesson ? '#fff' : '#f5f3ee', color: prevLesson ? '#1a1917' : '#b0aea5',
+          }}>‹ 上一课</button>
+          <button disabled={!nextLesson} onClick={() => nextLesson && navigate(`/course/intonation/${nextLesson.id}`)} style={{
+            padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: '1.5px solid #dedad0', cursor: nextLesson ? 'pointer' : 'not-allowed',
+            background: nextLesson ? '#fff' : '#f5f3ee', color: nextLesson ? '#1a1917' : '#b0aea5',
+          }}>下一课 ›</button>
+        </div>
+      </div>
 
       <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 12 }}>{lesson.title}</h1>
       <LessonValueBanner lesson={lesson} color="#6a9bcc" bg="#f0f5fb" borderColor="#b8d0e8" />
@@ -139,6 +155,7 @@ const IntonationLesson = () => {
             key={practiceIndex}
             targetText={currentTarget.text}
             targetZh={currentTarget.zh}
+            userId={user?.id}
             lessonId={lesson.id}
           />
 

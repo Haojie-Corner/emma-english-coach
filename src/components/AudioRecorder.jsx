@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import useAudioRecorder from '../hooks/useAudioRecorder'
 import { analyzePronunciation } from '../services/gemini'
+import { saveRecording, getRecordings } from '../services/supabase'
 import { speak, speakMultilingual, stopSpeaking, pauseSpeaking, resumeSpeaking } from '../utils/tts'
 import Button from './ui/Button'
 import Card from './ui/Card'
@@ -86,13 +87,21 @@ const TeacherAvatar = ({ speakState, hasPlayed, onPause, onResume, onReplay, onR
   </div>
 )
 
-const AudioRecorder = ({ targetText, targetZh }) => {
-  const { status, audioUrl, error, startRecording, stopRecording, reset, getBase64 } = useAudioRecorder()
+const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
+  const { status, audioBlob, audioUrl, error, startRecording, stopRecording, reset, getBase64 } = useAudioRecorder()
   const [analyzing, setAnalyzing] = useState(false)
   const [result, setResult] = useState(null)
   const [analyzeError, setAnalyzeError] = useState(null)
-  const [speakState, setSpeakState] = useState('idle') // 'idle' | 'playing' | 'paused'
+  const [speakState, setSpeakState] = useState('idle')
   const [hasPlayed, setHasPlayed] = useState(false)
+  const [history, setHistory] = useState([])
+  const [showHistory, setShowHistory] = useState(false)
+
+  useEffect(() => {
+    if (userId && lessonId) {
+      getRecordings(userId, lessonId).then(setHistory).catch(() => {})
+    }
+  }, [userId, lessonId])
 
   const handleAnalyze = async () => {
     setAnalyzing(true)
@@ -101,6 +110,9 @@ const AudioRecorder = ({ targetText, targetZh }) => {
       const base64 = await getBase64()
       const feedback = await analyzePronunciation(base64, targetText)
       setResult(feedback)
+      if (userId && lessonId && audioBlob) {
+        saveRecording(userId, lessonId, audioBlob, feedback.overall_score, feedback).catch(() => {})
+      }
     } catch (e) {
       setAnalyzeError('AI 分析失败：' + e.message)
     } finally {
@@ -261,6 +273,39 @@ const AudioRecorder = ({ targetText, targetZh }) => {
           <Button onClick={handleReset} style={{ width: '100%', justifyContent: 'center' }}>
             再练一次
           </Button>
+        </div>
+      )}
+
+      {/* 历史记录 */}
+      {history.length > 0 && !result && (
+        <div>
+          <button onClick={() => setShowHistory(v => !v)} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 12, color: '#7a7870', background: 'none', border: 'none',
+            cursor: 'pointer', padding: '4px 0',
+          }}>
+            📋 {showHistory ? '收起' : `查看历史记录 (${history.length} 次)`}
+          </button>
+          {showHistory && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {history.map((rec, i) => (
+                <div key={rec.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: '#faf9f5', border: '1px solid #ece9e0', borderRadius: 8, padding: '8px 12px',
+                }}>
+                  <span style={{ fontSize: 12, color: '#7a7870' }}>
+                    第 {history.length - i} 次 · {new Date(rec.created_at).toLocaleDateString('zh-CN')}
+                  </span>
+                  <span style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: rec.ai_score >= 80 ? '#788c5d' : rec.ai_score >= 60 ? '#d97757' : '#dc3030',
+                  }}>
+                    {rec.ai_score} 分
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

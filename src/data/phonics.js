@@ -804,6 +804,12 @@ export const modules = [
     desc: '8大主题·AI角色扮演·真实对话实战',
   },
   {
+    id: 'fluency', name: '自如交流', nameEn: 'Fluency', icon: '🗣️', totalLessons: 15, color: '#7a6bba',
+    requires: { moduleId: 'scenes', pct: 50, label: '完成场景实战 50%（42课）' },
+    levelTag: 'Level 5',
+    desc: '小聊·表达观点·讲故事·开放AI对话，真正自如交流',
+  },
+  {
     id: 'tech', name: '编程英语', nameEn: 'Tech English', icon: '💻', totalLessons: 20, color: '#5a8c7c',
     requires: null,
     levelTag: '工具',

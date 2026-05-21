@@ -6,21 +6,22 @@ import { modules, phonicsLessons } from '../data/phonics'
 import { intonationLessons } from '../data/intonation'
 import { mindsetLessons } from '../data/mindset'
 import { demoLessons } from '../data/demo'
+import { fluencyLessons } from '../data/fluency'
 
 /* ── 进度环 ── */
-const ProgressRing = ({ pct, size = 52, color = '#d97757' }) => {
+const ProgressRing = ({ pct, size = 48, color = '#d97757' }) => {
   const r = (size - 7) / 2
   const circ = 2 * Math.PI * r
   const offset = circ - (pct / 100) * circ
   return (
     <svg width={size} height={size} style={{ flexShrink: 0 }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#dedad0" strokeWidth="5.5" />
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5.5"
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#ece9e0" strokeWidth="5" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5"
         strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-        transform={`rotate(-90 ${size/2} ${size/2})`}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
         style={{ transition: 'stroke-dashoffset 0.8s ease-out' }} />
-      <text x={size/2} y={size/2 + 4.5} textAnchor="middle"
-        fontSize="11" fontWeight="700" fill={color}
+      <text x={size / 2} y={size / 2 + 4} textAnchor="middle"
+        fontSize="10" fontWeight="700" fill={color}
         fontFamily="-apple-system,Arial,sans-serif">
         {pct}%
       </text>
@@ -28,31 +29,13 @@ const ProgressRing = ({ pct, size = 52, color = '#d97757' }) => {
   )
 }
 
-/* ── 通用卡片 ── */
-const Card = ({ children, onClick, style = {} }) => (
-  <div onClick={onClick} style={{
-    background: '#ffffff',
-    border: '1px solid #dedad0',
-    borderRadius: 14,
-    padding: '16px 20px',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-    cursor: onClick ? 'pointer' : 'default',
-    transition: onClick ? 'box-shadow 0.15s, transform 0.15s' : 'none',
-    ...style,
-  }}
-    onMouseEnter={e => { if (onClick) { e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.1)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
-    onMouseLeave={e => { if (onClick) { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'; e.currentTarget.style.transform = 'translateY(0)' } }}
-  >
-    {children}
-  </div>
-)
-
 /* 学习主线顺序 */
 const LEARNING_PATH = [
-  { moduleId: 'phonics',    lessons: phonicsLessons,    getPath: id => `/course/phonics/${id}`,    label: '自然拼读 · Phonics',    icon: '🔤' },
-  { moduleId: 'intonation', lessons: intonationLessons, getPath: id => `/course/intonation/${id}`, label: '语音语调 · Intonation',  icon: '🎵' },
-  { moduleId: 'mindset',    lessons: mindsetLessons,    getPath: id => `/course/mindset/${id}`,    label: '认知重塑 · Mindset',    icon: '🧠' },
-  { moduleId: 'demo',       lessons: demoLessons,       getPath: id => `/course/demo/${id}`,       label: '场景演绎 · Demo',       icon: '🎬' },
+  { moduleId: 'phonics',    lessons: phonicsLessons,    getPath: id => `/course/phonics/${id}`,    label: '自然拼读 · Phonics',   icon: '🔤' },
+  { moduleId: 'intonation', lessons: intonationLessons, getPath: id => `/course/intonation/${id}`, label: '语音语调 · Intonation', icon: '🎵' },
+  { moduleId: 'mindset',    lessons: mindsetLessons,    getPath: id => `/course/mindset/${id}`,    label: '认知重塑 · Mindset',   icon: '🧠' },
+  { moduleId: 'demo',       lessons: demoLessons,       getPath: id => `/course/demo/${id}`,       label: '场景演绎 · Demo',      icon: '🎬' },
+  { moduleId: 'fluency',    lessons: fluencyLessons,    getPath: id => `/course/fluency/${id}`,    label: '自如交流 · Fluency',   icon: '🗣️' },
 ]
 
 const Dashboard = () => {
@@ -64,7 +47,6 @@ const Dashboard = () => {
 
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
 
-  /* 跨模块找下一课（只在已解锁的模块中找） */
   const nextLessonInfo = useMemo(() => {
     for (const track of LEARNING_PATH) {
       if (!isModuleUnlocked(track.moduleId)) continue
@@ -74,12 +56,10 @@ const Dashboard = () => {
       })
       if (lesson) return { lesson, ...track }
     }
-    // 全部完成或全部锁定，回到拼读第一课
     const first = LEARNING_PATH[0]
     return { lesson: first.lessons[0], ...first }
   }, [progress, isModuleUnlocked])
 
-  /* 找得分最低的已解锁模块（用于"重点加强"推荐） */
   const weakModule = useMemo(() => {
     const scored = LEARNING_PATH
       .filter(t => isModuleUnlocked(t.moduleId))
@@ -94,157 +74,174 @@ const Dashboard = () => {
     return scored.reduce((a, b) => a.avg < b.avg ? a : b)
   }, [progress, isModuleUnlocked])
 
-  /* 今日推荐（动态，基于进度、弱项、词汇到期） */
   const recommendations = useMemo(() => {
     const list = []
-
-    // 1. 主线课程（优先级最高）
     list.push({
-      icon: nextLessonInfo.icon,
-      title: nextLessonInfo.lesson.title,
-      sub: nextLessonInfo.label,
-      to: nextLessonInfo.getPath(nextLessonInfo.lesson.id),
-      tag: '主线',
-      tagColor: '#d97757',
+      icon: nextLessonInfo.icon, title: nextLessonInfo.lesson.title,
+      sub: nextLessonInfo.label, to: nextLessonInfo.getPath(nextLessonInfo.lesson.id),
+      tag: '主线', tagColor: '#d97757',
     })
-
-    // 2. 词汇复习（如有到期单词）
     if (dueVocabCount > 0) {
-      list.push({
-        icon: '📚',
-        title: `复习 ${dueVocabCount} 个单词`,
-        sub: '到期词汇 · 遗忘曲线复习',
-        to: '/vocabulary',
-        tag: '复习',
-        tagColor: '#788c5d',
-      })
+      list.push({ icon: '📚', title: `复习 ${dueVocabCount} 个单词`, sub: '到期词汇 · 遗忘曲线复习', to: '/vocabulary', tag: '复习', tagColor: '#788c5d' })
     }
-
-    // 3. 弱项模块加强（得分低于 75）
     if (weakModule && weakModule.avg < 75 && list.length < 3) {
-      list.push({
-        icon: weakModule.icon,
-        title: `加强 ${weakModule.label.split('·')[0].trim()}`,
-        sub: `当前平均 ${weakModule.avg} 分 · 建议多练`,
-        to: `/course/${weakModule.moduleId}`,
-        tag: '加强',
-        tagColor: '#c4a35a',
-      })
+      list.push({ icon: weakModule.icon, title: `加强 ${weakModule.label.split('·')[0].trim()}`, sub: `当前平均 ${weakModule.avg} 分 · 建议多练`, to: `/course/${weakModule.moduleId}`, tag: '加强', tagColor: '#c4a35a' })
     }
-
-    // 4. 场景实战 / 语法练习（补位）
     if (list.length < 3) {
       if (isModuleUnlocked('scenes')) {
-        list.push({ icon: '💬', title: '场景实战对话', sub: '8大主题 · AI角色扮演', to: '/course/scenes', tag: '练习', tagColor: '#7a6bba' })
+        list.push({ icon: '💬', title: '场景实战对话', sub: '100场景 · AI角色扮演', to: '/course/scenes', tag: '练习', tagColor: '#7a6bba' })
       } else {
         list.push({ icon: '📝', title: '语法纠错练习', sub: '输入英文，AI 实时批改', to: '/practice/speaking', tag: '练习', tagColor: '#7a6bba' })
       }
     }
-
     return list.slice(0, 3)
   }, [progress, nextLessonInfo, isModuleUnlocked, dueVocabCount, weakModule])
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px' }}>
+    <div style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px' }}>
 
-      {/* ── 欢迎语 ── */}
-      <div style={{ marginBottom: 28 }}>
-        <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 4 }}>Good day · 你好，</p>
-        <h1 className="font-title" style={{ fontSize: 26, color: '#1a1917', lineHeight: 1.2 }}>
-          {displayName} 👋
-        </h1>
+      {/* ── 头部：问候 + 打卡/连胜 ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <p style={{ fontSize: 12, color: '#a09b95', marginBottom: 4, letterSpacing: '0.02em' }}>
+            Good day · 你好，
+          </p>
+          <h1 className="font-title" style={{ fontSize: 26, color: '#1a1917', lineHeight: 1.2 }}>
+            {displayName} 👋
+          </h1>
+        </div>
+
+        {checkedInToday ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            background: '#fdf0ea', border: '1px solid #f5c4a8',
+            borderRadius: 20, padding: '7px 13px', flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 17 }}>🔥</span>
+            <span style={{ fontWeight: 800, fontSize: 17, color: '#d97757', lineHeight: 1 }}>{streak}</span>
+            <span style={{ fontSize: 11, color: '#d97757', fontWeight: 500 }}>天</span>
+          </div>
+        ) : (
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => doCheckIn(user.id)}
+          >
+            🔥 打卡
+          </button>
+        )}
       </div>
 
-      {/* ── 打卡卡片 ── */}
-      <Card style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: checkedInToday ? '#f0f7ea' : '#fff', borderColor: checkedInToday ? '#b8d4a0' : '#dedad0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ fontSize: 32 }}>🔥</span>
-          <div>
-            <p className="font-title" style={{ fontSize: 16, color: '#1a1917' }}>
-              连续打卡 <span style={{ color: '#d97757' }}>{streak}</span> 天
-            </p>
-            <p style={{ fontSize: 12, color: '#7a7870', marginTop: 2 }}>
-              {checkedInToday ? '✅ 今天已完成打卡' : '今天还没打卡，快来！'}
-            </p>
-          </div>
-        </div>
-        {!checkedInToday && (
-          <button onClick={() => doCheckIn(user.id)} style={{
-            background: '#d97757', color: '#fff', border: 'none',
-            borderRadius: 9, padding: '8px 18px', fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', transition: 'background 0.15s',
-          }}
-            onMouseEnter={e => e.currentTarget.style.background = '#b85f3e'}
-            onMouseLeave={e => e.currentTarget.style.background = '#d97757'}
-          >打卡</button>
-        )}
-      </Card>
-
       {/* ── 继续学习 ── */}
-      <div onClick={() => navigate(nextLessonInfo.getPath(nextLessonInfo.lesson.id))} style={{
-        background: 'linear-gradient(135deg, #d97757 0%, #c05e3a 100%)',
-        borderRadius: 14, padding: '20px 24px', marginBottom: 28,
-        cursor: 'pointer', boxShadow: '0 4px 16px rgba(217,119,87,0.35)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        transition: 'transform 0.15s, box-shadow 0.15s',
-      }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(217,119,87,0.45)' }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(217,119,87,0.35)' }}
+      <div
+        onClick={() => navigate(nextLessonInfo.getPath(nextLessonInfo.lesson.id))}
+        style={{
+          background: 'linear-gradient(135deg, #e07c58 0%, #be5530 100%)',
+          borderRadius: 18, padding: '22px 24px', marginBottom: 28,
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          transition: 'opacity 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.opacity = '0.92'}
+        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
       >
-        <div>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', marginBottom: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>继续学习</p>
-          <p className="font-title" style={{ fontSize: 17, color: '#fff', lineHeight: 1.3 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{
+            fontSize: 10.5, color: 'rgba(255,255,255,0.65)', marginBottom: 6,
+            letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 700,
+          }}>
+            继续学习
+          </p>
+          <p className="font-title" style={{ fontSize: 18, color: '#fff', lineHeight: 1.35, marginBottom: 6 }}>
             {nextLessonInfo.lesson.title}
           </p>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 4 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.72)' }}>
             {nextLessonInfo.icon} {nextLessonInfo.label}
           </p>
         </div>
-        <span style={{ fontSize: 28, color: 'rgba(255,255,255,0.9)' }}>▶</span>
+        <div style={{
+          width: 42, height: 42, borderRadius: '50%', flexShrink: 0, marginLeft: 16,
+          background: 'rgba(255,255,255,0.18)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18L15 12L9 6" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
       </div>
 
-      {/* ── 模块进度 ── */}
-      <h2 className="font-title" style={{ fontSize: 15, color: '#1a1917', marginBottom: 12 }}>
-        学习进度
-      </h2>
+      {/* ── 学习进度 ── */}
+      <p className="section-title">学习进度</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 28 }}>
         {modules.map(mod => {
           const pct = getModuleCompletion(mod.id, mod.totalLessons)
           return (
-            <Card key={mod.id} onClick={() => navigate(`/course/${mod.id}`)}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+            <div
+              key={mod.id}
+              onClick={() => navigate(`/course/${mod.id}`)}
+              style={{
+                background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14,
+                padding: '14px 16px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 12,
+                transition: 'border-color 0.15s, box-shadow 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = mod.color; e.currentTarget.style.boxShadow = `0 2px 12px ${mod.color}25` }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8e4dc'; e.currentTarget.style.boxShadow = 'none' }}
+            >
               <ProgressRing pct={pct} color={mod.color} />
               <div style={{ minWidth: 0 }}>
-                <p className="font-title" style={{ fontSize: 13, color: '#1a1917', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <p className="font-title" style={{ fontSize: 12.5, color: '#1a1917', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {mod.icon} {mod.name}
                 </p>
-                <p style={{ fontSize: 11, color: '#7a7870', marginTop: 2 }}>{mod.totalLessons} 节课</p>
+                <p style={{ fontSize: 11, color: '#a09b95', marginTop: 2 }}>{mod.totalLessons} 节课</p>
               </div>
-            </Card>
+            </div>
           )
         })}
       </div>
 
       {/* ── 今日推荐 ── */}
-      <h2 className="font-title" style={{ fontSize: 15, color: '#1a1917', marginBottom: 12 }}>
-        今日推荐
-      </h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <p className="section-title">今日推荐</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {recommendations.map((item, i) => (
-          <Card key={i} onClick={() => navigate(item.to)}
-            style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px' }}>
-            <span style={{ fontSize: 24 }}>{item.icon}</span>
-            <div style={{ flex: 1 }}>
-              <p className="font-title" style={{ fontSize: 14, color: '#1a1917' }}>{item.title}</p>
-              <p style={{ fontSize: 12, color: '#7a7870', marginTop: 2 }}>{item.sub}</p>
+          <div
+            key={i}
+            onClick={() => navigate(item.to)}
+            style={{
+              background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14,
+              padding: '14px 16px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 14,
+              transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = item.tagColor || '#d97757'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = '#e8e4dc'}
+          >
+            <div style={{
+              width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+              background: `${item.tagColor || '#d97757'}14`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 20,
+            }}>
+              {item.icon}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, background: `${item.tagColor || '#d97757'}18`, color: item.tagColor || '#d97757', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{item.tag}</span>
-              <span style={{ color: '#7a7870', fontSize: 16 }}>›</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 14, fontWeight: 600, color: '#1a1917' }}>{item.title}</p>
+              <p style={{ fontSize: 12, color: '#a09b95', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.sub}</p>
             </div>
-          </Card>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700,
+                background: `${item.tagColor || '#d97757'}16`,
+                color: item.tagColor || '#d97757',
+                padding: '3px 9px', borderRadius: 20,
+              }}>{item.tag}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M9 18L15 12L9 6" stroke="#c0bdb8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          </div>
         ))}
       </div>
+
     </div>
   )
 }

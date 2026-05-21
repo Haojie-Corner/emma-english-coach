@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getScene } from '../../data/scenes'
 import { chatWithScene } from '../../services/deepseek'
+import { saveConversation, getConversations } from '../../services/supabase'
+import useUserStore from '../../store/userStore'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { speakMultilingual, stopSpeaking } from '../../utils/tts'
@@ -9,13 +11,29 @@ import { speakMultilingual, stopSpeaking } from '../../utils/tts'
 const SceneLesson = () => {
   const { sceneId } = useParams()
   const navigate = useNavigate()
+  const { user } = useUserStore()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [started, setStarted] = useState(false)
   const [speakingMsgId, setSpeakingMsgId] = useState(null)
+  const [pastSessions, setPastSessions] = useState([])
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const messagesRef = useRef(messages)
+
+  useEffect(() => { messagesRef.current = messages }, [messages])
+
+  useEffect(() => {
+    if (user && sceneId) {
+      getConversations(user.id, sceneId).then(setPastSessions).catch(() => {})
+    }
+    return () => {
+      if (user && messagesRef.current.length >= 2) {
+        saveConversation(user.id, sceneId, messagesRef.current).catch(() => {})
+      }
+    }
+  }, [user, sceneId])
 
   const scene = getScene(sceneId)
 
@@ -116,6 +134,18 @@ const SceneLesson = () => {
 
       {/* 对话区 */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 16 }}>
+        {!started && pastSessions.length > 0 && (
+          <div style={{ background: '#f5f0ff', border: '1px solid #d0c0e8', borderRadius: 12, padding: '12px 16px' }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#9b7ec8', marginBottom: 8 }}>📖 历史对话记录</p>
+            {pastSessions.map((s, i) => (
+              <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: i < pastSessions.length - 1 ? '1px solid #e8dff8' : 'none' }}>
+                <span style={{ fontSize: 12, color: '#7a7870', flex: 1, marginRight: 8 }}>{s.summary || '对话记录'}</span>
+                <span style={{ fontSize: 11, color: '#9b7ec8', flexShrink: 0 }}>{s.message_count} 条 · {new Date(s.created_at).toLocaleDateString('zh-CN')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {!started && (
           <Card style={{ textAlign: 'center', padding: '28px 24px' }}>
             <p style={{ fontSize: 36, marginBottom: 10 }}>🎭</p>

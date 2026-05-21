@@ -14,6 +14,8 @@ import MindsetModule from './pages/Course/MindsetModule'
 import MindsetLesson from './pages/Course/MindsetLesson'
 import DemoModule from './pages/Course/DemoModule'
 import DemoLesson from './pages/Course/DemoLesson'
+import FluencyModule from './pages/Course/FluencyModule'
+import FluencyLesson from './pages/Course/FluencyLesson'
 import Speaking from './pages/Practice/Speaking'
 import Vocabulary from './pages/Vocabulary'
 import Profile from './pages/Profile'
@@ -40,6 +42,8 @@ export const router = createBrowserRouter([
           { path: 'course/mindset/:lessonId', element: <MindsetLesson /> },
           { path: 'course/demo', element: <DemoModule /> },
           { path: 'course/demo/:lessonId', element: <DemoLesson /> },
+          { path: 'course/fluency', element: <FluencyModule /> },
+          { path: 'course/fluency/:lessonId', element: <FluencyLesson /> },
           { path: 'course/tech', element: <Navigate to="/practice/speaking" replace /> },
           { path: 'practice/speaking', element: <Speaking /> },
           { path: 'vocabulary', element: <Vocabulary /> },

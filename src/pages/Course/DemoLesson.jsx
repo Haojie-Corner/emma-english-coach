@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getDemoLesson } from '../../data/demo'
+import { getDemoLesson, demoLessons } from '../../data/demo'
 import { scoreSpeechSimilarity } from '../../services/gemini'
 import useAudioRecorder from '../../hooks/useAudioRecorder'
 import Card from '../../components/ui/Card'
@@ -28,6 +28,9 @@ const DemoLesson = () => {
   const { user } = useUserStore()
   const { updateProgress } = useProgressStore()
   const lesson = getDemoLesson(lessonId)
+  const currentIndex = demoLessons.findIndex(l => l.id === lessonId)
+  const prevLesson = currentIndex > 0 ? demoLessons[currentIndex - 1] : null
+  const nextLesson = currentIndex < demoLessons.length - 1 ? demoLessons[currentIndex + 1] : null
 
   const [tab, setTab] = useState('demo')
   const [playingLine, setPlayingLine] = useState(null)
@@ -95,14 +98,27 @@ const DemoLesson = () => {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px' }}>
-      <button onClick={() => { stopSpeaking(); navigate('/course/demo') }} style={{
-        display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
-        color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer',
-        marginBottom: 16, padding: 0,
-      }}
-        onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
-        onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
-      >← 场景演绎</button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <button onClick={() => { stopSpeaking(); navigate('/course/demo') }} style={{
+          display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
+          color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+        }}
+          onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
+          onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
+        >← 场景演绎</button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button disabled={!prevLesson} onClick={() => { stopSpeaking(); prevLesson && navigate(`/course/demo/${prevLesson.id}`) }} style={{
+            padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: '1.5px solid #dedad0', cursor: prevLesson ? 'pointer' : 'not-allowed',
+            background: prevLesson ? '#fff' : '#f5f3ee', color: prevLesson ? '#1a1917' : '#b0aea5',
+          }}>‹ 上一课</button>
+          <button disabled={!nextLesson} onClick={() => { stopSpeaking(); nextLesson && navigate(`/course/demo/${nextLesson.id}`) }} style={{
+            padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: '1.5px solid #dedad0', cursor: nextLesson ? 'pointer' : 'not-allowed',
+            background: nextLesson ? '#fff' : '#f5f3ee', color: nextLesson ? '#1a1917' : '#b0aea5',
+          }}>下一课 ›</button>
+        </div>
+      </div>
 
       <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 12 }}>{lesson.title}</h1>
       <LessonValueBanner lesson={lesson} color="#c4a35a" bg="#fdf8ed" borderColor="#e8d4a0" />

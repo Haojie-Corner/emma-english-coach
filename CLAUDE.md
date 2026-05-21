@@ -123,7 +123,8 @@ Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度
 | `intonation.js` | `intonationLessons`, `getIntonationLesson(id)` | 11 |
 | `mindset.js` | `mindsetLessons`, `getMindsetLesson(id)`, `getMindsetUnits()` | 30 |
 | `demo.js` | `demoLessons`, `getDemoLesson(id)` | 21 |
-| `scenes.js` | `sceneCategories`, `getScene(id)` | 84 |
+| `scenes.js` | `sceneCategories`, `getScene(id)` | 100（10分类，含面试求职10+约会交友6） |
+| `fluency.js` | `fluencyLessons`, `getFluencyLesson(id)` | 15 |
 
 **`phonics.js` 还导出 `modules` 数组**，是全局模块注册表（含解锁规则），被 `progressStore`、`CourseOverview`、`ModuleLockGate` 共同引用。每个 module 对象含：
 ```js
@@ -134,7 +135,7 @@ Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度
 }
 ```
 
-**解锁路径**（硬闸）：phonics(无) → intonation(phonics≥50%) → mindset(intonation≥55%) → demo(mindset≥30%) → scenes(demo≥50%)。`tech` 模块无前置。
+**解锁路径**（硬闸）：phonics(无) → intonation(phonics≥50%) → mindset(intonation≥55%) → demo(mindset≥30%) → scenes(demo≥50%) → fluency(scenes≥50%)。`tech` 模块无前置。
 
 **LessonValueBanner**（`src/components/ui/LessonValueBanner.jsx`）在每个 *Lesson 页顶部显示"为什么学这课"，自动读取 `lesson.objectives || lesson.focusPoints || lesson.tips`，可折叠，颜色由父页面传入。
 
@@ -189,16 +190,21 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 - ✅ 语音语调 **全11课**（IntonationModule + IntonationLesson，结构同 Phonics）
 - ✅ 认知重塑 **30课**（MindsetModule 6单元 + MindsetLesson DeepSeek 出题评估）
 - ✅ 场景演绎 **21课**（DemoModule 4分组 + DemoLesson TTS示范+跟读+Gemini评分）
-- ✅ 场景实战 **84场景**（ScenesModule 8分类 accordion + SceneLesson DeepSeek 角色扮演）
+- ✅ 场景实战 **100场景**（ScenesModule 10分类 accordion + SceneLesson DeepSeek 角色扮演；新增「面试求职」10场景 + 「约会交友」6场景）
+- ✅ **自如交流 · Fluency Level 5**（FluencyModule + FluencyLesson，15课，AI 开放对话，chatWithFluency；解锁条件：scenes≥50%）
 - ✅ 练习页（自由录音 / 语法纠错 / 编程英语 / 随拍学英语，4-tab）
 - ✅ Emma 老师语音反馈（中英混合口播，暂停/继续/重新讲解/按词听示范）
 - ✅ 词汇本（Vocabulary 全功能：添加/复习/遗忘曲线/按熟练度筛选；闪卡复习模式；AI 自动填词）
-- ✅ 课程解锁体系（ModuleLockGate 守卫，5级前置门槛）
+- ✅ 课程解锁体系（ModuleLockGate 守卫，6级前置门槛，含 Level 5）
 - ✅ 课程价值说明（LessonValueBanner 显示"为什么学这课"，含目标标签，可折叠）
 - ✅ Profile 学习统计（完成课数/练习记录/平均分/连续打卡 + 模块进度条）
 - ✅ **PWA**（vite-plugin-pwa，generateSW 策略，precache 全静态资源，standalone 模式，iOS/Android 添加到主屏幕）
 - ✅ **学习数据可视化**（Profile：30天打卡热图 + 7天完成课程柱状图，纯 div/SVG）
 - ✅ **AI 个性化推荐**（Dashboard：词汇到期提醒 + 弱项模块推荐 + 主线课程，优先级排序最多3条）
+- ✅ **录音历史持久化**（AudioRecorder 接受 userId/lessonId，分析后静默保存到 recordings 表；课时页显示历史最高分）
+- ✅ **对话历史持久化**（SceneLesson + FluencyLesson：离开时 saveConversation，进入时展示历史记录摘要）
+- ✅ **全模块前后课导航**（Phonics/Intonation/Mindset/Demo/Fluency 课时页顶部均有 ‹ 上一课 / 下一课 › 按钮）
+- ✅ **Mindset AI 出题升级**（generateMindsetQuiz prompt 增加中英思维对比原则 + 真实场景要求 + 文化差异解释）
 
 ---
 
@@ -255,3 +261,4 @@ Level 1 ── 语音地基：自然拼读（22课）+ 语音语调（11课）
 - **Phase 2**：~~自然拼读全22课~~ ✅ / ~~语音语调模块~~ ✅ / ~~场景对话~~ ✅ / ~~随拍学英语~~ ✅ / ~~词汇本~~ ✅
 - **Phase 3**：~~认知重塑~~ ✅ / ~~场景演绎~~ ✅ / ~~编程英语~~ ✅ / ~~场景实战完整84课~~ ✅ / ~~课程解锁体系~~ ✅ / ~~课程价值说明~~ ✅ / ~~PWA~~ ✅
 - **Phase 4**：~~遗忘曲线复习（词汇闪卡）~~ ✅ / ~~学习数据可视化~~ ✅ / ~~AI 个性化推荐~~ ✅ / ~~登录报错中文化~~ ✅
+- **Phase 5**：~~录音历史持久化~~ ✅ / ~~对话历史持久化~~ ✅ / ~~Level 5 自如交流（15课）~~ ✅ / ~~全模块前后课导航~~ ✅ / ~~场景库升级（+面试+约会，共100场景）~~ ✅ / ~~认知重塑AI出题升级~~ ✅

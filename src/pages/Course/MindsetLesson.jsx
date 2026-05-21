@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getMindsetLesson } from '../../data/mindset'
+import { getMindsetLesson, mindsetLessons } from '../../data/mindset'
 import { generateMindsetQuiz } from '../../services/deepseek'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -15,6 +15,9 @@ const MindsetLesson = () => {
   const { user } = useUserStore()
   const { updateProgress } = useProgressStore()
   const lesson = getMindsetLesson(lessonId)
+  const currentIndex = mindsetLessons.findIndex(l => l.id === lessonId)
+  const prevLesson = currentIndex > 0 ? mindsetLessons[currentIndex - 1] : null
+  const nextLesson = currentIndex < mindsetLessons.length - 1 ? mindsetLessons[currentIndex + 1] : null
 
   const [quiz, setQuiz] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -94,14 +97,27 @@ const MindsetLesson = () => {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px' }}>
-      <button onClick={() => navigate('/course/mindset')} style={{
-        display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
-        color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer',
-        marginBottom: 16, padding: 0,
-      }}
-        onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
-        onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
-      >← 认知重塑</button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <button onClick={() => navigate('/course/mindset')} style={{
+          display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
+          color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+        }}
+          onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
+          onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
+        >← 认知重塑</button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button disabled={!prevLesson} onClick={() => prevLesson && navigate(`/course/mindset/${prevLesson.id}`)} style={{
+            padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: '1.5px solid #dedad0', cursor: prevLesson ? 'pointer' : 'not-allowed',
+            background: prevLesson ? '#fff' : '#f5f3ee', color: prevLesson ? '#1a1917' : '#b0aea5',
+          }}>‹ 上一课</button>
+          <button disabled={!nextLesson} onClick={() => nextLesson && navigate(`/course/mindset/${nextLesson.id}`)} style={{
+            padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: '1.5px solid #dedad0', cursor: nextLesson ? 'pointer' : 'not-allowed',
+            background: nextLesson ? '#fff' : '#f5f3ee', color: nextLesson ? '#1a1917' : '#b0aea5',
+          }}>下一课 ›</button>
+        </div>
+      </div>
 
       <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 12 }}>{lesson.title}</h1>
       <LessonValueBanner lesson={lesson} color="#788c5d" bg="#f2f6ec" borderColor="#c4ddb0" />
