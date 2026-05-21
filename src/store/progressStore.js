@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { getProgress, saveProgress, getTodayCheckIn, checkIn, getStreak } from '../services/supabase'
+import { getProgress, saveProgress, getTodayCheckIn, checkIn, getStreak, getCheckInHistory, getWeeklyLessonCounts, getDueVocabulary } from '../services/supabase'
 import { modules } from '../data/phonics'
 
 const useProgressStore = create((set, get) => ({
@@ -7,15 +7,21 @@ const useProgressStore = create((set, get) => ({
   streak: 0,
   checkedInToday: false,
   loading: false,
+  checkInHistory: [],
+  weeklyLessonCounts: {},
+  dueVocabCount: 0,
 
   fetchProgress: async (userId) => {
     set({ loading: true })
-    const [progress, streak, todayCheckIn] = await Promise.all([
+    const [progress, streak, todayCheckIn, checkInHistory, weeklyLessonCounts, dueVocab] = await Promise.all([
       getProgress(userId),
       getStreak(userId),
       getTodayCheckIn(userId),
+      getCheckInHistory(userId, 30),
+      getWeeklyLessonCounts(userId),
+      getDueVocabulary(userId).catch(() => []),
     ])
-    set({ progress: progress || [], streak, checkedInToday: !!todayCheckIn, loading: false })
+    set({ progress: progress || [], streak, checkedInToday: !!todayCheckIn, loading: false, checkInHistory: checkInHistory || [], weeklyLessonCounts: weeklyLessonCounts || {}, dueVocabCount: (dueVocab || []).length })
   },
 
   updateProgress: async (userId, moduleId, lessonId, status, score) => {

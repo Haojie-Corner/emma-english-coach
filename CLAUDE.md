@@ -41,7 +41,7 @@ src/
 │       └── Speaking.jsx   # 4-tab 练习中心（自由录音/语法纠错/编程英语/随拍学英语）
 ├── store/
 │   ├── userStore.js       # Zustand：user / session / loading
-│   └── progressStore.js   # Zustand：进度、打卡、streak、getModuleCompletion、isModuleUnlocked
+│   └── progressStore.js   # Zustand：进度、打卡、streak、checkInHistory(30天)、weeklyLessonCounts、dueVocabCount、getModuleCompletion、isModuleUnlocked
 ├── services/
 │   ├── supabase.js        # Supabase 客户端 + DB/Storage/Auth 操作
 │   ├── gemini.js          # Gemini REST API（多模型降级重试）
@@ -140,6 +140,18 @@ Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度
 
 **Dashboard 的"继续学习"**：定义 `LEARNING_PATH`（phonics→intonation→mindset→demo），用 `useMemo` + `isModuleUnlocked` 找首个未完成课程，而非硬编码。
 
+**Dashboard 的"今日推荐"（最多3条，按优先级）**：
+1. 主线课程（下一节未完成课）
+2. 词汇复习（`dueVocabCount > 0` 时显示）
+3. 弱项模块（找已解锁模块中平均分最低且 < 75 的）
+4. 场景实战 / 语法练习（兜底）
+
+**Profile 学习数据可视化**：
+- `CheckInHeatmap`：30天打卡热图（橙色方格，带今日高亮边框）
+- `WeeklyBarChart`：7天完成课程柱状图（纯 div，无图表库）
+- 数据来源：`progressStore.checkInHistory`（打卡日期数组）、`progressStore.weeklyLessonCounts`（日期→完成数字典）
+- 新增 Supabase 函数：`getCheckInHistory(userId, days)` 和 `getWeeklyLessonCounts(userId)`
+
 ---
 
 ## 环境变量（`.env.local`）
@@ -171,9 +183,9 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 - ✅ 课程解锁体系（ModuleLockGate 守卫，5级前置门槛）
 - ✅ 课程价值说明（LessonValueBanner 显示"为什么学这课"，含目标标签，可折叠）
 - ✅ Profile 学习统计（完成课数/练习记录/平均分/连续打卡 + 模块进度条）
-- 🚧 PWA（离线支持、添加到主屏幕）
-- 🚧 学习数据可视化（按日统计图表）
-- 🚧 AI 个性化推荐（基于进度的智能路径推荐）
+- ✅ **PWA**（vite-plugin-pwa，generateSW 策略，precache 全静态资源，standalone 模式，iOS/Android 添加到主屏幕）
+- ✅ **学习数据可视化**（Profile：30天打卡热图 + 7天完成课程柱状图，纯 div/SVG）
+- ✅ **AI 个性化推荐**（Dashboard：词汇到期提醒 + 弱项模块推荐 + 主线课程，优先级排序最多3条）
 
 ---
 
@@ -228,5 +240,5 @@ Level 1 ── 语音地基：自然拼读（22课）+ 语音语调（11课）
 ## 五、开发路线图
 
 - **Phase 2**：~~自然拼读全22课~~ ✅ / ~~语音语调模块~~ ✅ / ~~场景对话~~ ✅ / ~~随拍学英语~~ ✅ / ~~词汇本~~ ✅
-- **Phase 3**：~~认知重塑~~ ✅ / ~~场景演绎~~ ✅ / ~~编程英语~~ ✅ / ~~场景实战完整84课~~ ✅ / ~~课程解锁体系~~ ✅ / ~~课程价值说明~~ ✅ / PWA
+- **Phase 3**：~~认知重塑~~ ✅ / ~~场景演绎~~ ✅ / ~~编程英语~~ ✅ / ~~场景实战完整84课~~ ✅ / ~~课程解锁体系~~ ✅ / ~~课程价值说明~~ ✅ / ~~PWA~~ ✅
 - **Phase 4**：遗忘曲线复习 / 学习数据可视化 / AI 个性化推荐

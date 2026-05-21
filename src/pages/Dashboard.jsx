@@ -57,7 +57,7 @@ const LEARNING_PATH = [
 
 const Dashboard = () => {
   const { user } = useUserStore()
-  const { progress, streak, checkedInToday, fetchProgress, doCheckIn, getModuleCompletion, isModuleUnlocked } = useProgressStore()
+  const { progress, streak, checkedInToday, fetchProgress, doCheckIn, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
   const navigate = useNavigate()
 
   useEffect(() => { if (user) fetchProgress(user.id) }, [user])
@@ -79,25 +79,70 @@ const Dashboard = () => {
     return { lesson: first.lessons[0], ...first }
   }, [progress, isModuleUnlocked])
 
-  /* 今日推荐（动态，基于进度和解锁状态） */
+  /* 找得分最低的已解锁模块（用于"重点加强"推荐） */
+  const weakModule = useMemo(() => {
+    const scored = LEARNING_PATH
+      .filter(t => isModuleUnlocked(t.moduleId))
+      .map(t => {
+        const modProgress = progress.filter(p => p.module_id === t.moduleId && p.score)
+        if (modProgress.length < 2) return null
+        const avg = Math.round(modProgress.reduce((s, p) => s + p.score, 0) / modProgress.length)
+        return { ...t, avg }
+      })
+      .filter(Boolean)
+    if (scored.length === 0) return null
+    return scored.reduce((a, b) => a.avg < b.avg ? a : b)
+  }, [progress, isModuleUnlocked])
+
+  /* 今日推荐（动态，基于进度、弱项、词汇到期） */
   const recommendations = useMemo(() => {
     const list = []
-    // 当前主线模块
+
+    // 1. 主线课程（优先级最高）
     list.push({
       icon: nextLessonInfo.icon,
       title: nextLessonInfo.lesson.title,
       sub: nextLessonInfo.label,
       to: nextLessonInfo.getPath(nextLessonInfo.lesson.id),
       tag: '主线',
+      tagColor: '#d97757',
     })
-    // 额外推荐
-    if (isModuleUnlocked('scenes')) {
-      list.push({ icon: '💬', title: '场景实战对话', sub: '8大主题 · AI角色扮演', to: '/course/scenes', tag: '练习' })
-    } else {
-      list.push({ icon: '📝', title: '语法纠错练习', sub: '输入英文，AI 实时批改', to: '/practice/speaking', tag: '练习' })
+
+    // 2. 词汇复习（如有到期单词）
+    if (dueVocabCount > 0) {
+      list.push({
+        icon: '📚',
+        title: `复习 ${dueVocabCount} 个单词`,
+        sub: '到期词汇 · 遗忘曲线复习',
+        to: '/vocabulary',
+        tag: '复习',
+        tagColor: '#788c5d',
+      })
     }
-    return list.slice(0, 2)
-  }, [progress, nextLessonInfo, isModuleUnlocked])
+
+    // 3. 弱项模块加强（得分低于 75）
+    if (weakModule && weakModule.avg < 75 && list.length < 3) {
+      list.push({
+        icon: weakModule.icon,
+        title: `加强 ${weakModule.label.split('·')[0].trim()}`,
+        sub: `当前平均 ${weakModule.avg} 分 · 建议多练`,
+        to: `/course/${weakModule.moduleId}`,
+        tag: '加强',
+        tagColor: '#c4a35a',
+      })
+    }
+
+    // 4. 场景实战 / 语法练习（补位）
+    if (list.length < 3) {
+      if (isModuleUnlocked('scenes')) {
+        list.push({ icon: '💬', title: '场景实战对话', sub: '8大主题 · AI角色扮演', to: '/course/scenes', tag: '练习', tagColor: '#7a6bba' })
+      } else {
+        list.push({ icon: '📝', title: '语法纠错练习', sub: '输入英文，AI 实时批改', to: '/practice/speaking', tag: '练习', tagColor: '#7a6bba' })
+      }
+    }
+
+    return list.slice(0, 3)
+  }, [progress, nextLessonInfo, isModuleUnlocked, dueVocabCount, weakModule])
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '36px 24px' }}>
@@ -194,7 +239,7 @@ const Dashboard = () => {
               <p style={{ fontSize: 12, color: '#7a7870', marginTop: 2 }}>{item.sub}</p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, background: '#fdf0ea', color: '#d97757', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{item.tag}</span>
+              <span style={{ fontSize: 11, background: `${item.tagColor || '#d97757'}18`, color: item.tagColor || '#d97757', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>{item.tag}</span>
               <span style={{ color: '#7a7870', fontSize: 16 }}>›</span>
             </div>
           </Card>

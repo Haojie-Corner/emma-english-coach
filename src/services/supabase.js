@@ -152,6 +152,35 @@ export const getDueVocabulary = async (userId) => {
   return data || []
 }
 
+export const getCheckInHistory = async (userId, days = 30) => {
+  const since = new Date()
+  since.setDate(since.getDate() - days + 1)
+  const { data } = await supabase
+    .from('check_ins')
+    .select('check_in_date')
+    .eq('user_id', userId)
+    .gte('check_in_date', since.toISOString().split('T')[0])
+  return (data || []).map(r => r.check_in_date)
+}
+
+export const getWeeklyLessonCounts = async (userId) => {
+  const since = new Date()
+  since.setDate(since.getDate() - 6)
+  const { data } = await supabase
+    .from('user_progress')
+    .select('updated_at, status')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .gte('updated_at', since.toISOString())
+  if (!data) return {}
+  const counts = {}
+  data.forEach(r => {
+    const day = r.updated_at.split('T')[0]
+    counts[day] = (counts[day] || 0) + 1
+  })
+  return counts
+}
+
 export const getStreak = async (userId) => {
   const { data } = await supabase
     .from('check_ins')

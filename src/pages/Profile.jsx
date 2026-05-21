@@ -5,9 +5,96 @@ import Button from '../components/ui/Button'
 import { useNavigate } from 'react-router-dom'
 import { modules } from '../data/phonics'
 
+/* ── 30天打卡热图 ── */
+const CheckInHeatmap = ({ history }) => {
+  const today = new Date()
+  const days = []
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    days.push(d.toISOString().split('T')[0])
+  }
+  const historySet = new Set(history)
+  const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+  const todayStr = today.toISOString().split('T')[0]
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {days.map(day => {
+          const checked = historySet.has(day)
+          const isToday = day === todayStr
+          const d = new Date(day + 'T12:00:00')
+          return (
+            <div key={day} title={`${day} ${weekDays[d.getDay()]}`} style={{
+              width: 22, height: 22, borderRadius: 5,
+              background: checked ? '#d97757' : '#ece9e0',
+              border: isToday ? '2px solid #1a1917' : '2px solid transparent',
+              transition: 'background 0.2s',
+              flexShrink: 0,
+            }} />
+          )
+        })}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+        <span style={{ fontSize: 10, color: '#b0aea5' }}>30 天前</span>
+        <span style={{ fontSize: 10, color: '#b0aea5' }}>今天</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+        <div style={{ width: 14, height: 14, borderRadius: 3, background: '#d97757' }} />
+        <span style={{ fontSize: 11, color: '#7a7870' }}>已打卡</span>
+        <div style={{ width: 14, height: 14, borderRadius: 3, background: '#ece9e0', marginLeft: 8 }} />
+        <span style={{ fontSize: 11, color: '#7a7870' }}>未打卡</span>
+        <span style={{ fontSize: 11, color: '#d97757', marginLeft: 8, fontWeight: 700 }}>
+          {history.length} / 30 天
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/* ── 7天完成课程柱状图 ── */
+const WeeklyBarChart = ({ counts }) => {
+  const days = []
+  const today = new Date()
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    days.push(d.toISOString().split('T')[0])
+  }
+  const weekShort = ['日', '一', '二', '三', '四', '五', '六']
+  const maxVal = Math.max(...days.map(d => counts[d] || 0), 1)
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
+      {days.map(day => {
+        const val = counts[day] || 0
+        const h = Math.round((val / maxVal) * 64)
+        const d = new Date(day + 'T12:00:00')
+        const isToday = day === today.toISOString().split('T')[0]
+        return (
+          <div key={day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+            {val > 0 && (
+              <span style={{ fontSize: 10, color: '#d97757', fontWeight: 700 }}>{val}</span>
+            )}
+            <div style={{
+              width: '100%', height: Math.max(h, 4), borderRadius: '4px 4px 2px 2px',
+              background: val > 0 ? (isToday ? '#c05e3a' : '#d97757') : '#ece9e0',
+              transition: 'height 0.5s ease-out',
+            }} />
+            <span style={{ fontSize: 10, color: isToday ? '#d97757' : '#b0aea5', fontWeight: isToday ? 700 : 400 }}>
+              {weekShort[d.getDay()]}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 const Profile = () => {
   const { user, logout } = useUserStore()
-  const { streak, progress, getModuleCompletion } = useProgressStore()
+  const { streak, progress, getModuleCompletion, checkInHistory, weeklyLessonCounts } = useProgressStore()
   const navigate = useNavigate()
 
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
@@ -17,6 +104,8 @@ const Profile = () => {
   const avgScore = progress.filter(p => p.score).length > 0
     ? Math.round(progress.filter(p => p.score).reduce((sum, p) => sum + p.score, 0) / progress.filter(p => p.score).length)
     : 0
+
+  const weekTotal = Object.values(weeklyLessonCounts).reduce((s, v) => s + v, 0)
 
   const handleLogout = async () => {
     await logout()
@@ -31,25 +120,24 @@ const Profile = () => {
   ]
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      <h1 className="text-xl font-bold text-[#141413] mb-6" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
+    <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 16px' }}>
+      <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917', marginBottom: 20 }}>
         👤 个人中心
       </h1>
 
       {/* 用户信息 */}
-      <Card className="mb-4">
+      <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{
             width: 56, height: 56, borderRadius: '50%',
             background: 'linear-gradient(135deg, #d97757, #c05e3a)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontSize: 22, fontWeight: 700,
-            fontFamily: 'Poppins, Arial, sans-serif', flexShrink: 0,
+            color: '#fff', fontSize: 22, fontWeight: 700, flexShrink: 0,
           }}>
             {displayName[0]?.toUpperCase()}
           </div>
           <div>
-            <p style={{ fontWeight: 700, fontSize: 16, color: '#1a1917', fontFamily: 'Poppins, Arial, sans-serif' }}>{displayName}</p>
+            <p style={{ fontWeight: 700, fontSize: 16, color: '#1a1917' }}>{displayName}</p>
             <p style={{ fontSize: 12, color: '#b0aea5', marginTop: 2 }}>{user?.email}</p>
             <p style={{ fontSize: 11, color: '#7a7870', marginTop: 4 }}>
               🔥 连续打卡 <span style={{ color: '#d97757', fontWeight: 700 }}>{streak}</span> 天
@@ -59,9 +147,7 @@ const Profile = () => {
       </Card>
 
       {/* 学习统计 */}
-      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10, fontFamily: 'Poppins, Arial, sans-serif' }}>
-        学习统计
-      </h2>
+      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>学习统计</h2>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
         {statItems.map(item => (
           <div key={item.label} style={{
@@ -69,7 +155,7 @@ const Profile = () => {
             border: `1px solid ${item.color}30`,
             borderRadius: 12, padding: '14px 16px',
           }}>
-            <p style={{ fontSize: 22, fontWeight: 800, color: item.color, fontFamily: 'Poppins, Arial, sans-serif' }}>
+            <p style={{ fontSize: 22, fontWeight: 800, color: item.color }}>
               {item.value}<span style={{ fontSize: 12, fontWeight: 500 }}>{item.unit}</span>
             </p>
             <p style={{ fontSize: 12, color: '#7a7870', marginTop: 2 }}>{item.label}</p>
@@ -77,11 +163,25 @@ const Profile = () => {
         ))}
       </div>
 
+      {/* 本周学习 */}
+      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>本周学习</h2>
+      <Card style={{ marginBottom: 20, padding: '16px 20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 13, color: '#7a7870' }}>最近 7 天完成课程</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#d97757' }}>{weekTotal} 节</span>
+        </div>
+        <WeeklyBarChart counts={weeklyLessonCounts} />
+      </Card>
+
+      {/* 30天打卡日历 */}
+      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>打卡记录</h2>
+      <Card style={{ marginBottom: 20, padding: '16px 20px' }}>
+        <CheckInHeatmap history={checkInHistory} />
+      </Card>
+
       {/* 各模块进度 */}
-      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10, fontFamily: 'Poppins, Arial, sans-serif' }}>
-        模块进度
-      </h2>
-      <Card className="mb-6" style={{ padding: '16px 20px' }}>
+      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>模块进度</h2>
+      <Card style={{ marginBottom: 24, padding: '16px 20px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {modules.map(mod => {
             const pct = getModuleCompletion(mod.id, mod.totalLessons)
