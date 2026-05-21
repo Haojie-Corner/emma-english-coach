@@ -117,8 +117,8 @@ const speakFallback = (text, rate, onEnd) => {
 
 // ---- Public API ----
 
-const MODEL_QUALITY = 'eleven_multilingual_v2'  // practice audio — highest quality
-const MODEL_FAST = 'eleven_turbo_v2_5'          // commentary / feedback — 2-3x faster, multilingual
+export const MODEL_QUALITY = 'eleven_multilingual_v2'  // practice audio — highest quality
+const MODEL_FAST = 'eleven_turbo_v2_5'                 // commentary / feedback — 2-3x faster, multilingual
 
 /** English TTS (ElevenLabs Sarah). Each call cancels any in-progress audio. */
 export const speak = async (text, rate = 0.78, onEnd = null) => {
@@ -146,11 +146,12 @@ export const speakMultilingual = async (text, onEnd = null) => {
  * Pre-fetch audio in the background without playing it.
  * Returns a blob URL (call URL.revokeObjectURL when done), or null on error.
  */
-export const prefetchAudio = async (text) => {
+export const prefetchAudio = async (text, modelId = MODEL_FAST, signal = null) => {
   if (!ELEVENLABS_KEY) return null
   try {
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
       method: 'POST',
+      signal,
       headers: {
         'Accept': 'audio/mpeg',
         'Content-Type': 'application/json',
@@ -158,17 +159,19 @@ export const prefetchAudio = async (text) => {
       },
       body: JSON.stringify({
         text,
-        model_id: MODEL_FAST,
+        model_id: modelId,
         voice_settings: { stability: 0.32, similarity_boost: 0.70, style: 0.45, use_speaker_boost: true },
       }),
     })
     if (!res.ok) return null
     const blob = await res.blob()
     return URL.createObjectURL(blob)
-  } catch {
+  } catch (e) {
+    if (e.name !== 'AbortError') console.warn('[TTS] prefetch error:', e.message)
     return null
   }
 }
+
 
 /** Play a pre-fetched blob URL instantly (no network wait). */
 export const playBlobUrl = (url, rate = 1.0, onEnd = null) => {
@@ -176,7 +179,11 @@ export const playBlobUrl = (url, rate = 1.0, onEnd = null) => {
   const audio = new Audio(url)
   audio.playbackRate = rate
   currentAudio = audio
-  audio.play()
+  audio.play().catch(err => {
+    console.warn('[TTS] playBlobUrl failed:', err.message)
+    if (currentAudio === audio) currentAudio = null
+    onEnd?.()  // trigger callback so UI doesn't get stuck in playing state
+  })
   audio.onended = () => {
     if (currentAudio === audio) currentAudio = null
     onEnd?.()

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import useAudioRecorder from '../hooks/useAudioRecorder'
 import { analyzePronunciation } from '../services/gemini'
 import { saveRecording, getRecordings } from '../services/supabase'
@@ -130,6 +130,10 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
   const [preloadedUrl, setPreloadedUrl] = useState(null)
   const [preloading, setPreloading] = useState(false)
   const [tipDemoUrls, setTipDemoUrls] = useState({})
+  const [targetAudioUrl, setTargetAudioUrl] = useState(null)
+  const [activeDemo, setActiveDemo] = useState(null)   // null | 'target' | word_string
+  const [demoPaused, setDemoPaused] = useState(false)
+  const prefetchAborts = useRef([])                    // AbortControllers for in-flight prefetches
   const [history, setHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
 
@@ -139,34 +143,68 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
     }
   }, [userId, lessonId])
 
-  // Pre-fetch TTS audio as soon as analysis result arrives, so clicking play is instant
+  // Pre-fetch target text audio on mount so "听女声示范" is instant on first click
+  // Uses MODEL_FAST to avoid ElevenLabs concurrency conflicts with later prefetches
   useEffect(() => {
-    if (!result?.voice_script) return
-    setPreloading(true)
-    setPreloadedUrl(null)
-    prefetchAudio(result.voice_script).then(url => {
-      setPreloadedUrl(url)
-      setPreloading(false)
+    if (!targetText) return
+    let cancelled = false
+    let url = null
+    prefetchAudio(targetText).then(u => {
+      if (cancelled) { if (u) URL.revokeObjectURL(u); return }
+      url = u
+      setTargetAudioUrl(u)
     })
-    return () => { setPreloading(false) }
+    return () => { cancelled = true; if (url) URL.revokeObjectURL(url) }
+  }, [targetText])
+
+  // Cancel all in-flight prefetch requests (called before user-triggered playback)
+  const cancelPrefetches = () => {
+    prefetchAborts.current.forEach(ac => { try { ac.abort() } catch {} })
+    prefetchAborts.current = []
+  }
+
+  // Prefetch strategy: voice_script first (alone), then all tip_demos in parallel.
+  // Uses AbortControllers so user-triggered playback can instantly cancel competing requests.
+  useEffect(() => {
+    if (!result) return
+    let cancelled = false
+    cancelPrefetches()
+    setTipDemoUrls({})
+
+    const run = async () => {
+      // Step 1: voice_script alone (highest priority — first thing user clicks)
+      // Uses MODEL_FAST (turbo) to keep ElevenLabs response fast and avoid server-side concurrency conflicts
+      if (result.voice_script) {
+        setPreloading(true)
+        setPreloadedUrl(null)
+        const ac = new AbortController()
+        prefetchAborts.current.push(ac)
+        const url = await prefetchAudio(result.voice_script, undefined, ac.signal)
+        if (cancelled) { if (url) URL.revokeObjectURL(url); return }
+        setPreloadedUrl(url)
+        setPreloading(false)
+      }
+
+      // Step 2: all tip_demos in parallel (voice_script done → no competition)
+      const issues = result.pronunciation_issues?.filter(i => i.tip_demo) ?? []
+      if (!issues.length) return
+      await Promise.all(issues.map(async ({ word, tip_demo }) => {
+        const ac = new AbortController()
+        prefetchAborts.current.push(ac)
+        const url = await prefetchAudio(tip_demo, undefined, ac.signal)
+        if (cancelled || !url) return
+        setTipDemoUrls(prev => ({ ...prev, [word]: url }))
+      }))
+    }
+
+    run()
+    return () => { cancelled = true; setPreloading(false); cancelPrefetches() }
   }, [result])
 
   // Revoke blob URL on unmount to avoid memory leaks
   useEffect(() => {
     return () => { if (preloadedUrl) URL.revokeObjectURL(preloadedUrl) }
   }, [preloadedUrl])
-
-  // Pre-fetch each tip_demo audio so "🔊 听示范" clicks are instant too
-  useEffect(() => {
-    const issues = result?.pronunciation_issues?.filter(i => i.tip_demo) ?? []
-    if (!issues.length) return
-    Promise.all(issues.map(async ({ word, tip_demo }) => {
-      const url = await prefetchAudio(tip_demo)
-      return [word, url]
-    })).then(pairs => {
-      setTipDemoUrls(Object.fromEntries(pairs.filter(([, u]) => u)))
-    })
-  }, [result])
 
   // Space bar → start / stop recording (ignore when focused on inputs)
   useEffect(() => {
@@ -201,6 +239,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
   }
 
   const handleReset = () => {
+    cancelPrefetches()
     reset()
     setResult(null)
     setAnalyzeError(null)
@@ -211,16 +250,58 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
     setPreloading(false)
     Object.values(tipDemoUrls).forEach(u => URL.revokeObjectURL(u))
     setTipDemoUrls({})
+    setActiveDemo(null)
+    setDemoPaused(false)
   }
 
   const handleReplay = () => {
     if (!result?.voice_script) return
+    setActiveDemo(null)
+    setDemoPaused(false)
     setHasPlayed(true)
     setSpeakState('playing')
     if (preloadedUrl) {
       playBlobUrl(preloadedUrl, 1.0, () => setSpeakState('idle'))
     } else {
+      cancelPrefetches()
       speakMultilingual(result.voice_script, () => setSpeakState('idle'))
+    }
+  }
+
+  // Toggle play/pause for target text ("听女声示范")
+  const handleTargetSpeak = () => {
+    if (activeDemo === 'target') {
+      if (demoPaused) { resumeSpeaking(); setDemoPaused(false) }
+      else { pauseSpeaking(); setDemoPaused(true) }
+      return
+    }
+    stopSpeaking()
+    setSpeakState('idle')
+    setActiveDemo('target')
+    setDemoPaused(false)
+    const onEnd = () => { setActiveDemo(null); setDemoPaused(false) }
+    if (targetAudioUrl) playBlobUrl(targetAudioUrl, 0.75, onEnd)
+    else speak(targetText, 0.75, onEnd)
+  }
+
+  // Toggle play/pause for each tip_demo ("听示范")
+  const handleTipDemo = (word, tip_demo) => {
+    if (activeDemo === word) {
+      if (demoPaused) { resumeSpeaking(); setDemoPaused(false) }
+      else { pauseSpeaking(); setDemoPaused(true) }
+      return
+    }
+    stopSpeaking()
+    setSpeakState('idle')
+    setActiveDemo(word)
+    setDemoPaused(false)
+    const onEnd = () => { setActiveDemo(null); setDemoPaused(false) }
+    const url = tipDemoUrls[word]
+    if (url) {
+      playBlobUrl(url, 1.0, onEnd)
+    } else {
+      cancelPrefetches()  // stop competing prefetches so ElevenLabs only has 1 request
+      speakMultilingual(tip_demo, onEnd)
     }
   }
 
@@ -236,17 +317,27 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
         <p style={{ fontSize: 11, color: '#7a7870', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>练习内容</p>
         <p className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: '#1a1917', marginBottom: 4, letterSpacing: '0.05em' }}>{targetText}</p>
         {targetZh && <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 12 }}>{targetZh}</p>}
-        <button onClick={() => speak(targetText, 0.75)} style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
-          background: '#f5f3ee', border: '1.5px solid #dedad0', color: '#1a1917',
-          cursor: 'pointer', transition: 'background 0.15s',
-        }}
-          onMouseEnter={e => e.currentTarget.style.background = '#ece9e0'}
-          onMouseLeave={e => e.currentTarget.style.background = '#f5f3ee'}
-        >
-          🔊 听女声示范
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={handleTargetSpeak} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+            background: activeDemo === 'target' ? '#fdf0ea' : '#f5f3ee',
+            border: `1.5px solid ${activeDemo === 'target' ? '#f5c4a8' : '#dedad0'}`,
+            color: activeDemo === 'target' ? '#d97757' : '#1a1917',
+            cursor: 'pointer', transition: 'background 0.15s',
+          }}>
+            {activeDemo === 'target'
+              ? (demoPaused ? '▶ 继续' : '⏸ 暂停')
+              : '🔊 听女声示范'}
+          </button>
+          {activeDemo === 'target' && (
+            <button onClick={() => { stopSpeaking(); setActiveDemo(null); setDemoPaused(false) }} style={{
+              padding: '7px 10px', borderRadius: 8, fontSize: 13,
+              background: '#f5f3ee', border: '1.5px solid #dedad0', color: '#7a7870',
+              cursor: 'pointer',
+            }}>⏹</button>
+          )}
+        </div>
       </Card>
 
       {/* 录音区 */}
@@ -334,19 +425,31 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
                         {issue.word} <span style={{ fontSize: 12, fontWeight: 400, color: '#7a7870' }}>{issue.correct_ipa}</span>
                       </p>
                       {issue.tip_demo && (
-                        <button
-                          onClick={() => {
-                            stopSpeaking()
-                            const url = tipDemoUrls[issue.word]
-                            if (url) playBlobUrl(url, 1.0)
-                            else speakMultilingual(issue.tip_demo)
-                          }}
-                          style={{
-                            padding: '2px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-                            background: '#fdf0ea', border: '1px solid #f5c4a8',
-                            color: '#d97757', cursor: 'pointer', flexShrink: 0,
-                          }}
-                        >🔊 听示范</button>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          <button
+                            onClick={() => handleTipDemo(issue.word, issue.tip_demo)}
+                            style={{
+                              padding: '2px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                              background: activeDemo === issue.word ? '#fee9d8' : '#fdf0ea',
+                              border: '1px solid #f5c4a8',
+                              color: '#d97757', cursor: 'pointer',
+                            }}
+                          >
+                            {activeDemo === issue.word
+                              ? (demoPaused ? '▶ 继续' : '⏸ 暂停')
+                              : (tipDemoUrls[issue.word] ? '🔊 听示范' : '🔊 听示范')}
+                          </button>
+                          {activeDemo === issue.word && (
+                            <button
+                              onClick={() => { stopSpeaking(); setActiveDemo(null); setDemoPaused(false) }}
+                              style={{
+                                padding: '2px 7px', borderRadius: 6, fontSize: 11,
+                                background: '#f5f3ee', border: '1px solid #dedad0',
+                                color: '#7a7870', cursor: 'pointer',
+                              }}
+                            >⏹</button>
+                          )}
+                        </div>
                       )}
                     </div>
                     <p style={{ fontSize: 13, color: '#7a7870', marginTop: 2 }}>{issue.issue}</p>
@@ -372,35 +475,33 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
 
       {/* 历史记录 */}
       {history.length > 0 && !result && (
-        <div>
+        <div style={{ background: '#faf9f5', border: '1px solid #ece9e0', borderRadius: 12, padding: '12px 14px' }}>
+          <MiniScoreChart history={history} />
           <button onClick={() => setShowHistory(v => !v)} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             fontSize: 12, color: '#7a7870', background: 'none', border: 'none',
-            cursor: 'pointer', padding: '4px 0',
+            cursor: 'pointer', padding: '4px 0', marginTop: history.length >= 2 ? 6 : 0,
           }}>
             📋 {showHistory ? '收起' : `查看历史记录 (${history.length} 次)`}
           </button>
           {showHistory && (
-            <div style={{ marginTop: 8, background: '#faf9f5', border: '1px solid #ece9e0', borderRadius: 12, padding: '12px 14px' }}>
-              <MiniScoreChart history={history} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
-                {history.map((rec, i) => (
-                  <div key={rec.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    borderTop: i === 0 ? '1px solid #ece9e0' : 'none', paddingTop: i === 0 ? 8 : 0,
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 6 }}>
+              {history.map((rec, i) => (
+                <div key={rec.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  borderTop: i === 0 ? '1px solid #ece9e0' : 'none', paddingTop: i === 0 ? 8 : 0,
+                }}>
+                  <span style={{ fontSize: 12, color: '#7a7870' }}>
+                    第 {history.length - i} 次 · {new Date(rec.created_at).toLocaleDateString('zh-CN')}
+                  </span>
+                  <span style={{
+                    fontSize: 13, fontWeight: 700,
+                    color: rec.ai_score >= 80 ? '#788c5d' : rec.ai_score >= 60 ? '#d97757' : '#dc3030',
                   }}>
-                    <span style={{ fontSize: 12, color: '#7a7870' }}>
-                      第 {history.length - i} 次 · {new Date(rec.created_at).toLocaleDateString('zh-CN')}
-                    </span>
-                    <span style={{
-                      fontSize: 13, fontWeight: 700,
-                      color: rec.ai_score >= 80 ? '#788c5d' : rec.ai_score >= 60 ? '#d97757' : '#dc3030',
-                    }}>
-                      {rec.ai_score} 分
-                    </span>
-                  </div>
-                ))}
-              </div>
+                    {rec.ai_score} 分
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>
