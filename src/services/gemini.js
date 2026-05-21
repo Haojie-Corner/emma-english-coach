@@ -128,3 +128,19 @@ export const analyzeImage = async (imageBase64, mimeType = 'image/jpeg') => {
   if (!match) throw new Error('AI 返回格式异常，请重试')
   return JSON.parse(match[0])
 }
+
+
+export const expandVocabulary = async (word) => {
+  const prompt = `你是英语词典助手，针对中文母语零基础学习者。
+请为单词「${word}」提供以下信息，只输出 JSON，不要任何额外文字：
+{
+  "phonetic": "/国际音标/",
+  "meaning": "中文释义（简洁，10字以内）",
+  "example": "一句简单英文例句（适合零基础，不超过12个词）",
+  "example_zh": "例句中文翻译"
+}`
+  const raw = await callGemini([{ text: prompt }])
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('AI 返回格式异常')
+  return JSON.parse(match[0])
+}

@@ -152,6 +152,19 @@ Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度
 - 数据来源：`progressStore.checkInHistory`（打卡日期数组）、`progressStore.weeklyLessonCounts`（日期→完成数字典）
 - 新增 Supabase 函数：`getCheckInHistory(userId, days)` 和 `getWeeklyLessonCounts(userId)`
 
+**词汇本闪卡复习模式**（`Vocabulary.jsx` 内 `FlashCardReview` 组件）：
+- 今日复习 tab 有到期单词时显示"开始复习 →"按钮，进入全屏闪卡模式
+- 点卡片翻转显示释义+例句，翻转后出现4档评级（陌生/模糊/熟悉/掌握）
+- 评级后自动更新 `next_review`（分别 +1/3/7/14 天），完成页显示本次各档统计
+- 退出或完成后调用 `loadWords()` 刷新列表
+
+**AI 自动填词**（`gemini.js` 的 `expandVocabulary(word)`）：
+- AddWordModal 内"✨ AI 填写"按钮：输入单词 → 调 Gemini → 自动填充音标/释义/例句/例句翻译
+- 返回 JSON：`{ phonetic, meaning, example, example_zh }`
+
+**登录报错中文化**（`Login.jsx` 的 `translateError(msg)`）：
+- 覆盖 Supabase 常见英文错误：credentials / not confirmed / already registered / rate limit 等
+
 ---
 
 ## 环境变量（`.env.local`）
@@ -179,7 +192,7 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 - ✅ 场景实战 **84场景**（ScenesModule 8分类 accordion + SceneLesson DeepSeek 角色扮演）
 - ✅ 练习页（自由录音 / 语法纠错 / 编程英语 / 随拍学英语，4-tab）
 - ✅ Emma 老师语音反馈（中英混合口播，暂停/继续/重新讲解/按词听示范）
-- ✅ 词汇本（Vocabulary 全功能：添加/复习/遗忘曲线/按熟练度筛选）
+- ✅ 词汇本（Vocabulary 全功能：添加/复习/遗忘曲线/按熟练度筛选；闪卡复习模式；AI 自动填词）
 - ✅ 课程解锁体系（ModuleLockGate 守卫，5级前置门槛）
 - ✅ 课程价值说明（LessonValueBanner 显示"为什么学这课"，含目标标签，可折叠）
 - ✅ Profile 学习统计（完成课数/练习记录/平均分/连续打卡 + 模块进度条）
@@ -241,4 +254,4 @@ Level 1 ── 语音地基：自然拼读（22课）+ 语音语调（11课）
 
 - **Phase 2**：~~自然拼读全22课~~ ✅ / ~~语音语调模块~~ ✅ / ~~场景对话~~ ✅ / ~~随拍学英语~~ ✅ / ~~词汇本~~ ✅
 - **Phase 3**：~~认知重塑~~ ✅ / ~~场景演绎~~ ✅ / ~~编程英语~~ ✅ / ~~场景实战完整84课~~ ✅ / ~~课程解锁体系~~ ✅ / ~~课程价值说明~~ ✅ / ~~PWA~~ ✅
-- **Phase 4**：遗忘曲线复习 / 学习数据可视化 / AI 个性化推荐
+- **Phase 4**：~~遗忘曲线复习（词汇闪卡）~~ ✅ / ~~学习数据可视化~~ ✅ / ~~AI 个性化推荐~~ ✅ / ~~登录报错中文化~~ ✅

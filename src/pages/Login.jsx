@@ -10,6 +10,19 @@ const inputStyle = {
   transition: 'border-color 0.15s',
 }
 
+const translateError = (msg) => {
+  if (!msg) return '操作失败，请重试'
+  const m = msg.toLowerCase()
+  if (m.includes('invalid login credentials')) return '邮箱或密码错误，请重试'
+  if (m.includes('email not confirmed')) return '邮箱尚未验证，请查收验证邮件后再登录'
+  if (m.includes('user already registered')) return '该邮箱已注册，请直接登录'
+  if (m.includes('password should be at least')) return '密码至少需要 6 位字符'
+  if (m.includes('unable to validate email')) return '邮箱格式不正确'
+  if (m.includes('email rate limit exceeded')) return '发送邮件过于频繁，请稍后再试'
+  if (m.includes('network') || m.includes('fetch')) return '网络错误，请检查网络连接后重试'
+  return '操作失败：' + msg
+}
+
 const Login = () => {
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
@@ -34,7 +47,7 @@ const Login = () => {
         setMode('login')
       }
     } catch (err) {
-      setError(err.message || '操作失败，请重试')
+      setError(translateError(err.message))
     } finally {
       setLoading(false)
     }
