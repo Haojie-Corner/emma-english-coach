@@ -28,6 +28,7 @@ src/
 ├── components/
 │   ├── Layout.jsx         # 响应式布局（JS 检测，非 Tailwind 断点类）
 │   ├── AudioRecorder.jsx  # 录音 → Gemini 分析 → Emma 老师语音反馈，核心交互组件
+│   ├── EmmaBubble.jsx     # 全局悬浮 Emma 入口 + 情境感知对话面板（JARVIS 式助手）
 │   └── ui/
 │       ├── Button.jsx / Card.jsx   # inline style + onMouseEnter/Leave 实现 hover
 │       ├── ModuleLockGate.jsx      # 模块锁定守卫：未解锁时显示进度要求，已解锁则渲染 children
@@ -41,7 +42,8 @@ src/
 │       └── Speaking.jsx   # 4-tab 练习中心（自由录音/语法纠错/编程英语/随拍学英语）
 ├── store/
 │   ├── userStore.js       # Zustand：user / session / loading
-│   └── progressStore.js   # Zustand：进度、打卡、streak、checkInHistory(30天)、weeklyLessonCounts、dueVocabCount、getModuleCompletion、isModuleUnlocked
+│   ├── progressStore.js   # Zustand：进度、打卡、streak、checkInHistory(30天)、weeklyLessonCounts、dueVocabCount、getModuleCompletion、isModuleUnlocked
+│   └── emmaStore.js       # Zustand：Emma 面板 open/close 状态（isOpen / open / close / toggle）
 ├── services/
 │   ├── supabase.js        # Supabase 客户端 + DB/Storage/Auth 操作
 │   ├── gemini.js          # Gemini REST API（多模型降级重试）
@@ -61,6 +63,18 @@ src/
 ---
 
 ## 关键设计决策
+
+### Emma 全局助手架构（JARVIS 式）
+`EmmaBubble.jsx` 渲染在 `Layout.jsx` 根节点，通过 `useLocation()` 感知当前路由，派生情境上下文，无需各页面主动注入。
+
+核心逻辑：
+- `getRouteContext(pathname)` — 根据 URL 正则匹配返回 `{ label, icon, description, quickQ[] }`，涵盖所有课时页（通过 `lessonId` 查课程标题）和功能页
+- `pageContext` — 传给 `chatWithEmma(messages, progressSummary, pageContext)`，注入 DeepSeek 系统 prompt，使回答具有页面针对性
+- **面板不销毁**：始终 `position: fixed`，用 `transform: translateX/translateY` 做滑入/滑出，避免重建
+- 桌面端：右侧抽屉（`width: 380px`，从右滑入）；移动端：底部 sheet（`height: 75vh`，从底滑入）
+- 导航到 `/teacher` 页时隐藏（返回 null），避免与全屏 TeacherChat 冲突
+- `handleClose()` 清空 messages + input，确保下次开启时以新页面情境重新打招呼
+- `emmaStore.js` 仅持有 open 状态，任意组件可通过 `useEmmaStore().open()` 程序性打开 Emma
 
 ### 样式方案
 **不依赖 Tailwind 响应式类做关键布局**。`Layout.jsx` 用 `useState + useEffect + window.innerWidth` 检测是否桌面端（≥1024px），动态决定显示侧边栏还是底部导航，完全绕开 `lg:hidden / hidden lg:block`（在 Tailwind v4 CSS-first 模式下不可靠）。Card/Button 的 hover 也用 `onMouseEnter/Leave` + inline style 实现。
@@ -205,6 +219,7 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 - ✅ **对话历史持久化**（SceneLesson + FluencyLesson：离开时 saveConversation，进入时展示历史记录摘要）
 - ✅ **全模块前后课导航**（Phonics/Intonation/Mindset/Demo/Fluency 课时页顶部均有 ‹ 上一课 / 下一课 › 按钮）
 - ✅ **Mindset AI 出题升级**（generateMindsetQuiz prompt 增加中英思维对比原则 + 真实场景要求 + 文化差异解释）
+- ✅ **Emma 全局悬浮入口 + 情境感知**（EmmaBubble 浮动按钮 + 滑入对话面板，路由感知，`chatWithEmma` 接受 `pageContext` 参数）
 
 ---
 
