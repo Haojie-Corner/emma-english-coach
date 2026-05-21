@@ -130,9 +130,10 @@ export const analyzeImage = async (imageBase64, mimeType = 'image/jpeg') => {
 }
 
 
-export const expandVocabulary = async (word) => {
+export const expandVocabulary = async (word, context = '') => {
+  const contextLine = context ? `\n使用场景/来源课程：${context}（请根据此场景选择最相关的词义）` : ''
   const prompt = `你是英语词典助手，针对中文母语零基础学习者。
-请为单词「${word}」提供以下信息，只输出 JSON，不要任何额外文字：
+请为单词「${word}」提供以下信息${contextLine}，只输出 JSON，不要任何额外文字：
 {
   "phonetic": "/国际音标/",
   "meaning": "中文释义（简洁，10字以内）",

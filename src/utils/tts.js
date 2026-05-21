@@ -1,4 +1,14 @@
 const ELEVENLABS_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY
+import { showToast } from './toast'
+
+// Debounce TTS error toasts — don't spam if multiple calls fail at once
+let _lastTtsToastAt = 0
+const toastTts = (msg) => {
+  const now = Date.now()
+  if (now - _lastTtsToastAt < 5000) return
+  _lastTtsToastAt = now
+  showToast(msg, 'warning')
+}
 
 // Sarah — young, clear, professional American female voice
 const VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'
@@ -120,25 +130,33 @@ const speakFallback = (text, rate, onEnd) => {
 export const MODEL_QUALITY = 'eleven_multilingual_v2'  // practice audio — highest quality
 const MODEL_FAST = 'eleven_turbo_v2_5'                 // commentary / feedback — 2-3x faster, multilingual
 
+const handleTtsError = (e) => {
+  if (e.name === 'AbortError') return
+  if (e.message.includes('402')) toastTts('ElevenLabs 语音积分已用完，充值后即可恢复 🔋')
+  else if (e.message.includes('401') || e.message.includes('403')) toastTts('语音服务 API Key 无效，请检查配置')
+  else toastTts('语音服务暂时不可用，请稍后重试')
+  console.warn('[TTS] ElevenLabs error:', e.message)
+}
+
 /** English TTS (ElevenLabs Sarah). Each call cancels any in-progress audio. */
 export const speak = async (text, rate = 0.78, onEnd = null) => {
   stopSpeaking()
-  if (!ELEVENLABS_KEY) { console.warn('[TTS] No ElevenLabs key'); return }
+  if (!ELEVENLABS_KEY) { toastTts('未配置语音服务，无法播放'); return }
   try {
     await elevenLabsFetch(text, MODEL_QUALITY, rate, onEnd)
   } catch (e) {
-    if (e.name !== 'AbortError') console.warn('[TTS] ElevenLabs error:', e.message)
+    handleTtsError(e)
   }
 }
 
 /** Bilingual mixed Chinese+English. Uses turbo model for faster response. */
 export const speakMultilingual = async (text, onEnd = null) => {
   stopSpeaking()
-  if (!ELEVENLABS_KEY) { console.warn('[TTS] No ElevenLabs key'); return }
+  if (!ELEVENLABS_KEY) { toastTts('未配置语音服务，无法播放'); return }
   try {
     await elevenLabsFetch(text, MODEL_FAST, 1.0, onEnd)
   } catch (e) {
-    if (e.name !== 'AbortError') console.warn('[TTS] ElevenLabs error:', e.message)
+    handleTtsError(e)
   }
 }
 

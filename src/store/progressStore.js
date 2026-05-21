@@ -12,6 +12,7 @@ const useProgressStore = create((set, get) => ({
   dueVocabCount: 0,
 
   fetchProgress: async (userId) => {
+    if (get().loading) return
     set({ loading: true })
     const [progress, streak, todayCheckIn, checkInHistory, weeklyLessonCounts, dueVocab] = await Promise.all([
       getProgress(userId),

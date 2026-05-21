@@ -27,6 +27,8 @@ const MindsetLesson = () => {
   const [totalCount, setTotalCount] = useState(0)
   const [previousQuestions, setPreviousQuestions] = useState([])
   const [phase, setPhase] = useState('intro') // intro | quiz
+  const [quizHistory, setQuizHistory] = useState([]) // session answer history
+  const [showHistory, setShowHistory] = useState(false)
 
   if (!lesson) return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
@@ -73,6 +75,13 @@ const MindsetLesson = () => {
     const newCorrect = isCorrect ? correctCount + 1 : correctCount
     setTotalCount(newTotal)
     setCorrectCount(newCorrect)
+    setQuizHistory(prev => [...prev, {
+      question: quiz.question,
+      selected,
+      correctAnswer: quiz.correct_answer,
+      isCorrect,
+      explanation: quiz.explanation,
+    }])
     if (user && newTotal >= 3) {
       await updateProgress(user.id, 'mindset', lesson.id, newCorrect >= 2 ? 'completed' : 'in_progress', Math.round((newCorrect / newTotal) * 100))
     }
@@ -225,6 +234,43 @@ const MindsetLesson = () => {
               <p style={{ color: '#c45c5c', marginBottom: 12 }}>{quiz.error}</p>
               <Button onClick={fetchQuiz}>重试</Button>
             </Card>
+          )}
+
+          {/* 本次答题记录 */}
+          {quizHistory.length > 0 && (
+            <div style={{ background: '#faf9f5', border: '1px solid #ece9e0', borderRadius: 12, padding: '12px 14px', marginTop: 4 }}>
+              <button onClick={() => setShowHistory(v => !v)} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', fontSize: 13, fontWeight: 600, color: '#1a1917',
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              }}>
+                <span>📋 本次答题记录（{quizHistory.length} 题）</span>
+                <span style={{ fontSize: 11, color: '#7a7870' }}>
+                  ✅ {quizHistory.filter(h => h.isCorrect).length} 正确 / ❌ {quizHistory.filter(h => !h.isCorrect).length} 错误
+                </span>
+              </button>
+              {showHistory && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }} className="fade-in">
+                  {quizHistory.map((h, i) => (
+                    <div key={i} style={{
+                      borderLeft: `3px solid ${h.isCorrect ? '#788c5d' : '#c45c5c'}`,
+                      paddingLeft: 10, paddingBottom: 4,
+                    }}>
+                      <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 3 }}>第 {i + 1} 题</p>
+                      <p style={{ fontSize: 13, color: '#1a1917', lineHeight: 1.5, marginBottom: 4 }}>{h.question}</p>
+                      <p style={{ fontSize: 12 }}>
+                        <span style={{ color: h.isCorrect ? '#788c5d' : '#c45c5c', fontWeight: 600 }}>
+                          {h.isCorrect ? '✅ ' : '❌ '} 你的答案：{h.selected}
+                        </span>
+                      </p>
+                      {!h.isCorrect && (
+                        <p style={{ fontSize: 12, color: '#788c5d', marginTop: 2 }}>✅ 正确：{h.correctAnswer}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

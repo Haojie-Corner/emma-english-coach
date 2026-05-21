@@ -17,7 +17,10 @@ const callDeepSeek = async (messages, systemPrompt) => {
       temperature: 0.7,
     }),
   })
-  if (!res.ok) throw new Error(`DeepSeek API error: ${res.status}`)
+  if (res.status === 429) throw new Error('AI 服务繁忙，请稍后重试（请求频率超限）')
+  if (res.status === 402) throw new Error('AI 服务积分不足，请联系管理员')
+  if (res.status === 401 || res.status === 403) throw new Error('AI 服务授权失败，请检查配置')
+  if (!res.ok) throw new Error(`AI 服务暂时不可用（${res.status}），请稍后重试`)
   const data = await res.json()
   return data.choices?.[0]?.message?.content ?? ''
 }

@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import useUserStore from '../store/userStore'
 import EmmaBubble from './EmmaBubble'
+import Toast from './ui/Toast'
 
 /* ── SVG Nav Icons ── */
 const HomeIcon = ({ active }) => {
@@ -244,6 +245,7 @@ const Layout = () => {
       </main>
       {!isDesktop && <BottomNav />}
       <EmmaBubble />
+      <Toast />
     </div>
   )
 }

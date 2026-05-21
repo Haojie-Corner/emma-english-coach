@@ -4,38 +4,71 @@ import { getIntonationLesson, intonationLessons } from '../../data/intonation'
 import AudioRecorder from '../../components/AudioRecorder'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import VocabChip from '../../components/ui/VocabChip'
 import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import { speak } from '../../utils/tts'
 import LessonValueBanner from '../../components/ui/LessonValueBanner'
+import { expandVocabulary } from '../../services/gemini'
+import { addVocabularyWord } from '../../services/supabase'
 
-const ItemCard = ({ item }) => (
-  <div
-    onClick={() => speak(item.example)}
-    style={{
-      background: '#fff', border: '1.5px solid #dedad0', borderRadius: 14,
-      padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 8,
-      cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s',
-    }}
-    onMouseEnter={e => { e.currentTarget.style.borderColor = '#d97757'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(217,119,87,0.15)' }}
-    onMouseLeave={e => { e.currentTarget.style.borderColor = '#dedad0'; e.currentTarget.style.boxShadow = 'none' }}
-  >
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-      <span className="font-title" style={{ fontSize: 18, fontWeight: 800, color: '#d97757' }}>{item.letter}</span>
-      {item.ipa && <span className="font-mono" style={{ fontSize: 12, color: '#7a7870' }}>{item.ipa}</span>}
+const ItemCard = ({ item, lessonTitle }) => {
+  const { user } = useUserStore()
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  // Only show VocabChip for items with real IPA (e.g., /ˈfoʊ.toʊ/), not meta labels like '内容词'
+  const isRealWord = item.ipa?.startsWith('/')
+  const cleanWord = isRealWord
+    ? item.letter.toLowerCase().replace(/[·↗↘\s↑↓]/g, '').replace(/[^a-z]/g, '')
+    : ''
+
+  const handleSave = async () => {
+    if (!user || saved || saving || !cleanWord) return
+    setSaving(true)
+    try {
+      const data = await expandVocabulary(cleanWord, lessonTitle)
+      await addVocabularyWord(user.id, cleanWord, data.phonetic, data.meaning, data.example, data.example_zh, `语音语调·${lessonTitle}`)
+      setSaved(true)
+    } catch { /* silently fail */ }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div
+      onClick={() => speak(item.example)}
+      style={{
+        background: '#fff', border: '1.5px solid #dedad0', borderRadius: 14,
+        padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 8,
+        cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = '#d97757'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(217,119,87,0.15)' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = '#dedad0'; e.currentTarget.style.boxShadow = 'none' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+          <span className="font-title" style={{ fontSize: 18, fontWeight: 800, color: '#d97757' }}>{item.letter}</span>
+          {item.ipa && <span className="font-mono" style={{ fontSize: 12, color: '#7a7870' }}>{item.ipa}</span>}
+        </div>
+        {isRealWord && cleanWord && (
+          <div onClick={e => e.stopPropagation()}>
+            <VocabChip en={cleanWord} zh={item.example_zh || ''} saved={saved} saving={saving} onSave={handleSave} />
+          </div>
+        )}
+      </div>
+      <div>
+        <p style={{ fontSize: 14, fontWeight: 600, color: '#1a1917' }}>{item.example}</p>
+        <p style={{ fontSize: 12, color: '#7a7870' }}>{item.example_zh}</p>
+      </div>
+      {item.tip && (
+        <p style={{ fontSize: 12, color: '#7a7870', lineHeight: 1.5, background: '#faf9f5', borderRadius: 8, padding: '8px 10px' }}>
+          💡 {item.tip}
+        </p>
+      )}
+      <p style={{ fontSize: 10, color: '#b0aea5' }}>🔊 点击听示例</p>
     </div>
-    <div>
-      <p style={{ fontSize: 14, fontWeight: 600, color: '#1a1917' }}>{item.example}</p>
-      <p style={{ fontSize: 12, color: '#7a7870' }}>{item.example_zh}</p>
-    </div>
-    {item.tip && (
-      <p style={{ fontSize: 12, color: '#7a7870', lineHeight: 1.5, background: '#faf9f5', borderRadius: 8, padding: '8px 10px' }}>
-        💡 {item.tip}
-      </p>
-    )}
-    <p style={{ fontSize: 10, color: '#b0aea5' }}>🔊 点击听示例</p>
-  </div>
-)
+  )
+}
 
 const IntonationLesson = () => {
   const { lessonId } = useParams()
@@ -122,7 +155,7 @@ const IntonationLesson = () => {
               <h2 className="font-title" style={{ fontSize: 15, color: '#1a1917', marginBottom: 4 }}>{section.title}</h2>
               <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 14 }}>{section.subtitle}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {section.items.map((item, i) => <ItemCard key={i} item={item} />)}
+                {section.items.map((item, i) => <ItemCard key={i} item={item} lessonTitle={lesson.title} />)}
               </div>
             </div>
           ))}

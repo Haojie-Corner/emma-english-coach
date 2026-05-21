@@ -411,6 +411,26 @@ const Vocabulary = () => {
         </button>
       </div>
 
+      {/* 遗忘曲线规则说明（今日复习 tab 顶部） */}
+      {tab === 'due' && (
+        <div style={{ background: '#f5f3ee', border: '1px solid #e8e4d8', borderRadius: 12, padding: '10px 14px', marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>📅</span>
+          <div>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#1a1917', marginBottom: 4 }}>遗忘曲线复习规则</p>
+            <p style={{ fontSize: 12, color: '#7a7870', lineHeight: 1.6 }}>
+              复习后按掌握程度评级，自动安排下次：
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+              {[['陌生', '#c45c5c', '+1天'], ['模糊', '#d97757', '+3天'], ['熟悉', '#788c5d', '+7天'], ['掌握', '#5a7a3a', '+14天']].map(([label, color, day]) => (
+                <span key={label} style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 20, background: `${color}18`, color, border: `1px solid ${color}40` }}>
+                  {label} {day}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 搜索 */}
       {tab === 'all' && words.length > 0 && (
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索单词或含义…"

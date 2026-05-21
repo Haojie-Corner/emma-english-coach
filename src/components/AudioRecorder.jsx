@@ -122,7 +122,7 @@ const TeacherAvatar = ({ speakState, hasPlayed, preloading, onPause, onResume, o
 
 const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
   const { status, audioBlob, audioUrl, error, startRecording, stopRecording, reset, getBase64 } = useAudioRecorder()
-  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzePhase, setAnalyzePhase] = useState(null)  // null | 'processing' | 'analyzing'
   const [result, setResult] = useState(null)
   const [analyzeError, setAnalyzeError] = useState(null)
   const [speakState, setSpeakState] = useState('idle')
@@ -219,13 +219,14 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [status, result, analyzing, startRecording, stopRecording])
+  }, [status, result, analyzePhase, startRecording, stopRecording])
 
   const handleAnalyze = async () => {
-    setAnalyzing(true)
+    setAnalyzePhase('processing')
     setAnalyzeError(null)
     try {
       const base64 = await getBase64()
+      setAnalyzePhase('analyzing')
       const feedback = await analyzePronunciation(base64, targetText)
       setResult(feedback)
       if (userId && lessonId && audioBlob) {
@@ -234,7 +235,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
     } catch (e) {
       setAnalyzeError('AI 分析失败：' + e.message)
     } finally {
-      setAnalyzing(false)
+      setAnalyzePhase(null)
     }
   }
 
@@ -345,15 +346,15 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '8px 0' }}>
           <button
             onClick={status === 'recording' ? stopRecording : startRecording}
-            disabled={status === 'processing' || analyzing}
+            disabled={status === 'processing' || !!analyzePhase}
             className={status === 'recording' ? 'recording-pulse' : ''}
             style={{
               width: 72, height: 72, borderRadius: '50%', border: 'none',
-              fontSize: 26, cursor: status === 'processing' || analyzing ? 'not-allowed' : 'pointer',
+              fontSize: 26, cursor: status === 'processing' || !!analyzePhase ? 'not-allowed' : 'pointer',
               background: status === 'recording' ? '#dc3030' : '#d97757',
               color: '#fff', transition: 'background 0.2s, transform 0.1s',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: status === 'processing' || analyzing ? 0.6 : 1,
+              opacity: status === 'processing' || !!analyzePhase ? 0.6 : 1,
             }}
           >
             {status === 'recording' ? '⏹' : '🎤'}
@@ -374,8 +375,12 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%' }}>
               <audio src={audioUrl} controls style={{ width: '100%', maxWidth: 320, borderRadius: 8 }} />
               <div style={{ display: 'flex', gap: 10 }}>
-                <Button onClick={handleAnalyze} disabled={analyzing}>
-                  {analyzing ? <><span className="spin" style={{ display: 'inline-block' }}>⟳</span> 分析中…</> : '🤖 AI 分析发音'}
+                <Button onClick={handleAnalyze} disabled={!!analyzePhase}>
+                  {analyzePhase === 'processing'
+                    ? <><span className="spin" style={{ display: 'inline-block' }}>⟳</span> 处理录音…</>
+                    : analyzePhase === 'analyzing'
+                    ? <><span className="spin" style={{ display: 'inline-block' }}>⟳</span> AI 分析中…</>
+                    : '🤖 AI 分析发音'}
                 </Button>
                 <Button variant="secondary" onClick={handleReset}>重新录音</Button>
               </div>

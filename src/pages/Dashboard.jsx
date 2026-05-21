@@ -62,7 +62,7 @@ const LEARNING_PATH = [
 
 const Dashboard = () => {
   const { user } = useUserStore()
-  const { progress, streak, checkedInToday, fetchProgress, doCheckIn, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
+  const { progress, streak, checkedInToday, loading: progressLoading, fetchProgress, doCheckIn, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
   const navigate = useNavigate()
 
   useEffect(() => { if (user) fetchProgress(user.id) }, [user])
@@ -152,6 +152,47 @@ const Dashboard = () => {
           </button>
         )}
       </div>
+
+      {/* ── 新用户引导（首次使用，无任何学习进度） ── */}
+      {progress.length === 0 && !progressLoading && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fdf0ea 0%, #fef8f4 100%)',
+          border: '1.5px solid #f5c4a8', borderRadius: 18,
+          padding: '22px 24px', marginBottom: 28,
+        }}>
+          <p style={{ fontSize: 22, marginBottom: 8 }}>👋</p>
+          <p className="font-title" style={{ fontSize: 17, color: '#1a1917', marginBottom: 6 }}>
+            欢迎来到 AI 英语陪练！
+          </p>
+          <p style={{ fontSize: 13, color: '#7a7870', lineHeight: 1.6, marginBottom: 16 }}>
+            你的英语学习之旅从这里开始。先从「自然拼读」打好发音基础，
+            后面的语调、对话、场景课会一路解锁，系统帮你安排好学习顺序。
+          </p>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => navigate('/course/phonics')}
+              style={{
+                background: '#d97757', color: '#fff', border: 'none',
+                borderRadius: 10, padding: '10px 18px', fontSize: 13,
+                fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              🔤 开始第一课 →
+            </button>
+            <button
+              onClick={() => navigate('/teacher')}
+              style={{
+                background: '#fff', color: '#d97757',
+                border: '1.5px solid #f5c4a8',
+                borderRadius: 10, padding: '10px 16px', fontSize: 13,
+                fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              问问 Emma 老师
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── 继续学习 ── */}
       <div
