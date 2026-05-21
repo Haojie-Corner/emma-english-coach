@@ -9,6 +9,25 @@ import { mindsetLessons } from '../data/mindset'
 import { demoLessons } from '../data/demo'
 import { fluencyLessons } from '../data/fluency'
 import { chatWithEmma } from '../services/deepseek'
+import { expandVocabulary } from '../services/gemini'
+import { addVocabularyWord } from '../services/supabase'
+import VocabChip from './ui/VocabChip'
+
+const parseVocabFromMessage = (content) => {
+  const match = content.match(/💡\s*(?:新词汇|学到了)[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
+  if (!match) return []
+  return match[1].trim()
+    .split(/[；;]|\n[-•]?\s*/)
+    .map(s => s.replace(/^[-•*\s]+/, '').trim())
+    .filter(s => s.length > 1 && s.length < 80)
+    .map(item => {
+      const m = item.match(/^([^（(【]+?)\s*[（(【]([^）)】]+)[）)】]/)
+      if (m) return { en: m[1].trim(), zh: m[2].trim() }
+      if (/[a-zA-Z]/.test(item)) return { en: item, zh: '' }
+      return null
+    })
+    .filter(Boolean)
+}
 
 /* ── 根据当前路由推断上下文 ── */
 const getRouteContext = (pathname) => {
@@ -114,7 +133,21 @@ const EmmaBubble = () => {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= BREAKPOINT)
+  const [savedVocabs, setSavedVocabs] = useState(new Set())
+  const [savingVocab, setSavingVocab] = useState(null)
   const bottomRef = useRef(null)
+
+  const handleSaveVocab = async (en, zh) => {
+    if (!user || savedVocabs.has(en)) return
+    setSavingVocab(en)
+    try {
+      const expanded = await expandVocabulary(en)
+      const src = routeCtx.label ? `Emma·${routeCtx.label}` : 'Emma 老师'
+      await addVocabularyWord(user.id, en, expanded.phonetic, expanded.meaning || zh, expanded.example, expanded.example_zh, src)
+      setSavedVocabs(prev => new Set([...prev, en]))
+    } catch { /* silently fail */ }
+    finally { setSavingVocab(null) }
+  }
 
   const name = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
   const totalCompleted = progress.filter(p => p.status === 'completed').length
@@ -291,27 +324,44 @@ const EmmaBubble = () => {
 
         {/* 消息区 */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 8px' }}>
-          {messages.map((msg, i) => (
-            <div key={i} style={{
-              display: 'flex',
-              justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              alignItems: 'flex-start',
-              gap: 8, marginBottom: 10,
-            }}>
-              {msg.role === 'emma' && <EmmaAvatar size={26} />}
-              <div style={{
-                maxWidth: '82%',
-                background: msg.role === 'user' ? '#d97757' : '#f5f3ee',
-                color: msg.role === 'user' ? '#fff' : '#1a1917',
-                borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                padding: '9px 12px',
-                fontSize: 13.5, lineHeight: 1.6,
-                whiteSpace: 'pre-wrap',
-              }}>
-                {msg.content}
+          {messages.map((msg, i) => {
+            const vocabs = msg.role === 'emma' ? parseVocabFromMessage(msg.content) : []
+            const displayContent = msg.role === 'emma'
+              ? msg.content.replace(/💡\s*(?:新词汇|学到了)[：:]\s*[\s\S]*$/, '').trim()
+              : msg.content
+            return (
+              <div key={i} style={{ marginBottom: 10 }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                }}>
+                  {msg.role === 'emma' && <EmmaAvatar size={26} />}
+                  <div style={{
+                    maxWidth: '82%',
+                    background: msg.role === 'user' ? '#d97757' : '#f5f3ee',
+                    color: msg.role === 'user' ? '#fff' : '#1a1917',
+                    borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                    padding: '9px 12px',
+                    fontSize: 13.5, lineHeight: 1.6,
+                    whiteSpace: 'pre-wrap',
+                  }}>
+                    {displayContent}
+                  </div>
+                </div>
+                {vocabs.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5, marginLeft: 34, paddingRight: 8 }}>
+                    {vocabs.map(({ en, zh }) => (
+                      <VocabChip key={`${i}-${en}`} en={en} zh={zh}
+                        saved={savedVocabs.has(en)} saving={savingVocab === en}
+                        onSave={handleSaveVocab} />
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
 
           {loading && (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>

@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
 import AudioRecorder from '../../components/AudioRecorder'
 import { correctGrammar, explainTechEnglish } from '../../services/deepseek'
-import { analyzeImage } from '../../services/gemini'
+import { analyzeImage, expandVocabulary } from '../../services/gemini'
+import VocabChip from '../../components/ui/VocabChip'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { speakMultilingual, speak } from '../../utils/tts'
@@ -10,10 +11,24 @@ import { addVocabularyWord } from '../../services/supabase'
 
 // ─── 语法纠错 ────────────────────────────────────────────────────────────
 const GrammarTab = () => {
+  const { user } = useUserStore()
   const [text, setText] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [savedVocabs, setSavedVocabs] = useState(new Set())
+  const [savingVocab, setSavingVocab] = useState(null)
+
+  const handleSaveVocab = async (en, zh) => {
+    if (!user || savedVocabs.has(en)) return
+    setSavingVocab(en)
+    try {
+      const expanded = await expandVocabulary(en)
+      await addVocabularyWord(user.id, en, expanded.phonetic, expanded.meaning || zh, expanded.example, expanded.example_zh, '语法练习')
+      setSavedVocabs(prev => new Set([...prev, en]))
+    } catch { /* silently fail */ }
+    finally { setSavingVocab(null) }
+  }
 
   const handleCheck = async () => {
     if (!text.trim()) return
@@ -67,6 +82,18 @@ const GrammarTab = () => {
           {result.grammar_tip && (
             <Card className="bg-[#f5e6df] border-[#f5e6df]">
               <p className="text-sm text-[#d97757]">💡 语法小贴士：{result.grammar_tip}</p>
+            </Card>
+          )}
+          {result.new_words?.length > 0 && (
+            <Card>
+              <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 8 }}>📚 本句词汇（点 + 存入词汇本）</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {result.new_words.map(({ en, zh }) => (
+                  <VocabChip key={en} en={en} zh={zh}
+                    saved={savedVocabs.has(en)} saving={savingVocab === en}
+                    onSave={handleSaveVocab} />
+                ))}
+              </div>
             </Card>
           )}
           {result.encouragement && <p className="text-sm text-[#788c5d] text-center">{result.encouragement}</p>}

@@ -2,12 +2,55 @@ import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getFluencyLesson, fluencyLessons } from '../../data/fluency'
 import { chatWithFluency } from '../../services/deepseek'
-import { saveConversation, getConversations } from '../../services/supabase'
+import { saveConversation, getConversations, addVocabularyWord } from '../../services/supabase'
+import { expandVocabulary } from '../../services/gemini'
 import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { speakMultilingual, stopSpeaking } from '../../utils/tts'
+
+// Extract "💡 学到了：" or "💡 新词汇：" items from an AI message
+const parseVocabFromMessage = (content) => {
+  const match = content.match(/💡 (?:学到了|新词汇)[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
+  if (!match) return []
+  return match[1].trim()
+    .split(/[；;]|\n[-•]?\s*/)
+    .map(s => s.replace(/^[-•*\s]+/, '').trim())
+    .filter(s => s.length > 1 && s.length < 80)
+    .map(item => {
+      const m = item.match(/^([^（(【]+?)\s*[（(【]([^）)】]+)[）)】]/)
+      if (m) return { en: m[1].trim(), zh: m[2].trim() }
+      if (/[a-zA-Z]/.test(item)) return { en: item, zh: '' }
+      return null
+    })
+    .filter(Boolean)
+}
+
+// Small inline save chip
+const VocabChip = ({ en, zh, source, saved, saving, onSave, color = '#7a6bba' }) => (
+  <div style={{
+    display: 'inline-flex', alignItems: 'center',
+    background: saved ? '#eaf2e3' : '#f5f0ff',
+    border: `1px solid ${saved ? '#b8dca8' : '#d0c0e8'}`,
+    borderRadius: 10, overflow: 'hidden',
+  }}>
+    <span style={{ fontSize: 11, color: saved ? '#5a7a3a' : color, padding: '3px 6px 3px 9px' }}>{en}</span>
+    {zh && <span style={{ fontSize: 10, color: '#a09b95', paddingRight: 4 }}>· {zh}</span>}
+    <button
+      onClick={() => onSave(en, zh, source)}
+      disabled={saved || saving}
+      title={saved ? '已保存' : '加入词汇本'}
+      style={{
+        fontSize: 11, fontWeight: 700,
+        background: saved ? '#c4e8b0' : saving ? '#e0d8f8' : '#d8d0f8',
+        color: saved ? '#5a7a3a' : color,
+        border: 'none', cursor: saved ? 'default' : 'pointer',
+        padding: '3px 8px', alignSelf: 'stretch', lineHeight: 1,
+      }}
+    >{saved ? '✓' : saving ? '…' : '+'}</button>
+  </div>
+)
 
 const FluencyLesson = () => {
   const { lessonId } = useParams()
@@ -27,6 +70,8 @@ const FluencyLesson = () => {
   const [started, setStarted] = useState(false)
   const [speakingMsgId, setSpeakingMsgId] = useState(null)
   const [pastSessions, setPastSessions] = useState([])
+  const [savedVocabs, setSavedVocabs] = useState(new Set())
+  const [savingVocab, setSavingVocab] = useState(null)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const messagesRef = useRef(messages)
@@ -54,6 +99,29 @@ const FluencyLesson = () => {
     </div>
   )
 
+  const vocabSource = `自如交流·${lesson.title}`
+
+  const handleSaveVocab = async (en, zh, source) => {
+    if (!user || savedVocabs.has(en) || savingVocab === en) return
+    setSavingVocab(en)
+    try {
+      const expanded = await expandVocabulary(en)
+      await addVocabularyWord(
+        user.id, en,
+        expanded.phonetic || '',
+        expanded.meaning || zh || en,
+        expanded.example || '',
+        expanded.example_zh || '',
+        source,
+      )
+      setSavedVocabs(prev => new Set([...prev, en]))
+    } catch {
+      // silently ignore
+    } finally {
+      setSavingVocab(null)
+    }
+  }
+
   const handleStart = async () => {
     setStarted(true)
     setLoading(true)
@@ -65,7 +133,7 @@ const FluencyLesson = () => {
       setMessages([aiMsg])
       speakMultilingual(greeting, () => setSpeakingMsgId(null))
       setSpeakingMsgId(aiMsg.id)
-    } catch (e) {
+    } catch {
       setMessages([{ id: Date.now(), role: 'ai', content: '连接失败，请重试' }])
     } finally {
       setLoading(false)
@@ -89,7 +157,7 @@ const FluencyLesson = () => {
       stopSpeaking()
       speakMultilingual(reply, () => setSpeakingMsgId(null))
       setSpeakingMsgId(aiMsg.id)
-    } catch (e) {
+    } catch {
       setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', content: '网络问题，请重试' }])
     } finally {
       setLoading(false)
@@ -188,24 +256,52 @@ const FluencyLesson = () => {
             </div>
           </div>
 
-          {/* 关键短语 */}
+          {/* 关键短语 — 每个都可保存到词汇本 */}
           <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>💬 关键短语</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#1a1917' }}>💬 关键短语</p>
+              <span style={{ fontSize: 11, color: '#b0aea5' }}>点 + 存入词汇本</span>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {lesson.keyPhrases.map((phrase, i) => (
-                <div key={i} style={{
-                  background: '#fff', border: '1.5px solid #dedad0', borderRadius: 12, padding: '12px 14px',
-                  borderLeft: '3px solid #7a6bba',
-                }}>
-                  <p className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 2 }}>
-                    {phrase.en}
-                  </p>
-                  <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 4 }}>{phrase.zh}</p>
-                  <p style={{ fontSize: 11, color: '#9b7ec8', background: '#f5f0ff', borderRadius: 6, padding: '4px 8px', display: 'inline-block' }}>
-                    💡 {phrase.tip}
-                  </p>
-                </div>
-              ))}
+              {lesson.keyPhrases.map((phrase, i) => {
+                const saved = savedVocabs.has(phrase.en)
+                const saving = savingVocab === phrase.en
+                return (
+                  <div key={i} style={{
+                    background: saved ? '#f0faf0' : '#fff',
+                    border: `1.5px solid ${saved ? '#b8dca8' : '#dedad0'}`,
+                    borderRadius: 12, padding: '12px 14px',
+                    borderLeft: `3px solid ${saved ? '#5a7a3a' : '#7a6bba'}`,
+                    transition: 'border-color 0.2s, background 0.2s',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <p className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 2 }}>
+                          {phrase.en}
+                        </p>
+                        <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 4 }}>{phrase.zh}</p>
+                        <p style={{ fontSize: 11, color: '#9b7ec8', background: '#f5f0ff', borderRadius: 6, padding: '4px 8px', display: 'inline-block' }}>
+                          💡 {phrase.tip}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleSaveVocab(phrase.en, phrase.zh, vocabSource)}
+                        disabled={saved || saving}
+                        title={saved ? '已保存到词汇本' : '加入词汇本'}
+                        style={{
+                          flexShrink: 0, width: 32, height: 32, borderRadius: 8,
+                          border: `1.5px solid ${saved ? '#b8dca8' : '#d0c0e8'}`,
+                          background: saved ? '#eaf2e3' : saving ? '#e8e0f8' : '#f5f0ff',
+                          color: saved ? '#5a7a3a' : '#7a6bba',
+                          fontSize: 14, fontWeight: 700,
+                          cursor: saved ? 'default' : 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >{saved ? '✓' : saving ? '…' : '+'}</button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
 
@@ -284,38 +380,57 @@ const FluencyLesson = () => {
               </Card>
             )}
 
-            {started && messages.map(msg => (
-              <div key={msg.id} style={{
-                display: 'flex',
-                flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-                alignItems: 'flex-end', gap: 8,
-              }}>
-                {msg.role === 'ai' && (
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f5f0ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
-                    🤖
-                  </div>
-                )}
-                <div style={{ maxWidth: '75%' }}>
-                  <div style={{
-                    background: msg.role === 'user' ? '#7a6bba' : '#fff',
-                    color: msg.role === 'user' ? '#fff' : '#1a1917',
-                    border: msg.role === 'user' ? 'none' : '1px solid #dedad0',
-                    borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                    padding: '12px 16px', fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap',
-                  }}>
-                    {msg.content}
-                  </div>
+            {started && messages.map(msg => {
+              const vocabChips = msg.role === 'ai' ? parseVocabFromMessage(msg.content) : []
+              return (
+                <div key={msg.id} style={{
+                  display: 'flex',
+                  flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
+                  alignItems: 'flex-end', gap: 8,
+                }}>
                   {msg.role === 'ai' && (
-                    <button onClick={() => handleSpeak(msg)} style={{
-                      marginTop: 4, fontSize: 11, color: speakingMsgId === msg.id ? '#7a6bba' : '#b0aea5',
-                      background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px',
-                    }}>
-                      {speakingMsgId === msg.id ? '🔊 播放中…' : '🔊 朗读'}
-                    </button>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f5f0ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+                      🤖
+                    </div>
                   )}
+                  <div style={{ maxWidth: '75%' }}>
+                    <div style={{
+                      background: msg.role === 'user' ? '#7a6bba' : '#fff',
+                      color: msg.role === 'user' ? '#fff' : '#1a1917',
+                      border: msg.role === 'user' ? 'none' : '1px solid #dedad0',
+                      borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                      padding: '12px 16px', fontSize: 14, lineHeight: 1.6, whiteSpace: 'pre-wrap',
+                    }}>
+                      {msg.content}
+                    </div>
+                    {msg.role === 'ai' && (
+                      <>
+                        <button onClick={() => handleSpeak(msg)} style={{
+                          marginTop: 4, fontSize: 11, color: speakingMsgId === msg.id ? '#7a6bba' : '#b0aea5',
+                          background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px',
+                        }}>
+                          {speakingMsgId === msg.id ? '🔊 播放中…' : '🔊 朗读'}
+                        </button>
+                        {/* 解析出的新词汇芯片 */}
+                        {vocabChips.length > 0 && (
+                          <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                            {vocabChips.map((v, i) => (
+                              <VocabChip
+                                key={i} en={v.en} zh={v.zh}
+                                source={vocabSource}
+                                saved={savedVocabs.has(v.en)}
+                                saving={savingVocab === v.en}
+                                onSave={handleSaveVocab}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {loading && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

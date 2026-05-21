@@ -168,8 +168,12 @@ export const correctGrammar = async (userText) => {
     }
   ],
   "grammar_tip": "相关语法规则（中文，简单易懂）",
+  "new_words": [
+    { "en": "值得学习的单词或短语", "zh": "中文释义" }
+  ],
   "encouragement": "鼓励语（中文）"
-}`
+}
+new_words 提取本句中 2-4 个值得零基础学习者掌握的词汇或短语，优先选修改后的正确版本里出现的词。`
 
   return callDeepSeek([{ role: 'user', content: userText }], systemPrompt)
 }
@@ -202,7 +206,8 @@ export const chatWithEmma = async (messages, progressSummary, pageContext = '') 
 - 中文为主，仅在示范英语时使用英文
 - 鼓励为主，给具体行动建议（"去学第X课"而非"继续努力"）
 - 适当用 emoji 增加亲切感
-- 如果是知识点问题，给一个简单例句帮助理解`
+- 如果是知识点问题，给一个简单例句帮助理解
+- 当解释词汇或常用表达时，可在回答末尾加一行（可选）：💡 新词汇：word（释义）；word2（释义2）`
 
   return callDeepSeek(messages, systemPrompt)
 }

@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react'
 import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import { useNavigate } from 'react-router-dom'
 import { modules } from '../data/phonics'
+import { getVocabulary } from '../services/supabase'
 
 /* ── 30天打卡热图 ── */
 const CheckInHeatmap = ({ history }) => {
@@ -94,8 +96,17 @@ const WeeklyBarChart = ({ counts }) => {
 
 const Profile = () => {
   const { user, logout } = useUserStore()
-  const { streak, progress, getModuleCompletion, checkInHistory, weeklyLessonCounts } = useProgressStore()
+  const { streak, progress, getModuleCompletion, checkInHistory, weeklyLessonCounts, dueVocabCount } = useProgressStore()
   const navigate = useNavigate()
+  const [vocabStats, setVocabStats] = useState(null)
+
+  useEffect(() => {
+    if (!user) return
+    getVocabulary(user.id).then(words => {
+      const byFamiliarity = [0, 1, 2, 3].map(f => words.filter(w => w.familiarity === f).length)
+      setVocabStats({ total: words.length, mastered: byFamiliarity[3], byFamiliarity })
+    }).catch(() => {})
+  }, [user])
 
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
 
@@ -203,6 +214,57 @@ const Profile = () => {
           })}
         </div>
       </Card>
+
+      {/* 词汇本统计 */}
+      {vocabStats !== null && (
+        <>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>词汇本</h2>
+          <Card style={{ marginBottom: 24, padding: '16px 20px' }}>
+            {vocabStats.total === 0 ? (
+              <p style={{ fontSize: 13, color: '#b0aea5', textAlign: 'center' }}>还没有收藏词汇，去课程里点 + 存入吧</p>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 14 }}>
+                  {[
+                    { value: vocabStats.total, label: '总词汇', color: '#7a6bba' },
+                    { value: vocabStats.mastered, label: '已掌握', color: '#788c5d' },
+                    { value: dueVocabCount, label: '今日复习', color: '#d97757' },
+                  ].map(item => (
+                    <div key={item.label} style={{ textAlign: 'center' }}>
+                      <p style={{ fontSize: 22, fontWeight: 800, color: item.color, lineHeight: 1.1 }}>{item.value}</p>
+                      <p style={{ fontSize: 11, color: '#7a7870', marginTop: 3 }}>{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ height: 10, borderRadius: 5, overflow: 'hidden', display: 'flex' }}>
+                  {[
+                    { color: '#dedad0' },
+                    { color: '#f0b880' },
+                    { color: '#a8c880' },
+                    { color: '#70b860' },
+                  ].map((seg, i) => {
+                    const pct = (vocabStats.byFamiliarity[i] / vocabStats.total) * 100
+                    return pct > 0 ? (
+                      <div key={i} style={{ width: `${pct}%`, background: seg.color, transition: 'width 0.8s ease-out' }} />
+                    ) : null
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+                  {['陌生', '模糊', '熟悉', '掌握'].map((label, i) => {
+                    const colors = ['#dedad0', '#f0b880', '#a8c880', '#70b860']
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 2, background: colors[i] }} />
+                        <span style={{ fontSize: 10, color: '#7a7870' }}>{label} {vocabStats.byFamiliarity[i]}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </Card>
+        </>
+      )}
 
       <Button variant="secondary" onClick={handleLogout} style={{ width: '100%', justifyContent: 'center' }}>
         退出登录

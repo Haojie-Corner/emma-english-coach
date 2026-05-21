@@ -9,6 +9,9 @@ import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import { speak, speakMultilingual, stopSpeaking } from '../../utils/tts'
 import LessonValueBanner from '../../components/ui/LessonValueBanner'
+import VocabChip from '../../components/ui/VocabChip'
+import { expandVocabulary } from '../../services/gemini'
+import { addVocabularyWord } from '../../services/supabase'
 
 const ScoreBar = ({ label, score }) => (
   <div style={{ marginBottom: 8 }}>
@@ -37,6 +40,19 @@ const DemoLesson = () => {
   const [result, setResult] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [error, setError] = useState('')
+  const [savedVocabs, setSavedVocabs] = useState(new Set())
+  const [savingVocab, setSavingVocab] = useState(null)
+
+  const handleSaveVocab = async (en) => {
+    if (!user || savedVocabs.has(en)) return
+    setSavingVocab(en)
+    try {
+      const expanded = await expandVocabulary(en)
+      await addVocabularyWord(user.id, en, expanded.phonetic, expanded.meaning, expanded.example, expanded.example_zh, `场景演绎·${lesson.title}`)
+      setSavedVocabs(prev => new Set([...prev, en]))
+    } catch { /* silently fail */ }
+    finally { setSavingVocab(null) }
+  }
 
   const { status: recStatus, startRecording, stopRecording, getBase64, reset: resetRec } = useAudioRecorder()
   const isRecording = recStatus === 'recording'
@@ -246,10 +262,12 @@ const DemoLesson = () => {
 
               {result.words_missed?.length > 0 && (
                 <Card>
-                  <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 8 }}>遗漏或说错：</p>
+                  <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 8 }}>遗漏或说错（点 + 存入词汇本）：</p>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {result.words_missed.map((w, i) => (
-                      <span key={i} style={{ fontSize: 12, color: '#c45c5c', background: '#fdeaea', padding: '3px 10px', borderRadius: 12 }}>{w}</span>
+                      <VocabChip key={i} en={w} zh=""
+                        saved={savedVocabs.has(w)} saving={savingVocab === w}
+                        onSave={handleSaveVocab} />
                     ))}
                   </div>
                 </Card>

@@ -59,7 +59,27 @@ const WordCard = ({ word, onFamiliarityChange, onDelete }) => {
               {word.example_zh && <p style={{ fontSize: 12, color: '#7a7870', marginTop: 2 }}>{word.example_zh}</p>}
             </div>
           )}
-          {word.source && <p style={{ fontSize: 11, color: '#b0aea5', marginTop: 6 }}>来源：{word.source}</p>}
+          {word.source && (() => {
+            const src = word.source
+            let icon = '✏️'; let label = src
+            if (src === 'manual') { icon = '✏️'; label = '手动添加' }
+            else if (src === 'snap') { icon = '📸'; label = '随拍识词' }
+            else if (src === '语法练习') { icon = '📝'; label = '语法练习' }
+            else if (src.startsWith('场景实战·')) { icon = '🎭'; label = src }
+            else if (src.startsWith('自如交流·')) { icon = '💬'; label = src }
+            else if (src.startsWith('场景演绎·')) { icon = '🎬'; label = src }
+            else if (src.startsWith('Emma')) { icon = '🤖'; label = src }
+            return (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 10, color: '#9b7ec8', background: '#f5f0ff',
+                border: '1px solid #d0c0e8', borderRadius: 20,
+                padding: '2px 8px', marginTop: 8,
+              }}>
+                {icon} {label}
+              </span>
+            )
+          })()}
           <div style={{ marginTop: 14 }}>
             <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 8 }}>掌握程度</p>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -281,7 +301,6 @@ const AddWordModal = ({ onClose, onAdd, userId }) => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[
-            { key: 'phonetic', label: '音标', placeholder: '/ˌpɜːr.sɪˈvɪər/' },
             { key: 'meaning', label: '中文释义 *', placeholder: 'e.g. 坚持不懈，锲而不舍' },
             { key: 'example', label: '例句（英文）', placeholder: 'e.g. You must persevere if you want to succeed.' },
             { key: 'example_zh', label: '例句翻译', placeholder: 'e.g. 如果你想成功，就必须坚持不懈。' },
@@ -446,7 +465,7 @@ const Vocabulary = () => {
             {tab === 'due' ? '今天没有需要复习的单词' : search ? '没有匹配的单词' : '词汇本还是空的'}
           </p>
           <p style={{ fontSize: 13, color: '#b0aea5' }}>
-            {tab === 'due' ? '太棒了！所有单词都复习完了 🙌' : search ? '换个关键词试试' : '完成课程后生词会自动存入，或点击"+ 添加"手动录入'}
+            {tab === 'due' ? '太棒了！所有单词都复习完了 🙌' : search ? '换个关键词试试' : '上场景实战或自如交流课时，点击词汇旁的 + 可一键存入；也可点击右上角"+ 添加"手动录入'}
           </p>
           {tab === 'all' && !search && (
             <Button onClick={() => setShowAdd(true)} style={{ marginTop: 16 }}>手动添加单词</Button>

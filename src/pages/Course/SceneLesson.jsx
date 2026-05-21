@@ -2,11 +2,54 @@ import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getScene } from '../../data/scenes'
 import { chatWithScene } from '../../services/deepseek'
-import { saveConversation, getConversations } from '../../services/supabase'
+import { saveConversation, getConversations, addVocabularyWord } from '../../services/supabase'
+import { expandVocabulary } from '../../services/gemini'
 import useUserStore from '../../store/userStore'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { speakMultilingual, stopSpeaking } from '../../utils/tts'
+
+// Extract "💡 新词汇：" items from an AI message
+const parseVocabFromMessage = (content) => {
+  const match = content.match(/💡 新词汇[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
+  if (!match) return []
+  return match[1].trim()
+    .split(/[；;]|\n[-•]?\s*/)
+    .map(s => s.replace(/^[-•*\s]+/, '').trim())
+    .filter(s => s.length > 1 && s.length < 80)
+    .map(item => {
+      const m = item.match(/^([^（(【]+?)\s*[（(【]([^）)】]+)[）)】]/)
+      if (m) return { en: m[1].trim(), zh: m[2].trim() }
+      if (/[a-zA-Z]/.test(item)) return { en: item, zh: '' }
+      return null
+    })
+    .filter(Boolean)
+}
+
+// Small inline save chip
+const VocabChip = ({ en, zh, source, saved, saving, onSave }) => (
+  <div style={{
+    display: 'inline-flex', alignItems: 'center',
+    background: saved ? '#eaf2e3' : '#f0eeff',
+    border: `1px solid ${saved ? '#b8dca8' : '#d4ccf8'}`,
+    borderRadius: 10, overflow: 'hidden',
+  }}>
+    <span style={{ fontSize: 11, color: saved ? '#5a7a3a' : '#7a6bba', padding: '3px 6px 3px 9px' }}>{en}</span>
+    {zh && <span style={{ fontSize: 10, color: '#a09b95', paddingRight: 4 }}>· {zh}</span>}
+    <button
+      onClick={() => onSave(en, zh, source)}
+      disabled={saved || saving}
+      title={saved ? '已保存' : '加入词汇本'}
+      style={{
+        fontSize: 11, fontWeight: 700,
+        background: saved ? '#c4e8b0' : saving ? '#e0d8f8' : '#ccc8f4',
+        color: saved ? '#5a7a3a' : '#7a6bba',
+        border: 'none', cursor: saved ? 'default' : 'pointer',
+        padding: '3px 8px', alignSelf: 'stretch', lineHeight: 1,
+      }}
+    >{saved ? '✓' : saving ? '…' : '+'}</button>
+  </div>
+)
 
 const SceneLesson = () => {
   const { sceneId } = useParams()
@@ -18,6 +61,8 @@ const SceneLesson = () => {
   const [started, setStarted] = useState(false)
   const [speakingMsgId, setSpeakingMsgId] = useState(null)
   const [pastSessions, setPastSessions] = useState([])
+  const [savedVocabs, setSavedVocabs] = useState(new Set())
+  const [savingVocab, setSavingVocab] = useState(null)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
   const messagesRef = useRef(messages)
@@ -48,6 +93,27 @@ const SceneLesson = () => {
     </div>
   )
 
+  const handleSaveVocab = async (en, zh, source) => {
+    if (!user || savedVocabs.has(en) || savingVocab === en) return
+    setSavingVocab(en)
+    try {
+      const expanded = await expandVocabulary(en)
+      await addVocabularyWord(
+        user.id, en,
+        expanded.phonetic || '',
+        expanded.meaning || zh || en,
+        expanded.example || '',
+        expanded.example_zh || '',
+        source,
+      )
+      setSavedVocabs(prev => new Set([...prev, en]))
+    } catch {
+      // silently ignore
+    } finally {
+      setSavingVocab(null)
+    }
+  }
+
   const handleStart = async () => {
     setStarted(true)
     setLoading(true)
@@ -59,7 +125,7 @@ const SceneLesson = () => {
       setMessages([aiMsg])
       speakMultilingual(greeting, () => setSpeakingMsgId(null))
       setSpeakingMsgId(aiMsg.id)
-    } catch (e) {
+    } catch {
       setMessages([{ id: Date.now(), role: 'ai', content: '连接失败，请重试' }])
     } finally {
       setLoading(false)
@@ -83,7 +149,7 @@ const SceneLesson = () => {
       stopSpeaking()
       speakMultilingual(reply, () => setSpeakingMsgId(null))
       setSpeakingMsgId(aiMsg.id)
-    } catch (e) {
+    } catch {
       setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', content: '网络问题，请重试' }])
     } finally {
       setLoading(false)
@@ -99,6 +165,8 @@ const SceneLesson = () => {
     setSpeakingMsgId(msg.id)
     speakMultilingual(msg.content, () => setSpeakingMsgId(null))
   }
+
+  const vocabSource = `场景实战·${scene.title}`
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
@@ -123,11 +191,24 @@ const SceneLesson = () => {
           <span style={{ fontSize: 11, color: '#7a7870' }}>🤖 AI 扮演：<strong>{scene.aiRole}</strong></span>
           <span style={{ fontSize: 11, color: '#7a7870' }}>⏱ {scene.duration}</span>
         </div>
+
+        {/* 核心词汇 — 每个词可一键存入词汇本 */}
         {scene.keyVocab?.length > 0 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-            {scene.keyVocab.map((v, i) => (
-              <span key={i} style={{ fontSize: 11, color: '#7a6bba', background: '#f0eeff', padding: '2px 8px', borderRadius: 12 }}>{v}</span>
-            ))}
+          <div style={{ marginTop: 10 }}>
+            <p style={{ fontSize: 11, color: '#9b7ec8', fontWeight: 600, marginBottom: 6 }}>
+              📚 核心词汇 <span style={{ fontWeight: 400, color: '#b0aea5' }}>（点 + 存入词汇本）</span>
+            </p>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {scene.keyVocab.map((v, i) => (
+                <VocabChip
+                  key={i} en={v} zh=""
+                  source={vocabSource}
+                  saved={savedVocabs.has(v)}
+                  saving={savingVocab === v}
+                  onSave={handleSaveVocab}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -170,42 +251,61 @@ const SceneLesson = () => {
           </Card>
         )}
 
-        {started && messages.map(msg => (
-          <div key={msg.id} style={{
-            display: 'flex',
-            flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-            alignItems: 'flex-end', gap: 8,
-          }}>
-            {msg.role === 'ai' && (
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#fdf0ea', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
-                🤖
-              </div>
-            )}
-            <div style={{ maxWidth: '75%' }}>
-              <div style={{
-                background: msg.role === 'user' ? '#d97757' : '#fff',
-                color: msg.role === 'user' ? '#fff' : '#1a1917',
-                border: msg.role === 'user' ? 'none' : '1px solid #dedad0',
-                borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                padding: '12px 16px', fontSize: 14, lineHeight: 1.6,
-                whiteSpace: 'pre-wrap',
-              }}>
-                {msg.content}
-              </div>
+        {started && messages.map(msg => {
+          const vocabChips = msg.role === 'ai' ? parseVocabFromMessage(msg.content) : []
+          return (
+            <div key={msg.id} style={{
+              display: 'flex',
+              flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
+              alignItems: 'flex-end', gap: 8,
+            }}>
               {msg.role === 'ai' && (
-                <button
-                  onClick={() => handleSpeak(msg)}
-                  style={{
-                    marginTop: 4, fontSize: 11, color: speakingMsgId === msg.id ? '#d97757' : '#b0aea5',
-                    background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px',
-                  }}
-                >
-                  {speakingMsgId === msg.id ? '🔊 播放中…' : '🔊 朗读'}
-                </button>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#fdf0ea', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+                  🤖
+                </div>
               )}
+              <div style={{ maxWidth: '75%' }}>
+                <div style={{
+                  background: msg.role === 'user' ? '#d97757' : '#fff',
+                  color: msg.role === 'user' ? '#fff' : '#1a1917',
+                  border: msg.role === 'user' ? 'none' : '1px solid #dedad0',
+                  borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                  padding: '12px 16px', fontSize: 14, lineHeight: 1.6,
+                  whiteSpace: 'pre-wrap',
+                }}>
+                  {msg.content}
+                </div>
+                {msg.role === 'ai' && (
+                  <>
+                    <button
+                      onClick={() => handleSpeak(msg)}
+                      style={{
+                        marginTop: 4, fontSize: 11, color: speakingMsgId === msg.id ? '#d97757' : '#b0aea5',
+                        background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px',
+                      }}
+                    >
+                      {speakingMsgId === msg.id ? '🔊 播放中…' : '🔊 朗读'}
+                    </button>
+                    {/* 解析出的新词汇芯片 */}
+                    {vocabChips.length > 0 && (
+                      <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        {vocabChips.map((v, i) => (
+                          <VocabChip
+                            key={i} en={v.en} zh={v.zh}
+                            source={vocabSource}
+                            saved={savedVocabs.has(v.en)}
+                            saving={savingVocab === v.en}
+                            onSave={handleSaveVocab}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {loading && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
