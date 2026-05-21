@@ -32,7 +32,8 @@ src/
 │   └── ui/
 │       ├── Button.jsx / Card.jsx   # inline style + onMouseEnter/Leave 实现 hover
 │       ├── ModuleLockGate.jsx      # 模块锁定守卫：未解锁时显示进度要求，已解锁则渲染 children
-│       └── LessonValueBanner.jsx   # 课程价值卡片：显示 description + objectives/focusPoints/tips，可折叠
+│       ├── LessonValueBanner.jsx   # 课程价值卡片：显示 description + objectives/focusPoints/tips，可折叠
+│       └── VocabChip.jsx          # 词汇存入芯片：+/✓/… 三态，onClick 调 expandVocabulary → addVocabularyWord
 ├── pages/
 │   ├── Dashboard.jsx      # 打卡、跨模块进度环、动态"继续学习"（LEARNING_PATH 顺序查找）
 │   ├── Profile.jsx        # 学习统计（完成课数、平均分、连续打卡）+ 模块进度条
@@ -114,6 +115,20 @@ src/
 
 **DeepSeek**：`https://api.deepseek.com/chat/completions`，model `deepseek-chat`。
 
+`correctGrammar` 返回 JSON 结构（Speaking.jsx GrammarTab 消费）：
+```json
+{
+  "corrected": "纠正后的英文句子",
+  "explanation": "中文语法解释",
+  "grammar_tip": "中文规则总结",
+  "new_words": [{ "en": "单词或短语", "zh": "中文释义" }],
+  "encouragement": "中文鼓励语"
+}
+```
+`new_words` 提取 2-4 个值得零基础学习者掌握的词汇，Speaking.jsx 以 VocabChip 展示，source 标记 `'语法练习'`。
+
+`chatWithEmma` 系统 prompt 允许 Emma 在解释词汇时，在消息末尾选填一行：`💡 新词汇：word（释义）；word2（释义2）`。EmmaBubble 用 `parseVocabFromMessage()` 解析并渲染为 VocabChip，显示内容中自动去除该行。
+
 ### AudioRecorder 的 Emma 老师功能
 分析完成后显示 `TeacherAvatar`，**不自动播放**，由用户主动点击"▶ 开始讲解"。
 
@@ -176,6 +191,16 @@ Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度
 **AI 自动填词**（`gemini.js` 的 `expandVocabulary(word)`）：
 - AddWordModal 内"✨ AI 填写"按钮：输入单词 → 调 Gemini → 自动填充音标/释义/例句/例句翻译
 - 返回 JSON：`{ phonetic, meaning, example, example_zh }`
+- **AddWordModal 已移除音标输入字段**（IPA 无法手动输入）；音标数据仍由 AI 填写写入 `phonetic` 列
+
+**VocabChip 词汇存入芯片**（`src/components/ui/VocabChip.jsx`）：
+- 共享组件，被 Speaking.jsx / EmmaBubble.jsx / DemoLesson.jsx 复用（SceneLesson + FluencyLesson 有自己的局部版本）
+- Props：`en`, `zh`, `saved`, `saving`, `onSave(en, zh)`
+- `onSave` 通常调 `expandVocabulary(en)` 获取完整词汇数据，再调 `addVocabularyWord(..., source)` 存入
+- source 字符串规范：`'语法练习'` / `'场景演绎·{title}'` / `'场景实战·{title}'` / `'自如交流·{title}'` / `'Emma·{pageLabel}'` / `'Emma 老师'`
+
+**Vocabulary.jsx source icon 映射**（词汇卡片右上角显示来源标签）：
+- `'自然拼读'` → 📖 / `'场景实战'`前缀 → 🎭 / `'场景演绎'`前缀 → 🎬 / `'Emma'`前缀 → 🤖 / `'语法练习'` → 📝
 
 **登录报错中文化**（`Login.jsx` 的 `translateError(msg)`）：
 - 覆盖 Supabase 常见英文错误：credentials / not confirmed / already registered / rate limit 等
@@ -220,6 +245,9 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 - ✅ **全模块前后课导航**（Phonics/Intonation/Mindset/Demo/Fluency 课时页顶部均有 ‹ 上一课 / 下一课 › 按钮）
 - ✅ **Mindset AI 出题升级**（generateMindsetQuiz prompt 增加中英思维对比原则 + 真实场景要求 + 文化差异解释）
 - ✅ **Emma 全局悬浮入口 + 情境感知**（EmmaBubble 浮动按钮 + 滑入对话面板，路由感知，`chatWithEmma` 接受 `pageContext` 参数）
+- ✅ **全场景词汇存入**（VocabChip 共享组件；语法纠错/场景演绎/场景实战/自如交流/Emma 对话均可一键存词汇本；source 字段追踪来源）
+- ✅ **Profile 词汇本统计**（总词汇/已掌握/今日复习三指标 + 4档熟练度横向分布条）
+- ✅ **Emma 词汇自动识别**（Emma 回复末尾 `💡 新词汇：` 标记由 `parseVocabFromMessage()` 解析，渲染为可保存芯片）
 
 ---
 
@@ -277,3 +305,4 @@ Level 1 ── 语音地基：自然拼读（22课）+ 语音语调（11课）
 - **Phase 3**：~~认知重塑~~ ✅ / ~~场景演绎~~ ✅ / ~~编程英语~~ ✅ / ~~场景实战完整84课~~ ✅ / ~~课程解锁体系~~ ✅ / ~~课程价值说明~~ ✅ / ~~PWA~~ ✅
 - **Phase 4**：~~遗忘曲线复习（词汇闪卡）~~ ✅ / ~~学习数据可视化~~ ✅ / ~~AI 个性化推荐~~ ✅ / ~~登录报错中文化~~ ✅
 - **Phase 5**：~~录音历史持久化~~ ✅ / ~~对话历史持久化~~ ✅ / ~~Level 5 自如交流（15课）~~ ✅ / ~~全模块前后课导航~~ ✅ / ~~场景库升级（+面试+约会，共100场景）~~ ✅ / ~~认知重塑AI出题升级~~ ✅
+- **Phase 6**：~~全场景词汇存入（VocabChip）~~ ✅ / ~~语法纠错词汇提取（new_words）~~ ✅ / ~~Emma 词汇自动识别~~ ✅ / ~~Profile 词汇本统计~~ ✅ / ~~词汇来源追踪（source icon）~~ ✅
