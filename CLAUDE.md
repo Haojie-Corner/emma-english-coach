@@ -33,6 +33,7 @@ src/
 │       ├── Button.jsx / Card.jsx   # inline style + onMouseEnter/Leave 实现 hover
 │       ├── ModuleLockGate.jsx      # 模块锁定守卫：未解锁时显示进度要求，已解锁则渲染 children
 │       ├── LessonValueBanner.jsx   # 课程价值卡片：显示 description + objectives/focusPoints/tips，可折叠
+│       ├── Toast.jsx               # 全局 Toast 通知容器（固定右上角），由 toast.js 单例驱动
 │       └── VocabChip.jsx          # 词汇存入芯片：+/✓/… 三态，onClick 调 expandVocabulary → addVocabularyWord
 ├── pages/
 │   ├── Dashboard.jsx      # 打卡、跨模块进度环、动态"继续学习"（LEARNING_PATH 顺序查找）
@@ -52,7 +53,8 @@ src/
 ├── hooks/
 │   └── useAudioRecorder.js  # MediaRecorder → chunks → Blob → base64
 ├── utils/
-│   └── tts.js             # ElevenLabs TTS（主力）+ Web Speech API（结构保留，不再用于降级）
+│   ├── tts.js             # ElevenLabs TTS（主力）+ Web Speech API（结构保留，不再用于降级）
+│   └── toast.js           # Toast 单例：showToast(msg, type, ms)，由 Layout 内 Toast.jsx 注册回调
 └── data/
     ├── phonics.js         # 自然拼读全22课 + modules 数组（含解锁规则）
     ├── intonation.js      # 语音语调全11课
@@ -80,12 +82,20 @@ src/
 ### 样式方案
 **不依赖 Tailwind 响应式类做关键布局**。`Layout.jsx` 用 `useState + useEffect + window.innerWidth` 检测是否桌面端（≥1024px），动态决定显示侧边栏还是底部导航，完全绕开 `lg:hidden / hidden lg:block`（在 Tailwind v4 CSS-first 模式下不可靠）。Card/Button 的 hover 也用 `onMouseEnter/Leave` + inline style 实现。
 
+### Toast 通知系统（`src/utils/toast.js` + `src/components/ui/Toast.jsx`）
+**单例事件总线**：`toast.js` 持有一个 `_cb` 回调引用，`Toast.jsx` 在 `useEffect` 里调 `_setToastCb` 注册自己。任意模块调 `showToast(msg, type)` 即可显示通知，无需 React 上下文。
+
+- 类型：`'error'` / `'warning'` / `'success'` / `'info'`，各有配色和图标
+- 主要用途：TTS 失败时给用户明确反馈（不静默失败）
+- 5 秒防抖：`tts.js` 内 `_lastTtsToastAt` 时间戳防止连续失败时 toast 刷屏
+
 ### TTS 架构（`src/utils/tts.js`）
 **所有 TTS 都走 ElevenLabs**，声线固定为 Sarah（`EXAVITQu4vr4xnSDxMaL`），模型统一用 `eleven_multilingual_v2`（支持中英文混读，且 `speak` 和 `speakMultilingual` 用同一模型保证声音一致）。
 
 关键机制：
 - `AbortController`：每次新请求自动取消上一个进行中的请求，防止多次快速点击时多段音频叠放。
 - **不降级到 Web Speech API**：一旦降级声音会完全不同，宁可静默失败。
+- **错误 Toast**：402（积分耗尽）/ 401/403（API Key 无效）/ 网络错误 → 各显示不同中文提示，5 秒防抖
 - `speak(text, rate, onEnd)` — 英文 TTS
 - `speakMultilingual(text, onEnd)` — 中英混合 TTS（rate 固定 1.0，由 Gemini 脚本控制节奏）
 - `pauseSpeaking() / resumeSpeaking() / stopSpeaking()` — 三态控制
@@ -113,7 +123,7 @@ src/
 
 `voice_script` 和 `tip_demo` 的 prompt 要强调：**中文为主，英文只在发音示范时嵌入，不要整句英文**，并给正确/错误示例对比，否则模型会输出纯英文。
 
-**DeepSeek**：`https://api.deepseek.com/chat/completions`，model `deepseek-chat`。
+**DeepSeek**：`https://api.deepseek.com/chat/completions`，model `deepseek-chat`。HTTP 错误已中文化：429 → "AI 服务繁忙，请稍后重试"，402 → "积分不足"，401/403 → "授权失败"，其他 → 状态码提示。
 
 `correctGrammar` 返回 JSON 结构（Speaking.jsx GrammarTab 消费）：
 ```json
@@ -132,7 +142,13 @@ src/
 ### AudioRecorder 的 Emma 老师功能
 分析完成后显示 `TeacherAvatar`，**不自动播放**，由用户主动点击"▶ 开始讲解"。
 
-三态控制（`speakState: 'idle' | 'playing' | 'paused'`）：
+**分析阶段状态机**（`analyzePhase: null | 'processing' | 'analyzing'`）：
+- `null`：未开始 / 已完成
+- `'processing'`：读取录音 Blob 并转 base64（显示"处理录音…"）
+- `'analyzing'`：Gemini API 调用中（显示"AI 分析中…"）
+- 按钮在整个分析过程中禁用（`disabled={!!analyzePhase}`）
+
+**TTS 三态控制**（`speakState: 'idle' | 'playing' | 'paused'`）：
 - `idle`：首次显示橙色"▶ 开始讲解"，播过后变灰色"🔊 再听一遍"
 - `playing`：显示"⏸ 暂停" + "↩ 重新讲解"，头像显示脉冲动画
 - `paused`：显示绿色"▶ 继续" + "↩ 重新讲解"
@@ -140,7 +156,7 @@ src/
 每个 `pronunciation_issues` 条目有"🔊 听示范"按钮，播放 `tip_demo` 字段（`speakMultilingual`）。
 
 ### 状态管理
-Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度）。页面直接 import，无 Provider 包裹。`progressStore.fetchProgress()` 依赖 `user.id`，务必在确认 user 存在后才调用。
+Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度）。页面直接 import，无 Provider 包裹。`progressStore.fetchProgress()` 依赖 `user.id`，务必在确认 user 存在后才调用。内部有并发防护：`if (get().loading) return`，避免多处同时触发重复请求。
 
 ### 课程数据
 
@@ -188,9 +204,10 @@ Zustand store 两个：`userStore`（认证）和 `progressStore`（学习进度
 - 评级后自动更新 `next_review`（分别 +1/3/7/14 天），完成页显示本次各档统计
 - 退出或完成后调用 `loadWords()` 刷新列表
 
-**AI 自动填词**（`gemini.js` 的 `expandVocabulary(word)`）：
+**AI 自动填词**（`gemini.js` 的 `expandVocabulary(word, context?)`）：
 - AddWordModal 内"✨ AI 填写"按钮：输入单词 → 调 Gemini → 自动填充音标/释义/例句/例句翻译
 - 返回 JSON：`{ phonetic, meaning, example, example_zh }`
+- 可选 `context` 参数（课程标题）：注入 prompt 让 Gemini 优先选择与当前学习场景匹配的词义（如"run"在编程课里应取"运行"而非"跑步"）
 - **AddWordModal 已移除音标输入字段**（IPA 无法手动输入）；音标数据仍由 AI 填写写入 `phonetic` 列
 
 **VocabChip 词汇存入芯片**（`src/components/ui/VocabChip.jsx`）：
@@ -248,6 +265,15 @@ ElevenLabs 可用声线（截至 2026-05）：Sarah（young/American/professiona
 - ✅ **全场景词汇存入**（VocabChip 共享组件；语法纠错/场景演绎/场景实战/自如交流/Emma 对话均可一键存词汇本；source 字段追踪来源）
 - ✅ **Profile 词汇本统计**（总词汇/已掌握/今日复习三指标 + 4档熟练度横向分布条）
 - ✅ **Emma 词汇自动识别**（Emma 回复末尾 `💡 新词汇：` 标记由 `parseVocabFromMessage()` 解析，渲染为可保存芯片）
+- ✅ **Toast 通知系统**（`toast.js` + `Toast.jsx`：TTS 积分耗尽/API Key 无效/网络错误等给用户明确中文提示，5 秒防抖）
+- ✅ **AI 服务错误中文化**（DeepSeek 429/402/401/403 → 对应中文错误信息；Gemini 错误已有模型降级兜底）
+- ✅ **AudioRecorder 分析阶段细化**（`analyzePhase` 状态机：处理录音 → AI 分析，两阶段反馈替代单一 loading）
+- ✅ **progressStore 并发防护**（`fetchProgress` 内置 loading 守卫，防重复并发调用）
+- ✅ **词汇本遗忘曲线说明**（"今日复习" tab 顶部显示 +1/+3/+7/+14 天规则说明卡）
+- ✅ **Mindset 答题历史记录**（MindsetLesson 每次 session 记录所有答题，可折叠查看正确/错误明细）
+- ✅ **Dashboard 新用户引导**（`progress.length === 0` 时显示欢迎卡，直接跳转第一课或问 Emma）
+- ✅ **IntonationLesson 词汇存入**（ItemCard 对含 IPA 的真实英文词显示 VocabChip，支持一键保存到词汇本）
+- ✅ **expandVocabulary 语境化**（可选 context 参数，Gemini 据课程标题选择最相关词义）
 
 ---
 
