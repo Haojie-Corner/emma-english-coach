@@ -106,10 +106,19 @@ const QUICK_QUESTIONS = [
   '自然拼读有什么技巧？',
 ]
 
+const SIDEBAR_W = 220
+
 const TeacherChat = () => {
   const navigate = useNavigate()
   const { user } = useUserStore()
   const { progress, streak, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
+
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= 1024)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const name = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
   const totalCompleted = progress.filter(p => p.status === 'completed').length
@@ -161,12 +170,14 @@ const TeacherChat = () => {
   }
 
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto' }}>
+    <div style={{ maxWidth: 680, margin: '0 auto', paddingBottom: 80 }}>
 
       {/* ── 顶部 Header ── */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 10,
-        background: '#f5f3ee', borderBottom: '1px solid #e8e4dc',
+        background: 'rgba(245,243,239,0.88)', backdropFilter: 'blur(20px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        borderBottom: '1px solid rgba(0,0,0,0.06)',
         padding: '12px 20px',
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
@@ -187,8 +198,8 @@ const TeacherChat = () => {
         <EmmaAvatar size={36} />
 
         <div style={{ flex: 1 }}>
-          <p style={{ fontWeight: 700, fontSize: 15, color: '#1a1917', lineHeight: 1.2 }}>Emma 老师</p>
-          <p style={{ fontSize: 11, color: '#a09b95' }}>AI 学习顾问 · 随时解答</p>
+          <p style={{ fontWeight: 700, fontSize: 15, color: '#0f0e0c', lineHeight: 1.2 }}>Emma 老师</p>
+          <p style={{ fontSize: 11, color: '#9e998e' }}>AI 学习顾问 · 随时解答</p>
         </div>
 
         <button
@@ -225,14 +236,18 @@ const TeacherChat = () => {
             {msg.role === 'emma' && <EmmaAvatar size={34} />}
             <div style={{
               maxWidth: '78%',
-              background: msg.role === 'user' ? '#d97757' : '#fff',
-              color: msg.role === 'user' ? '#fff' : '#1a1917',
+              background: msg.role === 'user'
+                ? 'linear-gradient(135deg, #f28040, #e05020)'
+                : '#fff',
+              color: msg.role === 'user' ? '#fff' : '#0f0e0c',
               borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
               padding: '12px 16px',
               fontSize: 14, lineHeight: 1.6,
-              border: msg.role === 'emma' ? '1px solid #e8e4dc' : 'none',
+              border: msg.role === 'emma' ? '1px solid rgba(0,0,0,0.07)' : 'none',
               whiteSpace: 'pre-wrap',
-              boxShadow: msg.role === 'emma' ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
+              boxShadow: msg.role === 'emma'
+                ? '0 1px 4px rgba(0,0,0,0.06)'
+                : '0 2px 10px rgba(232,103,42,0.28)',
             }}>
               {msg.content}
             </div>
@@ -264,13 +279,13 @@ const TeacherChat = () => {
               onClick={() => sendMessage(q)}
               style={{
                 fontSize: 12.5, fontWeight: 500,
-                color: '#6b6760', background: '#fff',
-                border: '1px solid #e8e4dc', borderRadius: 20,
+                color: '#5c5850', background: '#fff',
+                border: '1px solid #e5e1d8', borderRadius: 20,
                 padding: '6px 14px', cursor: 'pointer',
                 transition: 'border-color 0.15s, color 0.15s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#d97757'; e.currentTarget.style.color = '#d97757' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8e4dc'; e.currentTarget.style.color = '#6b6760' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#e8672a'; e.currentTarget.style.color = '#e8672a' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e1d8'; e.currentTarget.style.color = '#5c5850' }}
             >
               {q}
             </button>
@@ -278,48 +293,56 @@ const TeacherChat = () => {
         </div>
       )}
 
-      {/* ── 输入框 ── */}
+      {/* ── 输入框（fixed 铺满内容区底部）── */}
       <div style={{
-        position: 'sticky', bottom: 0,
-        background: '#fff', borderTop: '1px solid #e8e4dc',
+        position: 'fixed', bottom: 0, left: isDesktop ? SIDEBAR_W : 0, right: 0, zIndex: 20,
+        background: 'rgba(255,255,255,0.92)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        boxShadow: '0 -1px 0 rgba(0,0,0,0.06), 0 -8px 24px rgba(0,0,0,0.06)',
         padding: '12px 16px',
-        display: 'flex', gap: 10, alignItems: 'flex-end',
+        paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
       }}>
-        <textarea
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input) }
-          }}
-          placeholder="问 Emma 任何关于学习的问题…"
-          rows={1}
-          style={{
-            flex: 1, border: '1.5px solid #e8e4dc', borderRadius: 12,
-            padding: '10px 14px', fontSize: 14, resize: 'none',
-            fontFamily: 'inherit', lineHeight: 1.5,
-            background: '#f5f3ee', outline: 'none',
-            transition: 'border-color 0.15s',
-            maxHeight: 120, overflowY: 'auto',
-          }}
-          onFocus={e => e.target.style.borderColor = '#d97757'}
-          onBlur={e => e.target.style.borderColor = '#e8e4dc'}
-        />
-        <button
-          onClick={() => sendMessage(input)}
-          disabled={!input.trim() || loading}
-          style={{
-            width: 40, height: 40, borderRadius: 12, border: 'none',
-            background: input.trim() && !loading ? '#d97757' : '#e8e4dc',
-            cursor: input.trim() && !loading ? 'pointer' : 'default',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, transition: 'background 0.15s',
-          }}
-        >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-            <path d="M22 2L11 13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M22 2L15 22L11 13L2 9L22 2z" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input) }
+            }}
+            placeholder="问 Emma 任何关于学习的问题…"
+            rows={1}
+            style={{
+              flex: 1, border: '1.5px solid #e5e1d8', borderRadius: 14,
+              padding: '10px 14px', fontSize: 14, resize: 'none',
+              fontFamily: 'inherit', lineHeight: 1.5,
+              background: '#f5f3ef', outline: 'none',
+              transition: 'border-color 0.15s',
+              maxHeight: 120, overflowY: 'auto',
+            }}
+            onFocus={e => e.target.style.borderColor = '#e8672a'}
+            onBlur={e => e.target.style.borderColor = '#e5e1d8'}
+          />
+          <button
+            onClick={() => sendMessage(input)}
+            disabled={!input.trim() || loading}
+            style={{
+              width: 40, height: 40, borderRadius: 12, border: 'none',
+              background: input.trim() && !loading
+                ? 'linear-gradient(135deg, #f28040, #e05020)'
+                : '#e5e1d8',
+              cursor: input.trim() && !loading ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, transition: 'background 0.15s',
+              boxShadow: input.trim() && !loading ? '0 2px 8px rgba(232,103,42,0.35)' : 'none',
+            }}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+              <path d="M22 2L11 13" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M22 2L15 22L11 13L2 9L22 2z" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
       </div>
 
     </div>
