@@ -6,6 +6,7 @@ import { modules, phonicsLessons } from '../data/phonics'
 import { intonationLessons } from '../data/intonation'
 import { mindsetLessons } from '../data/mindset'
 import { demoLessons } from '../data/demo'
+import { sceneCategories } from '../data/scenes'
 import { fluencyLessons } from '../data/fluency'
 
 /* ── 进度环 ── */
@@ -51,12 +52,15 @@ const getEmmaHint = (progress, streak, getModuleCompletion, isModuleUnlocked, du
   return '有学习计划或语法疑问？点右边找我聊聊 😊'
 }
 
+const allScenes = sceneCategories.flatMap(cat => cat.scenes || [])
+
 /* 学习主线顺序 */
 const LEARNING_PATH = [
   { moduleId: 'phonics',    lessons: phonicsLessons,    getPath: id => `/course/phonics/${id}`,    label: '自然拼读 · Phonics',   icon: '🔤' },
   { moduleId: 'intonation', lessons: intonationLessons, getPath: id => `/course/intonation/${id}`, label: '语音语调 · Intonation', icon: '🎵' },
   { moduleId: 'mindset',    lessons: mindsetLessons,    getPath: id => `/course/mindset/${id}`,    label: '认知重塑 · Mindset',   icon: '🧠' },
   { moduleId: 'demo',       lessons: demoLessons,       getPath: id => `/course/demo/${id}`,       label: '场景演绎 · Demo',      icon: '🎬' },
+  { moduleId: 'scenes',     lessons: allScenes,         getPath: id => `/course/scenes/${id}`,     label: '场景实战 · Scenes',    icon: '💬' },
   { moduleId: 'fluency',    lessons: fluencyLessons,    getPath: id => `/course/fluency/${id}`,    label: '自如交流 · Fluency',   icon: '🗣️' },
 ]
 

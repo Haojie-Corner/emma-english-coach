@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import useUserStore from '../store/userStore'
@@ -68,6 +69,8 @@ const WordCard = ({ word, onFamiliarityChange, onDelete }) => {
             else if (src.startsWith('场景实战·')) { icon = '🎭'; label = src }
             else if (src.startsWith('自如交流·')) { icon = '💬'; label = src }
             else if (src.startsWith('场景演绎·')) { icon = '🎬'; label = src }
+            else if (src.startsWith('语音语调·')) { icon = '🎵'; label = src }
+            else if (src.startsWith('自然拼读·') || src === '自然拼读') { icon = '📖'; label = src }
             else if (src.startsWith('Emma')) { icon = '🤖'; label = src }
             return (
               <span style={{
@@ -330,7 +333,8 @@ const AddWordModal = ({ onClose, onAdd, userId }) => {
 /* ── 主页面 ── */
 const Vocabulary = () => {
   const { user } = useUserStore()
-  const [tab, setTab] = useState('all')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(searchParams.get('tab') === 'due' ? 'due' : 'all')
   const [words, setWords] = useState([])
   const [dueWords, setDueWords] = useState([])
   const [loading, setLoading] = useState(true)

@@ -8,9 +8,9 @@ import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import VocabChip from '../../components/ui/VocabChip'
 import { speakMultilingual, stopSpeaking } from '../../utils/tts'
 
-// Extract "💡 学到了：" or "💡 新词汇：" items from an AI message
 const parseVocabFromMessage = (content) => {
   const match = content.match(/💡 (?:学到了|新词汇)[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
   if (!match) return []
@@ -26,31 +26,6 @@ const parseVocabFromMessage = (content) => {
     })
     .filter(Boolean)
 }
-
-// Small inline save chip
-const VocabChip = ({ en, zh, source, saved, saving, onSave, color = '#7a6bba' }) => (
-  <div style={{
-    display: 'inline-flex', alignItems: 'center',
-    background: saved ? '#eaf2e3' : '#f5f0ff',
-    border: `1px solid ${saved ? '#b8dca8' : '#d0c0e8'}`,
-    borderRadius: 10, overflow: 'hidden',
-  }}>
-    <span style={{ fontSize: 11, color: saved ? '#5a7a3a' : color, padding: '3px 6px 3px 9px' }}>{en}</span>
-    {zh && <span style={{ fontSize: 10, color: '#a09b95', paddingRight: 4 }}>· {zh}</span>}
-    <button
-      onClick={() => onSave(en, zh, source)}
-      disabled={saved || saving}
-      title={saved ? '已保存' : '加入词汇本'}
-      style={{
-        fontSize: 11, fontWeight: 700,
-        background: saved ? '#c4e8b0' : saving ? '#e0d8f8' : '#d8d0f8',
-        color: saved ? '#5a7a3a' : color,
-        border: 'none', cursor: saved ? 'default' : 'pointer',
-        padding: '3px 8px', alignSelf: 'stretch', lineHeight: 1,
-      }}
-    >{saved ? '✓' : saving ? '…' : '+'}</button>
-  </div>
-)
 
 const FluencyLesson = () => {
   const { lessonId } = useParams()
@@ -417,10 +392,9 @@ const FluencyLesson = () => {
                             {vocabChips.map((v, i) => (
                               <VocabChip
                                 key={i} en={v.en} zh={v.zh}
-                                source={vocabSource}
                                 saved={savedVocabs.has(v.en)}
                                 saving={savingVocab === v.en}
-                                onSave={handleSaveVocab}
+                                onSave={(en, zh) => handleSaveVocab(en, zh, vocabSource)}
                               />
                             ))}
                           </div>

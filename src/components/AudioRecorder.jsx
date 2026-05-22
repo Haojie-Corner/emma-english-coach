@@ -212,7 +212,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
       if (e.code !== 'Space') return
       const tag = e.target.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || e.target.isContentEditable) return
-      if (result || analyzing) return
+      if (result || !!analyzePhase) return
       e.preventDefault()
       if (status === 'idle' || status === 'done') startRecording()
       else if (status === 'recording') stopRecording()

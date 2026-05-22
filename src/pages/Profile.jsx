@@ -226,13 +226,14 @@ const Profile = () => {
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 14 }}>
                   {[
-                    { value: vocabStats.total, label: '总词汇', color: '#7a6bba' },
-                    { value: vocabStats.mastered, label: '已掌握', color: '#788c5d' },
-                    { value: dueVocabCount, label: '今日复习', color: '#d97757' },
+                    { value: vocabStats.total, label: '总词汇', color: '#7a6bba', tab: 'all' },
+                    { value: vocabStats.mastered, label: '已掌握', color: '#788c5d', tab: 'all' },
+                    { value: dueVocabCount, label: '今日复习', color: '#d97757', tab: 'due' },
                   ].map(item => (
-                    <div key={item.label} style={{ textAlign: 'center' }}>
+                    <div key={item.label} onClick={() => navigate(`/vocabulary?tab=${item.tab}`)}
+                      style={{ textAlign: 'center', cursor: 'pointer' }}>
                       <p style={{ fontSize: 22, fontWeight: 800, color: item.color, lineHeight: 1.1 }}>{item.value}</p>
-                      <p style={{ fontSize: 11, color: '#7a7870', marginTop: 3 }}>{item.label}</p>
+                      <p style={{ fontSize: 11, color: '#7a7870', marginTop: 3 }}>{item.label} ›</p>
                     </div>
                   ))}
                 </div>

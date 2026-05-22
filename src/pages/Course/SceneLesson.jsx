@@ -5,11 +5,12 @@ import { chatWithScene } from '../../services/deepseek'
 import { saveConversation, getConversations, addVocabularyWord } from '../../services/supabase'
 import { expandVocabulary } from '../../services/gemini'
 import useUserStore from '../../store/userStore'
+import useProgressStore from '../../store/progressStore'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import VocabChip from '../../components/ui/VocabChip'
 import { speakMultilingual, stopSpeaking } from '../../utils/tts'
 
-// Extract "💡 新词汇：" items from an AI message
 const parseVocabFromMessage = (content) => {
   const match = content.match(/💡 新词汇[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
   if (!match) return []
@@ -26,39 +27,16 @@ const parseVocabFromMessage = (content) => {
     .filter(Boolean)
 }
 
-// Small inline save chip
-const VocabChip = ({ en, zh, source, saved, saving, onSave }) => (
-  <div style={{
-    display: 'inline-flex', alignItems: 'center',
-    background: saved ? '#eaf2e3' : '#f0eeff',
-    border: `1px solid ${saved ? '#b8dca8' : '#d4ccf8'}`,
-    borderRadius: 10, overflow: 'hidden',
-  }}>
-    <span style={{ fontSize: 11, color: saved ? '#5a7a3a' : '#7a6bba', padding: '3px 6px 3px 9px' }}>{en}</span>
-    {zh && <span style={{ fontSize: 10, color: '#a09b95', paddingRight: 4 }}>· {zh}</span>}
-    <button
-      onClick={() => onSave(en, zh, source)}
-      disabled={saved || saving}
-      title={saved ? '已保存' : '加入词汇本'}
-      style={{
-        fontSize: 11, fontWeight: 700,
-        background: saved ? '#c4e8b0' : saving ? '#e0d8f8' : '#ccc8f4',
-        color: saved ? '#5a7a3a' : '#7a6bba',
-        border: 'none', cursor: saved ? 'default' : 'pointer',
-        padding: '3px 8px', alignSelf: 'stretch', lineHeight: 1,
-      }}
-    >{saved ? '✓' : saving ? '…' : '+'}</button>
-  </div>
-)
-
 const SceneLesson = () => {
   const { sceneId } = useParams()
   const navigate = useNavigate()
   const { user } = useUserStore()
+  const { updateProgress } = useProgressStore()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [started, setStarted] = useState(false)
+  const [completed, setCompleted] = useState(false)
   const [speakingMsgId, setSpeakingMsgId] = useState(null)
   const [pastSessions, setPastSessions] = useState([])
   const [savedVocabs, setSavedVocabs] = useState(new Set())
@@ -112,6 +90,17 @@ const SceneLesson = () => {
     } finally {
       setSavingVocab(null)
     }
+  }
+
+  const handleFinish = async () => {
+    if (user) {
+      await updateProgress(user.id, 'scenes', sceneId, 'completed', null)
+    }
+    if (user && messages.length >= 2) {
+      saveConversation(user.id, sceneId, messages).catch(() => {})
+    }
+    stopSpeaking()
+    setCompleted(true)
   }
 
   const handleStart = async () => {
@@ -202,10 +191,9 @@ const SceneLesson = () => {
               {scene.keyVocab.map((v, i) => (
                 <VocabChip
                   key={i} en={v} zh=""
-                  source={vocabSource}
                   saved={savedVocabs.has(v)}
                   saving={savingVocab === v}
-                  onSave={handleSaveVocab}
+                  onSave={(en, zh) => handleSaveVocab(en, zh, vocabSource)}
                 />
               ))}
             </div>
@@ -292,10 +280,9 @@ const SceneLesson = () => {
                         {vocabChips.map((v, i) => (
                           <VocabChip
                             key={i} en={v.en} zh={v.zh}
-                            source={vocabSource}
                             saved={savedVocabs.has(v.en)}
                             saving={savingVocab === v.en}
-                            onSave={handleSaveVocab}
+                            onSave={(en, zh) => handleSaveVocab(en, zh, vocabSource)}
                           />
                         ))}
                       </div>
@@ -320,27 +307,53 @@ const SceneLesson = () => {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* 完成卡片 */}
+      {completed && (
+        <div style={{ background: '#eaf2e3', border: '1px solid #c4ddb0', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }} className="fade-in">
+          <p style={{ fontSize: 28, marginBottom: 8 }}>🎉</p>
+          <p className="font-title" style={{ fontSize: 16, color: '#5a7a3a', marginBottom: 6 }}>场景练习完成！</p>
+          <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 16 }}>很棒！继续练习其他场景，英文会越来越流利。</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <Button onClick={() => navigate('/course/scenes')}>查看全部场景</Button>
+            <Button variant="secondary" onClick={() => navigate('/dashboard')}>返回首页</Button>
+          </div>
+        </div>
+      )}
+
       {/* 输入区 */}
-      {started && (
-        <div style={{ display: 'flex', gap: 8, paddingTop: 12, borderTop: '1px solid #ece9e0' }}>
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="用英文回复…（Enter 发送，Shift+Enter 换行）"
-            rows={2}
-            style={{
-              flex: 1, background: '#faf9f5', border: '1.5px solid #dedad0', borderRadius: 12,
-              padding: '10px 14px', fontSize: 14, color: '#1a1917', outline: 'none',
-              resize: 'none', fontFamily: 'inherit', lineHeight: 1.5,
-            }}
-            onFocus={e => e.target.style.borderColor = '#d97757'}
-            onBlur={e => e.target.style.borderColor = '#dedad0'}
-          />
-          <Button onClick={handleSend} disabled={!input.trim() || loading} style={{ alignSelf: 'flex-end', padding: '10px 20px' }}>
-            发送
-          </Button>
+      {started && !completed && (
+        <div style={{ paddingTop: 12, borderTop: '1px solid #ece9e0' }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="用英文回复…（Enter 发送，Shift+Enter 换行）"
+              rows={2}
+              style={{
+                flex: 1, background: '#faf9f5', border: '1.5px solid #dedad0', borderRadius: 12,
+                padding: '10px 14px', fontSize: 14, color: '#1a1917', outline: 'none',
+                resize: 'none', fontFamily: 'inherit', lineHeight: 1.5,
+              }}
+              onFocus={e => e.target.style.borderColor = '#d97757'}
+              onBlur={e => e.target.style.borderColor = '#dedad0'}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <Button onClick={handleSend} disabled={!input.trim() || loading} style={{ padding: '10px 20px', alignSelf: 'flex-end' }}>
+                发送
+              </Button>
+              {messages.length >= 4 && (
+                <button onClick={handleFinish} style={{
+                  padding: '7px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+                  border: '1.5px solid #5a7a3a', color: '#5a7a3a', background: '#eaf2e3',
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>
+                  完成 ✓
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

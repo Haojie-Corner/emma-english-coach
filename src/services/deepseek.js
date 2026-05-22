@@ -120,7 +120,8 @@ export const generateMindsetQuiz = async (topic, quizType, previousQuestions = [
   "correct_answer": "正确答案（选项内容，不是ABCD）",
   "explanation": "详细解释：1)为什么这样对 2)中英文思维的本质区别在哪 3)如何建立正确直觉（中文，200字内，要有顿悟感）",
   "thinking_tip": "一句话认知建议，直击思维方式差异（中文，最多30字）",
-  "example_in_context": "真实场景应用示例：英文句子 + 中文说明，让学习者看到这个知识点在日常生活中的实际用法"
+  "example_in_context": "真实场景应用示例：英文句子 + 中文说明，让学习者看到这个知识点在日常生活中的实际用法",
+  "voice_script": "用中文写2-3句口语化老师点评，总结本题关键知识点，遇到英文发音示范时直接嵌入英文词，供 speakMultilingual 朗读。格式：全中文，英文只在示范时嵌入，不整句英文。"
 }`
 
   return callDeepSeek([{ role: 'user', content: `生成一道${quizType}类型的认知训练题，话题：${topic}` }], systemPrompt)
