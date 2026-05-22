@@ -1,90 +1,185 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { sceneCategories } from '../../data/scenes'
 import Card from '../../components/ui/Card'
 import ModuleLockGate from '../../components/ui/ModuleLockGate'
 
-const difficultyColor = { '入门': '#788c5d', '初级': '#d97757', '中级': '#7a6bba', '进阶': '#c45c5c' }
-const difficultyBg = { '入门': '#eaf2e3', '初级': '#fdf0ea', '中级': '#f0eeff', '进阶': '#fdeaea' }
+const difficultyColor = { '入门': '#5a8c4a', '初级': '#e8672a', '中级': '#7b5ea7', '进阶': '#d94040' }
+const difficultyBg = { '入门': '#eaf5ef', '初级': '#fff3ee', '中级': '#f3eeff', '进阶': '#fdf0f0' }
 
 const ScenesModule = () => {
   const navigate = useNavigate()
   const [openCategory, setOpenCategory] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredScenes = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return null
+    return sceneCategories.flatMap(cat => cat.scenes.map(s => ({ ...s, categoryName: cat.name, categoryColor: cat.color }))).filter(s =>
+      s.title.toLowerCase().includes(q) ||
+      (s.subtitle || '').toLowerCase().includes(q) ||
+      (s.description || '').toLowerCase().includes(q) ||
+      (s.role || '').toLowerCase().includes(q)
+    )
+  }, [searchQuery])
 
   return (
     <ModuleLockGate moduleId="scenes">
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      <button onClick={() => navigate('/course')} className="flex items-center gap-1 text-sm text-[#b0aea5] hover:text-[#141413] mb-4 transition-colors">
-        ← 课程中心
-      </button>
-      <h1 className="text-xl font-bold text-[#141413] mb-1" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-        🎭 场景实战 Scenes
-      </h1>
-      <p className="text-sm text-[#b0aea5] mb-6">与 AI 角色扮演，练真实英语对话 · 8 大主题 · 84 个场景</p>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}>
+        <button
+          onClick={() => navigate('/course')}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#9e998e', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 20, fontFamily: 'inherit' }}
+          onMouseEnter={e => e.currentTarget.style.color = '#0f0e0c'}
+          onMouseLeave={e => e.currentTarget.style.color = '#9e998e'}
+        >← 课程中心</button>
 
-      <div className="space-y-3">
-        {sceneCategories.map(category => {
-          const isOpen = openCategory === category.id
-          return (
-            <div key={category.id}>
-              <div
-                onClick={() => setOpenCategory(isOpen ? null : category.id)}
-                style={{
-                  background: '#fff', border: `1.5px solid ${isOpen ? category.color : '#dedad0'}`,
-                  borderRadius: 14, padding: '16px 20px', cursor: 'pointer',
-                  transition: 'border-color 0.15s, box-shadow 0.15s',
-                  boxShadow: isOpen ? `0 4px 12px ${category.color}22` : 'none',
-                }}
-                onMouseEnter={e => { if (!isOpen) { e.currentTarget.style.borderColor = category.color; e.currentTarget.style.boxShadow = `0 2px 8px ${category.color}20` } }}
-                onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.borderColor = '#dedad0'; e.currentTarget.style.boxShadow = 'none' } }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 28 }}>{category.icon}</span>
-                    <div>
-                      <p style={{ fontWeight: 700, fontSize: 15, color: '#1a1917', fontFamily: 'Poppins, Arial, sans-serif' }}>{category.name}</p>
-                      <p style={{ fontSize: 12, color: '#7a7870', marginTop: 2 }}>{category.description}</p>
+        <div style={{ marginBottom: 20 }}>
+          <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>
+            🎭 场景实战 Scenes
+          </h1>
+          <p style={{ fontSize: 13, color: '#9e998e' }}>与 AI 角色扮演，练真实英语对话 · 10 大主题 · 100 个场景</p>
+        </div>
+
+        {/* 搜索框 */}
+        <div style={{ position: 'relative', marginBottom: 20 }}>
+          <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: '#9e998e', pointerEvents: 'none' }}>🔍</span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="搜索场景标题、角色、描述…"
+            style={{
+              width: '100%', padding: '11px 40px 11px 40px', borderRadius: 14,
+              border: '1.5px solid #e5e1d8', background: '#fff', fontSize: 14,
+              color: '#0f0e0c', outline: 'none', boxSizing: 'border-box',
+              fontFamily: 'inherit', boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+              transition: 'border-color 0.15s',
+            }}
+            onFocus={e => e.target.style.borderColor = '#e8672a'}
+            onBlur={e => e.target.style.borderColor = '#e5e1d8'}
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} style={{
+              position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+              background: '#f5f3ef', border: 'none', cursor: 'pointer', fontSize: 14,
+              color: '#9e998e', padding: '2px 6px', borderRadius: 6,
+            }}>×</button>
+          )}
+        </div>
+
+        {/* 搜索结果 */}
+        {filteredScenes !== null && (
+          <div style={{ marginBottom: 12 }}>
+            <p style={{ fontSize: 13, color: '#5c5850', marginBottom: 12 }}>
+              找到 <strong style={{ color: '#e8672a' }}>{filteredScenes.length}</strong> 个场景
+            </p>
+            {filteredScenes.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#9e998e', fontSize: 13 }}>
+                没有找到匹配的场景，试试其他关键词
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {filteredScenes.map(scene => (
+                  <Card key={scene.id} onClick={() => navigate(`/course/scenes/${scene.id}`)} style={{ padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                          <p style={{ fontWeight: 700, fontSize: 14, color: '#0f0e0c' }}>{scene.title}</p>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                            color: difficultyColor[scene.difficulty] || '#9e998e',
+                            background: difficultyBg[scene.difficulty] || '#f5f3ef',
+                          }}>{scene.difficulty}</span>
+                        </div>
+                        <p style={{ fontSize: 12, color: '#5c5850' }}>{scene.subtitle}</p>
+                        <p style={{ fontSize: 11, color: '#9e998e', marginTop: 3 }}>
+                          <span style={{ color: scene.categoryColor, fontWeight: 700 }}>{scene.categoryName}</span>
+                          {' · '}👤 {scene.role} · ⏱ {scene.duration}
+                        </p>
+                      </div>
+                      <span style={{ color: '#c0bdb8', fontSize: 18, flexShrink: 0 }}>›</span>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 分类 Accordion */}
+        {filteredScenes === null && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sceneCategories.map(category => {
+              const isOpen = openCategory === category.id
+              return (
+                <div key={category.id}>
+                  <div
+                    onClick={() => setOpenCategory(isOpen ? null : category.id)}
+                    style={{
+                      background: '#fff',
+                      border: `1.5px solid ${isOpen ? category.color : 'rgba(0,0,0,0.07)'}`,
+                      borderRadius: 18, padding: '16px 20px', cursor: 'pointer',
+                      transition: 'all 0.18s',
+                      boxShadow: isOpen ? `0 4px 16px ${category.color}22` : '0 2px 8px rgba(0,0,0,0.04)',
+                    }}
+                    onMouseEnter={e => { if (!isOpen) { e.currentTarget.style.borderColor = category.color; e.currentTarget.style.boxShadow = `0 4px 12px ${category.color}18` } }}
+                    onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.07)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)' } }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{
+                          width: 44, height: 44, borderRadius: 14, flexShrink: 0,
+                          background: `${category.color}14`,
+                          border: `1.5px solid ${category.color}30`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                        }}>{category.icon}</div>
+                        <div>
+                          <p className="font-title" style={{ fontWeight: 700, fontSize: 15, color: '#0f0e0c' }}>{category.name}</p>
+                          <p style={{ fontSize: 12, color: '#5c5850', marginTop: 2 }}>{category.description}</p>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <span style={{ fontSize: 12, color: '#9e998e', background: '#f5f3ef', padding: '3px 10px', borderRadius: 20 }}>
+                          {category.scenes.length} 个
+                        </span>
+                        <span style={{ color: '#9e998e', fontSize: 18, transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>›</span>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: '#b0aea5' }}>{category.scenes.length} 个场景</span>
-                    <span style={{ color: '#b0aea5', fontSize: 18, transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>›</span>
-                  </div>
-                </div>
-              </div>
 
-              {isOpen && (
-                <div style={{ paddingLeft: 12, paddingRight: 4, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 8 }} className="fade-in">
-                  {category.scenes.map(scene => (
-                    <Card
-                      key={scene.id}
-                      onClick={() => navigate(`/course/scenes/${scene.id}`)}
-                      style={{ padding: '14px 16px' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            <p style={{ fontWeight: 600, fontSize: 14, color: '#1a1917' }}>{scene.title}</p>
-                            <span style={{
-                              fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
-                              color: difficultyColor[scene.difficulty] || '#7a7870',
-                              background: difficultyBg[scene.difficulty] || '#f0ede4',
-                            }}>{scene.difficulty}</span>
+                  {isOpen && (
+                    <div style={{ paddingLeft: 12, paddingRight: 4, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }} className="fade-in">
+                      {category.scenes.map(scene => (
+                        <Card
+                          key={scene.id}
+                          onClick={() => navigate(`/course/scenes/${scene.id}`)}
+                          style={{ padding: '14px 16px' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                                <p style={{ fontWeight: 700, fontSize: 14, color: '#0f0e0c' }}>{scene.title}</p>
+                                <span style={{
+                                  fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                                  color: difficultyColor[scene.difficulty] || '#9e998e',
+                                  background: difficultyBg[scene.difficulty] || '#f5f3ef',
+                                }}>{scene.difficulty}</span>
+                              </div>
+                              <p style={{ fontSize: 12, color: '#5c5850' }}>{scene.subtitle}</p>
+                              <p style={{ fontSize: 11, color: '#9e998e', marginTop: 4 }}>👤 你的角色：{scene.role} · ⏱ {scene.duration}</p>
+                            </div>
+                            <span style={{ color: '#c0bdb8', fontSize: 18, flexShrink: 0 }}>›</span>
                           </div>
-                          <p style={{ fontSize: 12, color: '#7a7870' }}>{scene.subtitle}</p>
-                          <p style={{ fontSize: 11, color: '#b0aea5', marginTop: 4 }}>👤 你的角色：{scene.role} · ⏱ {scene.duration}</p>
-                        </div>
-                        <span style={{ color: '#b0aea5', fontSize: 18 }}>›</span>
-                      </div>
-                    </Card>
-                  ))}
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        )}
       </div>
-    </div>
     </ModuleLockGate>
   )
 }

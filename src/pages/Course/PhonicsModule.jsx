@@ -3,6 +3,12 @@ import { phonicsLessons } from '../../data/phonics'
 import Card from '../../components/ui/Card'
 import useProgressStore from '../../store/progressStore'
 
+const statusConfig = {
+  completed: { icon: '✓', color: '#3a9a5f', bg: '#eaf5ef' },
+  in_progress: { icon: '▶', color: '#e8672a', bg: '#fff3ee' },
+  locked: { icon: '○', color: '#9e998e', bg: '#f5f3ef' },
+}
+
 const PhonicsModule = () => {
   const navigate = useNavigate()
   const { progress } = useProgressStore()
@@ -12,59 +18,65 @@ const PhonicsModule = () => {
     return p?.status || 'locked'
   }
 
-  const statusIcon = { completed: '✅', in_progress: '▶', locked: '🔒' }
-  const statusColor = { completed: 'text-[#788c5d]', in_progress: 'text-[#d97757]', locked: 'text-[#b0aea5]' }
-
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      <button onClick={() => navigate('/course')} className="flex items-center gap-1 text-sm text-[#b0aea5] hover:text-[#141413] mb-4 transition-colors">
-        ← 课程中心
-      </button>
-      <h1 className="text-xl font-bold text-[#141413] mb-1" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-        🔤 自然拼读 Phonics
-      </h1>
-      <p className="text-sm text-[#b0aea5] mb-6">看到单词就能读出来，不靠死记硬背 · 共 22 课</p>
+    <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}>
+      <button
+        onClick={() => navigate('/course')}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#9e998e', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 20, fontFamily: 'inherit' }}
+        onMouseEnter={e => e.currentTarget.style.color = '#0f0e0c'}
+        onMouseLeave={e => e.currentTarget.style.color = '#9e998e'}
+      >← 课程中心</button>
 
-      <div className="space-y-3">
+      <div style={{ marginBottom: 24 }}>
+        <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>
+          🔤 自然拼读 Phonics
+        </h1>
+        <p style={{ fontSize: 13, color: '#9e998e' }}>看到单词就能读出来，不靠死记硬背 · 共 22 课</p>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {phonicsLessons.map((lesson, i) => {
           const status = i === 0 ? (getLessonStatus(lesson.id) || 'in_progress') : getLessonStatus(lesson.id)
           const locked = i > 0 && getLessonStatus(phonicsLessons[i - 1].id) !== 'completed'
+          const cfg = statusConfig[locked ? 'locked' : status] || statusConfig.locked
 
           return (
             <Card
               key={lesson.id}
-              className={locked ? 'opacity-60' : ''}
               onClick={() => !locked && navigate(`/course/phonics/${lesson.id}`)}
+              style={{ opacity: locked ? 0.6 : 1, padding: '14px 16px' }}
             >
-              <div className="flex items-center gap-4">
-                <span className={`text-xl ${statusColor[locked ? 'locked' : status]}`}>
-                  {statusIcon[locked ? 'locked' : status]}
-                </span>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm text-[#141413]" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-                    {lesson.title}
-                  </p>
-                  <p className="text-xs text-[#b0aea5]">{lesson.subtitle}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{
+                  width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                  background: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14, fontWeight: 800, color: cfg.color,
+                }}>
+                  {locked ? '🔒' : cfg.icon}
                 </div>
-                {!locked && <span className="text-[#b0aea5]">›</span>}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 700, fontSize: 14, color: '#0f0e0c', marginBottom: 2 }}>{lesson.title}</p>
+                  <p style={{ fontSize: 12, color: '#9e998e' }}>{lesson.subtitle}</p>
+                </div>
+                {!locked && <span style={{ color: '#c0bdb8', fontSize: 18, flexShrink: 0 }}>›</span>}
               </div>
             </Card>
           )
         })}
 
-        {/* 占位：未来的课程 */}
         {Array.from({ length: Math.max(0, 22 - phonicsLessons.length) }, (_, i) => (
-          <Card key={`coming-${i}`} className="opacity-40">
-            <div className="flex items-center gap-4">
-              <span className="text-xl text-[#b0aea5]">🔒</span>
+          <div key={`coming-${i}`} style={{
+            background: '#fff', border: '1px solid rgba(0,0,0,0.05)',
+            borderRadius: 18, padding: '14px 16px', opacity: 0.35,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#f5f3ef', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>🔒</div>
               <div>
-                <p className="font-semibold text-sm text-[#b0aea5]" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-                  Lesson {phonicsLessons.length + i + 1} — 即将推出
-                </p>
-                <p className="text-xs text-[#b0aea5]">敬请期待</p>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#9e998e' }}>Lesson {phonicsLessons.length + i + 1} — 即将推出</p>
+                <p style={{ fontSize: 12, color: '#c0bdb8' }}>敬请期待</p>
               </div>
             </div>
-          </Card>
+          </div>
         ))}
       </div>
     </div>

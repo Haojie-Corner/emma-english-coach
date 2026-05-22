@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getScene } from '../../data/scenes'
+import { getScene, getAllScenes } from '../../data/scenes'
 import { chatWithScene } from '../../services/deepseek'
 import { saveConversation, getConversations, addVocabularyWord } from '../../services/supabase'
 import { expandVocabulary } from '../../services/gemini'
@@ -76,6 +76,10 @@ const SceneLesson = () => {
   }, [user, sceneId])
 
   const scene = getScene(sceneId)
+  const allScenes = getAllScenes()
+  const currentSceneIndex = allScenes.findIndex(s => s.id === sceneId)
+  const prevScene = currentSceneIndex > 0 ? allScenes[currentSceneIndex - 1] : null
+  const nextScene = currentSceneIndex < allScenes.length - 1 ? allScenes[currentSceneIndex + 1] : null
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -185,15 +189,28 @@ const SceneLesson = () => {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
-      {/* 顶部 */}
-      <button onClick={() => { stopSpeaking(); navigate('/course/scenes') }} style={{
-        display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
-        color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer',
-        marginBottom: 12, padding: 0,
-      }}
-        onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
-        onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
-      >← 场景实战</button>
+      {/* 顶部导航 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <button onClick={() => { stopSpeaking(); navigate('/course/scenes') }} style={{
+          display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
+          color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+        }}
+          onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
+          onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
+        >← 场景实战</button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button disabled={!prevScene} onClick={() => { stopSpeaking(); prevScene && navigate(`/course/scenes/${prevScene.id}`) }} style={{
+            padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: '1.5px solid #dedad0', cursor: prevScene ? 'pointer' : 'not-allowed',
+            background: prevScene ? '#fff' : '#f5f3ee', color: prevScene ? '#1a1917' : '#b0aea5',
+          }}>‹ 上一场景</button>
+          <button disabled={!nextScene} onClick={() => { stopSpeaking(); nextScene && navigate(`/course/scenes/${nextScene.id}`) }} style={{
+            padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            border: '1.5px solid #dedad0', cursor: nextScene ? 'pointer' : 'not-allowed',
+            background: nextScene ? '#fff' : '#f5f3ee', color: nextScene ? '#1a1917' : '#b0aea5',
+          }}>下一场景 ›</button>
+        </div>
+      </div>
 
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>

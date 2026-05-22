@@ -83,6 +83,33 @@ src/
 ### 样式方案
 **不依赖 Tailwind 响应式类做关键布局**。`Layout.jsx` 用 `useState + useEffect + window.innerWidth` 检测是否桌面端（≥1024px），动态决定显示侧边栏还是底部导航，完全绕开 `lg:hidden / hidden lg:block`（在 Tailwind v4 CSS-first 模式下不可靠）。Card/Button 的 hover 也用 `onMouseEnter/Leave` + inline style 实现。
 
+**UI 设计规范（Modern Light 风格，2026-05 全面翻新）**
+
+颜色 token：
+```
+主背景:   #f5f3ef
+卡片背景: #ffffff
+主文字:   #0f0e0c
+次文字:   #5c5850
+弱文字:   #9e998e
+边框:     rgba(0,0,0,0.07)  (普通)  /  #e5e1d8 (强调边框)
+强调橙:   #e8672a
+```
+
+模块专属颜色：Fluency/Mindset = 紫色 `#7b5ea7` / Intonation = 蓝色 `#4a7a9b` / Tech = 紫色 `#9b72d0`。
+
+渐变按钮：`linear-gradient(135deg, #f28040 0%, #e05020 100%)`，hover 用 `filter: brightness(1.08)`（渐变不可 CSS transition）。
+
+卡片标准样式：`border: 1px solid rgba(0,0,0,0.07)`, `borderRadius: 18`, `boxShadow: '0 2px 10px rgba(0,0,0,0.06)'`，hover 时 `transform: translateY(-2px)` + `boxShadow` 加深。
+
+底部导航（Layout.jsx）：`background: rgba(255,255,255,0.88)`, `backdropFilter: blur(20px) saturate(180%)`。
+
+页面容器统一：`style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}`。返回按钮用 `onMouseEnter/Leave` 切 `#9e998e` ↔ `#0f0e0c`。
+
+词汇熟练度四色：`['#d94040', '#e8672a', '#5a8c4a', '#3a9a5f']`，背景 `['#fdf0f0', '#fff3ee', '#eaf5ef', '#d8f0e8']`。
+
+难度标签四色：`{ '入门': '#5a8c4a'/'#eaf5ef', '初级': '#e8672a'/'#fff3ee', '中级': '#7b5ea7'/'#f3eeff', '进阶': '#d94040'/'#fdf0f0' }`。
+
 ### Toast 通知系统（`src/utils/toast.js` + `src/components/ui/Toast.jsx`）
 **单例事件总线**：`toast.js` 持有一个 `_cb` 回调引用，`Toast.jsx` 在 `useEffect` 里调 `_setToastCb` 注册自己。任意模块调 `showToast(msg, type)` 即可显示通知，无需 React 上下文。
 

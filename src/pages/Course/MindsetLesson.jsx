@@ -4,10 +4,13 @@ import { getMindsetLesson, mindsetLessons } from '../../data/mindset'
 import { generateMindsetQuiz } from '../../services/deepseek'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import VocabChip from '../../components/ui/VocabChip'
 import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import { speakMultilingual } from '../../utils/tts'
 import LessonValueBanner from '../../components/ui/LessonValueBanner'
+import { addVocabularyWord } from '../../services/supabase'
+import { expandVocabulary } from '../../services/gemini'
 
 const MindsetLesson = () => {
   const { lessonId } = useParams()
@@ -29,6 +32,8 @@ const MindsetLesson = () => {
   const [phase, setPhase] = useState('intro') // intro | quiz
   const [quizHistory, setQuizHistory] = useState([]) // session answer history
   const [showHistory, setShowHistory] = useState(false)
+  const [savedVocabs, setSavedVocabs] = useState(new Set())
+  const [savingVocab, setSavingVocab] = useState(null)
 
   if (!lesson) return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
@@ -90,6 +95,24 @@ const MindsetLesson = () => {
     } else if (quiz.explanation) {
       speakMultilingual(quiz.explanation)
     }
+  }
+
+  const handleSaveVocab = async (en, zh) => {
+    if (!user || savedVocabs.has(en) || savingVocab === en) return
+    setSavingVocab(en)
+    try {
+      const expanded = await expandVocabulary(en)
+      await addVocabularyWord(
+        user.id, en,
+        expanded.phonetic || '',
+        expanded.meaning || zh || en,
+        expanded.example || '',
+        expanded.example_zh || '',
+        `认知重塑·${lesson.title}`,
+      )
+      setSavedVocabs(prev => new Set([...prev, en]))
+    } catch {}
+    finally { setSavingVocab(null) }
   }
 
   const isCorrect = revealed && selected === quiz?.correct_answer
@@ -219,6 +242,22 @@ const MindsetLesson = () => {
                       <p style={{ fontSize: 12, color: '#b0aea5', marginBottom: 6 }}>实际应用</p>
                       <p style={{ fontSize: 13, color: '#1a1917', lineHeight: 1.6 }}>{quiz.example_in_context}</p>
                     </Card>
+                  )}
+
+                  {quiz.key_vocab?.length > 0 && (
+                    <div style={{ background: '#faf9f5', border: '1px solid #ece9e0', borderRadius: 12, padding: '10px 14px' }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: '#788c5d', marginBottom: 8 }}>📚 本题重点词汇（点 + 存入词汇本）</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {quiz.key_vocab.map((v, i) => (
+                          <VocabChip
+                            key={i} en={v.en} zh={v.zh}
+                            saved={savedVocabs.has(v.en)}
+                            saving={savingVocab === v.en}
+                            onSave={(en, zh) => handleSaveVocab(en, zh)}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   )}
 
                   <Button onClick={fetchQuiz} style={{ width: '100%', justifyContent: 'center' }}>

@@ -9,8 +9,8 @@ import { rateSentence } from '../services/deepseek'
 import { speak } from '../utils/tts'
 
 const FAMILIARITY_LABEL = ['陌生', '模糊', '熟悉', '掌握']
-const FAMILIARITY_COLOR = ['#c45c5c', '#d97757', '#788c5d', '#5a7a3a']
-const FAMILIARITY_BG = ['#fdeaea', '#fdf0ea', '#eaf2e3', '#d8edca']
+const FAMILIARITY_COLOR = ['#d94040', '#e8672a', '#5a8c4a', '#3a9a5f']
+const FAMILIARITY_BG = ['#fdf0f0', '#fff3ee', '#eaf5ef', '#d8f0e8']
 
 /* ── 单词卡列表项 ── */
 const WordCard = ({ word, onFamiliarityChange, onDelete }) => {
@@ -34,31 +34,41 @@ const WordCard = ({ word, onFamiliarityChange, onDelete }) => {
   }
 
   return (
-    <div style={{ background: '#fff', border: `1.5px solid ${isDue ? '#f5c4a8' : '#dedad0'}`, borderRadius: 14, overflow: 'hidden' }}>
+    <div style={{
+      background: '#fff',
+      border: `1.5px solid ${isDue ? '#f5c4a8' : 'rgba(0,0,0,0.07)'}`,
+      borderRadius: 16,
+      overflow: 'hidden',
+      boxShadow: isDue ? '0 2px 10px rgba(232,103,42,0.08)' : '0 2px 8px rgba(0,0,0,0.04)',
+    }}>
       <div onClick={() => setExpanded(!expanded)} style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}>
-        {isDue && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#d97757', flexShrink: 0 }} />}
+        {isDue && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#e8672a', flexShrink: 0 }} />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 700, fontSize: 16, color: '#1a1917' }}>{word.word}</span>
-            {word.phonetic && <span style={{ fontSize: 12, color: '#b0aea5', fontFamily: 'monospace' }}>{word.phonetic}</span>}
-            <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, color: FAMILIARITY_COLOR[word.familiarity] || '#7a7870', background: FAMILIARITY_BG[word.familiarity] || '#f0ede4' }}>
+            <span style={{ fontWeight: 700, fontSize: 16, color: '#0f0e0c' }}>{word.word}</span>
+            {word.phonetic && <span style={{ fontSize: 12, color: '#9e998e', fontFamily: 'monospace' }}>{word.phonetic}</span>}
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+              color: FAMILIARITY_COLOR[word.familiarity] || '#9e998e',
+              background: FAMILIARITY_BG[word.familiarity] || '#f5f3ef',
+            }}>
               {FAMILIARITY_LABEL[word.familiarity] || '陌生'}
             </span>
           </div>
-          <p style={{ fontSize: 13, color: '#7a7870', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{word.meaning}</p>
+          <p style={{ fontSize: 13, color: '#5c5850', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{word.meaning}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={e => { e.stopPropagation(); speak(word.word) }} style={{ fontSize: 16, background: 'none', border: 'none', cursor: 'pointer' }}>🔊</button>
-          <span style={{ color: '#b0aea5', transition: 'transform 0.2s', transform: expanded ? 'rotate(90deg)' : 'none', fontSize: 18 }}>›</span>
+          <button onClick={e => { e.stopPropagation(); speak(word.word) }} style={{ fontSize: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>🔊</button>
+          <span style={{ color: '#9e998e', transition: 'transform 0.2s', transform: expanded ? 'rotate(90deg)' : 'none', fontSize: 18 }}>›</span>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '0 16px 16px', borderTop: '1px solid #f0ede4' }} className="fade-in">
+        <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(0,0,0,0.06)' }} className="fade-in">
           {word.example && (
-            <div style={{ marginTop: 12 }}>
-              <p style={{ fontSize: 13, color: '#1a1917', fontStyle: 'italic' }}>"{word.example}"</p>
-              {word.example_zh && <p style={{ fontSize: 12, color: '#7a7870', marginTop: 2 }}>{word.example_zh}</p>}
+            <div style={{ marginTop: 12, background: '#f5f3ef', borderRadius: 10, padding: '10px 14px' }}>
+              <p style={{ fontSize: 13, color: '#0f0e0c', fontStyle: 'italic' }}>"{word.example}"</p>
+              {word.example_zh && <p style={{ fontSize: 12, color: '#5c5850', marginTop: 4 }}>{word.example_zh}</p>}
             </div>
           )}
           {word.source && (() => {
@@ -76,34 +86,34 @@ const WordCard = ({ word, onFamiliarityChange, onDelete }) => {
             return (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
-                fontSize: 10, color: '#9b7ec8', background: '#f5f0ff',
-                border: '1px solid #d0c0e8', borderRadius: 20,
-                padding: '2px 8px', marginTop: 8,
+                fontSize: 10, fontWeight: 600, color: '#7b5ea7', background: '#f3eeff',
+                border: '1px solid #d5c5f0', borderRadius: 20,
+                padding: '2px 8px', marginTop: 10,
               }}>
                 {icon} {label}
               </span>
             )
           })()}
           <div style={{ marginTop: 14 }}>
-            <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 8 }}>掌握程度</p>
+            <p style={{ fontSize: 12, color: '#9e998e', marginBottom: 8 }}>掌握程度</p>
             <div style={{ display: 'flex', gap: 6 }}>
               {FAMILIARITY_LABEL.map((label, level) => (
                 <button key={level} onClick={() => handleFamiliarity(level)} disabled={updating} style={{
-                  flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-                  border: `1.5px solid ${word.familiarity === level ? FAMILIARITY_COLOR[level] : '#dedad0'}`,
-                  background: word.familiarity === level ? FAMILIARITY_BG[level] : '#faf9f5',
-                  color: word.familiarity === level ? FAMILIARITY_COLOR[level] : '#7a7870',
-                  cursor: 'pointer',
+                  flex: 1, padding: '6px 4px', borderRadius: 10, fontSize: 11, fontWeight: 700,
+                  border: `1.5px solid ${word.familiarity === level ? FAMILIARITY_COLOR[level] : '#e5e1d8'}`,
+                  background: word.familiarity === level ? FAMILIARITY_BG[level] : '#f5f3ef',
+                  color: word.familiarity === level ? FAMILIARITY_COLOR[level] : '#9e998e',
+                  cursor: 'pointer', transition: 'all 0.15s',
                 }}>{label}</button>
               ))}
             </div>
           </div>
           {nextReviewDate && (
-            <p style={{ fontSize: 11, color: '#b0aea5', marginTop: 8 }}>
-              下次复习：{isDue ? '今天' : nextReviewDate.toLocaleDateString('zh-CN')}
+            <p style={{ fontSize: 11, color: '#9e998e', marginTop: 8 }}>
+              下次复习：{isDue ? <span style={{ color: '#e8672a', fontWeight: 600 }}>今天</span> : nextReviewDate.toLocaleDateString('zh-CN')}
             </p>
           )}
-          <button onClick={handleDelete} style={{ marginTop: 12, fontSize: 12, color: '#c45c5c', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          <button onClick={handleDelete} style={{ marginTop: 12, fontSize: 12, color: '#d94040', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             {deleting ? '删除中…' : '🗑 删除'}
           </button>
         </div>
@@ -121,7 +131,7 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
   const [updating, setUpdating] = useState(false)
   const [inputVal, setInputVal] = useState('')
   const [answered, setAnswered] = useState(null) // null | 'correct' | 'wrong'
-  const [composeResult, setComposeResult] = useState(null) // null | {score, feedback, corrected}
+  const [composeResult, setComposeResult] = useState(null)
   const [composing, setComposing] = useState(false)
   const inputRef = useRef(null)
 
@@ -175,14 +185,14 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
     done.forEach(d => counts[d.level]++)
     return (
       <div style={{ maxWidth: 500, margin: '0 auto', padding: '24px 16px', textAlign: 'center' }} className="fade-in">
-        <p style={{ fontSize: 48, marginBottom: 12 }}>🎉</p>
-        <h2 className="font-title" style={{ fontSize: 20, color: '#1a1917', marginBottom: 6 }}>复习完成！</h2>
-        <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 24 }}>共复习了 {total} 个单词</p>
+        <p style={{ fontSize: 52, marginBottom: 12 }}>🎉</p>
+        <h2 className="font-title" style={{ fontSize: 22, color: '#0f0e0c', marginBottom: 6 }}>复习完成！</h2>
+        <p style={{ fontSize: 13, color: '#5c5850', marginBottom: 24 }}>共复习了 {total} 个单词</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
           {FAMILIARITY_LABEL.map((label, level) => counts[level] > 0 && (
-            <div key={level} style={{ background: FAMILIARITY_BG[level], borderRadius: 12, padding: '12px 16px' }}>
-              <p style={{ fontSize: 20, fontWeight: 700, color: FAMILIARITY_COLOR[level] }}>{counts[level]}</p>
-              <p style={{ fontSize: 12, color: FAMILIARITY_COLOR[level] }}>{label}</p>
+            <div key={level} style={{ background: FAMILIARITY_BG[level], borderRadius: 14, padding: '14px 16px', border: `1px solid ${FAMILIARITY_COLOR[level]}30` }}>
+              <p style={{ fontSize: 22, fontWeight: 800, color: FAMILIARITY_COLOR[level] }}>{counts[level]}</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: FAMILIARITY_COLOR[level] }}>{label}</p>
             </div>
           ))}
         </div>
@@ -195,23 +205,23 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
     <div style={{ maxWidth: 500, margin: '0 auto', padding: '24px 16px' }}>
       {/* 进度条 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <button onClick={onFinish} style={{ fontSize: 13, color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← 退出</button>
-        <div style={{ flex: 1, height: 6, background: '#ece9e0', borderRadius: 3, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: '#d97757', borderRadius: 3, transition: 'width 0.3s' }} />
+        <button onClick={onFinish} style={{ fontSize: 13, color: '#5c5850', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← 退出</button>
+        <div style={{ flex: 1, height: 6, background: '#e5e1d8', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${progress}%`, background: 'linear-gradient(90deg, #f28040, #e05020)', borderRadius: 3, transition: 'width 0.3s' }} />
         </div>
-        <span style={{ fontSize: 12, color: '#7a7870', flexShrink: 0 }}>{index}/{total}</span>
+        <span style={{ fontSize: 12, color: '#9e998e', flexShrink: 0 }}>{index}/{total}</span>
       </div>
 
-      {/* 模式切换（仅第一张卡翻转前显示） */}
+      {/* 模式切换 */}
       {!started && (
-        <div style={{ display: 'flex', background: '#f0ede4', borderRadius: 10, padding: 3, marginBottom: 16 }}>
+        <div style={{ display: 'flex', background: '#f0ede6', borderRadius: 12, padding: 4, marginBottom: 16 }}>
           {[['normal', '英→中'], ['reverse', '中→英'], ['compose', '造句']].map(([m, label]) => (
             <button key={m} onClick={() => setMode(m)} style={{
-              flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              flex: 1, padding: '7px 0', borderRadius: 9, fontSize: 12, fontWeight: 600,
               border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               background: mode === m ? '#fff' : 'transparent',
-              color: mode === m ? '#1a1917' : '#b0aea5',
-              boxShadow: mode === m ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+              color: mode === m ? '#0f0e0c' : '#9e998e',
+              boxShadow: mode === m ? '0 2px 6px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.15s',
             }}>{label}</button>
           ))}
@@ -219,17 +229,18 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
       )}
 
       {mode === 'compose' ? (
-        /* ── 造句模式：看单词 → 造句 → AI 评分 ── */
         <div style={{
-          background: '#fff', border: `1.5px solid ${flipped ? '#dedad0' : '#dedad0'}`,
-          borderRadius: 20, padding: '32px 28px', textAlign: 'center',
-          minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.07)', marginBottom: 20,
+          background: '#fff',
+          border: '1px solid rgba(0,0,0,0.07)',
+          borderRadius: 24,
+          padding: '32px 28px', textAlign: 'center',
+          minHeight: 240, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.08)', marginBottom: 20,
         }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: '#b0aea5', letterSpacing: '0.08em', marginBottom: 12 }}>用这个单词造句</p>
-          <p style={{ fontSize: 32, fontWeight: 800, color: '#1a1917', marginBottom: 4 }}>{current.word}</p>
-          {current.phonetic && <p style={{ fontSize: 12, color: '#b0aea5', fontFamily: 'monospace', marginBottom: 8 }}>{current.phonetic}</p>}
-          <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 16 }}>{current.meaning}</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', letterSpacing: '0.08em', marginBottom: 12, textTransform: 'uppercase' }}>用这个单词造句</p>
+          <p style={{ fontSize: 34, fontWeight: 800, color: '#0f0e0c', marginBottom: 4 }}>{current.word}</p>
+          {current.phonetic && <p style={{ fontSize: 12, color: '#9e998e', fontFamily: 'monospace', marginBottom: 8 }}>{current.phonetic}</p>}
+          <p style={{ fontSize: 13, color: '#5c5850', marginBottom: 18 }}>{current.meaning}</p>
           {!flipped ? (
             <div style={{ width: '100%' }}>
               <textarea
@@ -240,20 +251,23 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
                 rows={2}
                 autoFocus
                 style={{
-                  width: '100%', background: '#faf9f5', border: '1.5px solid #dedad0',
-                  borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#1a1917',
+                  width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+                  borderRadius: 12, padding: '10px 14px', fontSize: 14, color: '#0f0e0c',
                   outline: 'none', boxSizing: 'border-box', resize: 'none', fontFamily: 'inherit',
+                  transition: 'border-color 0.15s',
                 }}
-                onFocus={e => e.target.style.borderColor = '#d97757'}
-                onBlur={e => e.target.style.borderColor = '#dedad0'}
+                onFocus={e => e.target.style.borderColor = '#e8672a'}
+                onBlur={e => e.target.style.borderColor = '#e5e1d8'}
               />
               <button onClick={handleCompose} disabled={!inputVal.trim() || composing} style={{
-                width: '100%', marginTop: 10, padding: '11px', borderRadius: 10,
-                background: inputVal.trim() && !composing ? '#d97757' : '#ece9e0',
-                color: inputVal.trim() && !composing ? '#fff' : '#b0aea5',
-                border: 'none', fontSize: 14, fontWeight: 600,
+                width: '100%', marginTop: 10, padding: '12px',
+                borderRadius: 12,
+                background: inputVal.trim() && !composing ? 'linear-gradient(135deg, #f28040, #e05020)' : '#e5e1d8',
+                color: inputVal.trim() && !composing ? '#fff' : '#9e998e',
+                border: 'none', fontSize: 14, fontWeight: 700,
                 cursor: inputVal.trim() && !composing ? 'pointer' : 'default',
                 fontFamily: 'inherit',
+                boxShadow: inputVal.trim() && !composing ? '0 3px 12px rgba(232,103,42,0.28)' : 'none',
               }}>
                 {composing ? '✨ AI 评分中…' : '提交造句'}
               </button>
@@ -261,68 +275,72 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
           ) : composeResult && (
             <div className="fade-in" style={{ width: '100%' }}>
               <div style={{
-                background: composeResult.score >= 70 ? '#eaf2e3' : '#fdf0ea',
-                borderRadius: 12, padding: '14px 16px', marginBottom: 12,
+                background: composeResult.score >= 70 ? '#eaf5ef' : '#fff3ee',
+                borderRadius: 14, padding: '14px 16px', marginBottom: 12,
+                border: `1px solid ${composeResult.score >= 70 ? '#3a9a5f30' : '#e8672a30'}`,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: composeResult.score >= 70 ? '#5a7a3a' : '#d97757' }}>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: composeResult.score >= 70 ? '#3a9a5f' : '#e8672a' }}>
                     {composeResult.score >= 70 ? '✓' : '✎'} {composeResult.score} 分
                   </span>
-                  <span style={{ fontSize: 12, color: '#7a7870', fontStyle: 'italic' }}>"{inputVal}"</span>
+                  <span style={{ fontSize: 12, color: '#9e998e', fontStyle: 'italic', maxWidth: '55%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{inputVal}"</span>
                 </div>
-                <p style={{ fontSize: 13, color: '#1a1917' }}>{composeResult.feedback}</p>
+                <p style={{ fontSize: 13, color: '#0f0e0c' }}>{composeResult.feedback}</p>
                 {composeResult.corrected && (
-                  <p style={{ fontSize: 12, color: '#5a7a3a', marginTop: 6 }}>建议：{composeResult.corrected}</p>
+                  <p style={{ fontSize: 12, color: '#3a9a5f', marginTop: 6 }}>建议：{composeResult.corrected}</p>
                 )}
               </div>
             </div>
           )}
         </div>
       ) : mode === 'normal' ? (
-        /* ── 正向：显示英文，点击翻转看释义 ── */
         <div
           onClick={() => !flipped && setFlipped(true)}
           style={{
-            background: '#fff', border: '1.5px solid #dedad0', borderRadius: 20,
+            background: '#fff',
+            border: '1px solid rgba(0,0,0,0.07)',
+            borderRadius: 24,
             padding: '40px 28px', textAlign: 'center', cursor: flipped ? 'default' : 'pointer',
-            minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.07)', marginBottom: 20,
+            minHeight: 240, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.08)', marginBottom: 20,
+            transition: 'box-shadow 0.2s',
           }}
+          onMouseEnter={e => { if (!flipped) e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.12)' }}
+          onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.08)' }}
         >
-          <p style={{ fontSize: 36, fontWeight: 800, color: '#1a1917', marginBottom: 8 }}>{current.word}</p>
-          {current.phonetic && <p style={{ fontSize: 14, color: '#b0aea5', fontFamily: 'monospace', marginBottom: 12 }}>{current.phonetic}</p>}
-          <button onClick={e => { e.stopPropagation(); speak(current.word) }} style={{ fontSize: 12, color: '#d97757', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 16 }}>🔊 听发音</button>
+          <p style={{ fontSize: 38, fontWeight: 800, color: '#0f0e0c', marginBottom: 8 }}>{current.word}</p>
+          {current.phonetic && <p style={{ fontSize: 14, color: '#9e998e', fontFamily: 'monospace', marginBottom: 12 }}>{current.phonetic}</p>}
+          <button onClick={e => { e.stopPropagation(); speak(current.word) }} style={{ fontSize: 13, color: '#e8672a', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', marginBottom: 16, fontFamily: 'inherit' }}>🔊 听发音</button>
           {!flipped ? (
             <div style={{ marginTop: 8 }}>
-              <div style={{ width: 40, height: 2, background: '#ece9e0', margin: '0 auto 8px' }} />
-              <p style={{ fontSize: 12, color: '#b0aea5' }}>点击翻转查看释义</p>
+              <div style={{ width: 40, height: 2, background: '#e5e1d8', margin: '0 auto 10px' }} />
+              <p style={{ fontSize: 12, color: '#9e998e' }}>点击翻转查看释义</p>
             </div>
           ) : (
             <div className="fade-in" style={{ marginTop: 8, width: '100%' }}>
-              <div style={{ width: 40, height: 2, background: '#d97757', margin: '0 auto 16px' }} />
-              <p style={{ fontSize: 18, fontWeight: 600, color: '#1a1917', marginBottom: 8 }}>{current.meaning}</p>
+              <div style={{ width: 40, height: 2, background: '#e8672a', margin: '0 auto 18px' }} />
+              <p style={{ fontSize: 20, fontWeight: 700, color: '#0f0e0c', marginBottom: 8 }}>{current.meaning}</p>
               {current.example && (
-                <div style={{ background: '#faf9f5', borderRadius: 10, padding: '10px 14px', textAlign: 'left', marginTop: 10 }}>
-                  <p style={{ fontSize: 13, color: '#1a1917', fontStyle: 'italic' }}>"{current.example}"</p>
-                  {current.example_zh && <p style={{ fontSize: 12, color: '#7a7870', marginTop: 4 }}>{current.example_zh}</p>}
+                <div style={{ background: '#f5f3ef', borderRadius: 12, padding: '10px 14px', textAlign: 'left', marginTop: 10 }}>
+                  <p style={{ fontSize: 13, color: '#0f0e0c', fontStyle: 'italic' }}>"{current.example}"</p>
+                  {current.example_zh && <p style={{ fontSize: 12, color: '#5c5850', marginTop: 4 }}>{current.example_zh}</p>}
                 </div>
               )}
             </div>
           )}
         </div>
       ) : (
-        /* ── 反向：显示中文释义，用户输入英文单词 ── */
         <div style={{
           background: '#fff',
-          border: `1.5px solid ${flipped ? (answered === 'correct' ? '#788c5d' : '#c45c5c') : '#dedad0'}`,
-          borderRadius: 20, padding: '32px 28px', textAlign: 'center',
-          minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.07)', marginBottom: 20, transition: 'border-color 0.2s',
+          border: `1.5px solid ${flipped ? (answered === 'correct' ? '#3a9a5f50' : '#d9404050') : 'rgba(0,0,0,0.07)'}`,
+          borderRadius: 24, padding: '32px 28px', textAlign: 'center',
+          minHeight: 240, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.08)', marginBottom: 20, transition: 'border-color 0.2s',
         }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: '#b0aea5', letterSpacing: '0.08em', marginBottom: 12 }}>看释义写英文</p>
-          <p style={{ fontSize: 22, fontWeight: 700, color: '#1a1917', marginBottom: 6 }}>{current.meaning}</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', letterSpacing: '0.08em', marginBottom: 12, textTransform: 'uppercase' }}>看释义写英文</p>
+          <p style={{ fontSize: 22, fontWeight: 700, color: '#0f0e0c', marginBottom: 6 }}>{current.meaning}</p>
           {current.example_zh && !flipped && (
-            <p style={{ fontSize: 12, color: '#7a7870', fontStyle: 'italic', marginBottom: 8 }}>"{current.example_zh}"</p>
+            <p style={{ fontSize: 12, color: '#5c5850', fontStyle: 'italic', marginBottom: 8 }}>"{current.example_zh}"</p>
           )}
           {!flipped ? (
             <div style={{ width: '100%', marginTop: 16 }}>
@@ -334,39 +352,42 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
                 placeholder="输入英文单词…"
                 autoFocus
                 style={{
-                  width: '100%', background: '#faf9f5', border: '1.5px solid #dedad0',
-                  borderRadius: 10, padding: '12px 14px', fontSize: 16, color: '#1a1917',
+                  width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+                  borderRadius: 12, padding: '12px 14px', fontSize: 16, color: '#0f0e0c',
                   outline: 'none', boxSizing: 'border-box', textAlign: 'center',
-                  fontFamily: 'inherit', letterSpacing: '0.05em',
+                  fontFamily: 'inherit', letterSpacing: '0.05em', transition: 'border-color 0.15s',
                 }}
-                onFocus={e => e.target.style.borderColor = '#d97757'}
-                onBlur={e => e.target.style.borderColor = '#dedad0'}
+                onFocus={e => e.target.style.borderColor = '#e8672a'}
+                onBlur={e => e.target.style.borderColor = '#e5e1d8'}
               />
               <button onClick={handleCheck} disabled={!inputVal.trim()} style={{
-                width: '100%', marginTop: 10, padding: '11px', borderRadius: 10,
-                background: inputVal.trim() ? '#d97757' : '#ece9e0',
-                color: inputVal.trim() ? '#fff' : '#b0aea5',
-                border: 'none', fontSize: 14, fontWeight: 600,
+                width: '100%', marginTop: 10, padding: '12px',
+                borderRadius: 12,
+                background: inputVal.trim() ? 'linear-gradient(135deg, #f28040, #e05020)' : '#e5e1d8',
+                color: inputVal.trim() ? '#fff' : '#9e998e',
+                border: 'none', fontSize: 14, fontWeight: 700,
                 cursor: inputVal.trim() ? 'pointer' : 'default',
-                fontFamily: 'inherit', transition: 'all 0.15s',
+                fontFamily: 'inherit',
+                boxShadow: inputVal.trim() ? '0 3px 12px rgba(232,103,42,0.28)' : 'none',
+                transition: 'all 0.15s',
               }}>确认</button>
             </div>
           ) : (
             <div className="fade-in" style={{ width: '100%', marginTop: 16 }}>
               {answered === 'correct' ? (
-                <div style={{ background: '#eaf2e3', borderRadius: 10, padding: '12px 16px' }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#5a7a3a', marginBottom: 4 }}>✓ 答对了！</p>
-                  <p style={{ fontSize: 24, fontWeight: 800, color: '#5a7a3a' }}>{current.word}</p>
+                <div style={{ background: '#eaf5ef', borderRadius: 14, padding: '14px 16px', border: '1px solid #3a9a5f30' }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#3a9a5f', marginBottom: 4 }}>✓ 答对了！</p>
+                  <p style={{ fontSize: 26, fontWeight: 800, color: '#3a9a5f' }}>{current.word}</p>
                 </div>
               ) : (
-                <div style={{ background: '#fdeaea', borderRadius: 10, padding: '12px 16px' }}>
-                  <p style={{ fontSize: 12, color: '#c45c5c', marginBottom: 4 }}>✗ 你的答案：<span style={{ fontWeight: 600 }}>{inputVal}</span></p>
-                  <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 4 }}>正确答案：</p>
-                  <p style={{ fontSize: 24, fontWeight: 800, color: '#1a1917' }}>{current.word}</p>
-                  {current.phonetic && <p style={{ fontSize: 12, color: '#b0aea5', fontFamily: 'monospace', marginTop: 4 }}>{current.phonetic}</p>}
+                <div style={{ background: '#fdf0f0', borderRadius: 14, padding: '14px 16px', border: '1px solid #d9404030' }}>
+                  <p style={{ fontSize: 12, color: '#d94040', marginBottom: 4 }}>✗ 你的答案：<span style={{ fontWeight: 600 }}>{inputVal}</span></p>
+                  <p style={{ fontSize: 12, color: '#5c5850', marginBottom: 4 }}>正确答案：</p>
+                  <p style={{ fontSize: 26, fontWeight: 800, color: '#0f0e0c' }}>{current.word}</p>
+                  {current.phonetic && <p style={{ fontSize: 12, color: '#9e998e', fontFamily: 'monospace', marginTop: 4 }}>{current.phonetic}</p>}
                 </div>
               )}
-              <button onClick={() => speak(current.word)} style={{ fontSize: 12, color: '#d97757', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0 0' }}>🔊 听发音</button>
+              <button onClick={() => speak(current.word)} style={{ fontSize: 13, color: '#e8672a', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0 0', fontFamily: 'inherit' }}>🔊 听发音</button>
             </div>
           )}
         </div>
@@ -375,15 +396,18 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
       {/* 评级按钮（翻转后显示） */}
       {flipped && (
         <div className="fade-in">
-          <p style={{ fontSize: 12, color: '#7a7870', textAlign: 'center', marginBottom: 10 }}>这个单词你掌握得怎么样？</p>
+          <p style={{ fontSize: 12, color: '#9e998e', textAlign: 'center', marginBottom: 10 }}>这个单词你掌握得怎么样？</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {FAMILIARITY_LABEL.map((label, level) => (
               <button key={level} onClick={() => advance(level)} disabled={updating} style={{
-                padding: '12px 8px', borderRadius: 12, fontSize: 13, fontWeight: 600,
-                border: `1.5px solid ${FAMILIARITY_COLOR[level]}`,
+                padding: '12px 8px', borderRadius: 14, fontSize: 13, fontWeight: 700,
+                border: `1.5px solid ${FAMILIARITY_COLOR[level]}50`,
                 background: FAMILIARITY_BG[level], color: FAMILIARITY_COLOR[level],
-                cursor: 'pointer', transition: 'opacity 0.15s',
-              }}>
+                cursor: 'pointer', transition: 'opacity 0.15s, transform 0.15s',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.opacity = '0.9' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.opacity = '1' }}
+              >
                 {label}
                 <span style={{ fontSize: 10, display: 'block', fontWeight: 400, marginTop: 2, opacity: 0.8 }}>
                   {['下次还来', '再复习一次', '3天后复习', '2周后复习'][level]}
@@ -437,59 +461,80 @@ const AddWordModal = ({ onClose, onAdd, userId }) => {
     }
   }
 
+  const inputStyle = {
+    width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+    borderRadius: 12, padding: '11px 14px', fontSize: 14, color: '#0f0e0c',
+    outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+    transition: 'border-color 0.15s',
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'flex-end', padding: 0 }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 640, margin: '0 auto', padding: '24px 20px', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ fontWeight: 700, fontSize: 16, color: '#1a1917' }}>添加单词</h3>
-          <button onClick={onClose} style={{ fontSize: 20, background: 'none', border: 'none', cursor: 'pointer', color: '#b0aea5' }}>×</button>
+      <div style={{
+        background: '#fff', borderRadius: '24px 24px 0 0', width: '100%', maxWidth: 640,
+        margin: '0 auto', padding: '24px 20px', maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 -8px 40px rgba(0,0,0,0.12)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h3 style={{ fontWeight: 800, fontSize: 18, color: '#0f0e0c' }}>添加单词</h3>
+          <button onClick={onClose} style={{
+            fontSize: 20, background: '#f5f3ef', border: 'none', cursor: 'pointer',
+            color: '#5c5850', width: 32, height: 32, borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>×</button>
         </div>
 
-        {/* 单词输入 + AI填充 */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 12, color: '#7a7870', marginBottom: 4, display: 'block' }}>单词 *</label>
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>单词 *</label>
             <input
               value={form.word}
               onChange={e => setForm({ ...form, word: e.target.value })}
               placeholder="e.g. persevere"
-              style={{ width: '100%', background: '#faf9f5', border: '1.5px solid #dedad0', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#1a1917', outline: 'none', boxSizing: 'border-box' }}
-              onFocus={e => e.target.style.borderColor = '#d97757'}
-              onBlur={e => e.target.style.borderColor = '#dedad0'}
+              style={inputStyle}
+              onFocus={e => e.target.style.borderColor = '#e8672a'}
+              onBlur={e => e.target.style.borderColor = '#e5e1d8'}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
             <button onClick={handleAiFill} disabled={aiLoading} style={{
-              background: aiLoading ? '#e8a98a' : '#fdf0ea', color: '#d97757',
-              border: '1.5px solid #f5c4a8', borderRadius: 10, padding: '10px 14px',
-              fontSize: 13, fontWeight: 600, cursor: aiLoading ? 'default' : 'pointer', whiteSpace: 'nowrap',
+              background: aiLoading ? '#e5e1d8' : '#fff3ee',
+              color: aiLoading ? '#9e998e' : '#e8672a',
+              border: `1.5px solid ${aiLoading ? '#e5e1d8' : '#f5c4a8'}`,
+              borderRadius: 12, padding: '11px 14px',
+              fontSize: 13, fontWeight: 700, cursor: aiLoading ? 'default' : 'pointer',
+              whiteSpace: 'nowrap', fontFamily: 'inherit',
             }}>
               {aiLoading ? '⏳ 填写中…' : '✨ AI 填写'}
             </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
             { key: 'meaning', label: '中文释义 *', placeholder: 'e.g. 坚持不懈，锲而不舍' },
             { key: 'example', label: '例句（英文）', placeholder: 'e.g. You must persevere if you want to succeed.' },
             { key: 'example_zh', label: '例句翻译', placeholder: 'e.g. 如果你想成功，就必须坚持不懈。' },
           ].map(({ key, label, placeholder }) => (
             <div key={key}>
-              <label style={{ fontSize: 12, color: '#7a7870', marginBottom: 4, display: 'block' }}>{label}</label>
+              <label style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', marginBottom: 6, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</label>
               <input
                 value={form[key]}
                 onChange={e => setForm({ ...form, [key]: e.target.value })}
                 placeholder={placeholder}
-                style={{ width: '100%', background: '#faf9f5', border: '1.5px solid #dedad0', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#1a1917', outline: 'none', boxSizing: 'border-box' }}
-                onFocus={e => e.target.style.borderColor = '#d97757'}
-                onBlur={e => e.target.style.borderColor = '#dedad0'}
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#e8672a'}
+                onBlur={e => e.target.style.borderColor = '#e5e1d8'}
               />
             </div>
           ))}
-          {error && <p style={{ fontSize: 13, color: '#c45c5c' }}>{error}</p>}
+          {error && (
+            <div style={{ background: '#fdf0f0', border: '1px solid #f5b0b0', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: '#d94040' }}>
+              {error}
+            </div>
+          )}
           <Button onClick={handleSubmit} disabled={loading} style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}>
             {loading ? '添加中…' : '添加到词汇本'}
           </Button>
@@ -561,7 +606,6 @@ const Vocabulary = () => {
   })
   const displayWords = tab === 'due' ? dueWords : filtered
 
-  // 闪卡复习模式全屏覆盖
   if (reviewMode) {
     return (
       <FlashCardReview
@@ -573,53 +617,77 @@ const Vocabulary = () => {
   }
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 16px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+    <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <div>
-          <h1 className="font-title" style={{ fontSize: 22, color: '#1a1917' }}>📖 词汇本</h1>
-          <p style={{ fontSize: 12, color: '#b0aea5', marginTop: 2 }}>基于遗忘曲线安排复习，学过的单词不再忘</p>
+          <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>词汇本</h1>
+          <p style={{ fontSize: 13, color: '#9e998e' }}>遗忘曲线 · 科学间隔复习</p>
         </div>
         <button onClick={() => setShowAdd(true)} style={{
-          background: '#d97757', color: '#fff', border: 'none', borderRadius: 10,
-          padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          background: 'linear-gradient(135deg, #f28040, #e05020)',
+          color: '#fff', border: 'none', borderRadius: 12,
+          padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          boxShadow: '0 3px 12px rgba(232,103,42,0.28)',
+          fontFamily: 'inherit',
         }}>+ 添加</button>
       </div>
 
       {/* Tab */}
-      <div style={{ display: 'flex', background: '#f0ede4', borderRadius: 12, padding: 4, margin: '16px 0' }}>
+      <div style={{ display: 'flex', background: '#f0ede6', borderRadius: 14, padding: 4, marginBottom: 16 }}>
         <button onClick={() => setTab('all')} style={{
-          flex: 1, padding: '8px 0', borderRadius: 9, fontSize: 13, fontWeight: 600,
+          flex: 1, padding: '9px 0', borderRadius: 11, fontSize: 13, fontWeight: 700,
           border: 'none', cursor: 'pointer', fontFamily: 'inherit',
           background: tab === 'all' ? '#fff' : 'transparent',
-          color: tab === 'all' ? '#141413' : '#b0aea5',
-          boxShadow: tab === 'all' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+          color: tab === 'all' ? '#0f0e0c' : '#9e998e',
+          boxShadow: tab === 'all' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+          transition: 'all 0.15s',
         }}>全部 ({words.length})</button>
         <button onClick={() => setTab('due')} style={{
-          flex: 1, padding: '8px 0', borderRadius: 9, fontSize: 13, fontWeight: 600,
+          flex: 1, padding: '9px 0', borderRadius: 11, fontSize: 13, fontWeight: 700,
           border: 'none', cursor: 'pointer', fontFamily: 'inherit',
           background: tab === 'due' ? '#fff' : 'transparent',
-          color: tab === 'due' ? (dueWords.length > 0 ? '#d97757' : '#141413') : '#b0aea5',
-          boxShadow: tab === 'due' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+          color: tab === 'due' ? (dueWords.length > 0 ? '#e8672a' : '#0f0e0c') : '#9e998e',
+          boxShadow: tab === 'due' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+          transition: 'all 0.15s',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
-          今日复习 {dueWords.length > 0 && <span style={{ background: '#d97757', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10 }}>{dueWords.length}</span>}
+          今日复习
+          {dueWords.length > 0 && (
+            <span style={{
+              background: 'linear-gradient(135deg, #f28040, #e05020)',
+              color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 700,
+            }}>{dueWords.length}</span>
+          )}
         </button>
       </div>
 
-      {/* 遗忘曲线规则说明（今日复习 tab 顶部） */}
+      {/* 遗忘曲线规则说明 */}
       {tab === 'due' && (
-        <div style={{ background: '#f5f3ee', border: '1px solid #e8e4d8', borderRadius: 12, padding: '10px 14px', marginBottom: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>📅</span>
+        <div style={{
+          background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+          borderRadius: 16, padding: '12px 16px', marginBottom: 14,
+          display: 'flex', gap: 12, alignItems: 'flex-start',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+        }}>
+          <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>📅</span>
           <div>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#1a1917', marginBottom: 4 }}>遗忘曲线复习规则</p>
-            <p style={{ fontSize: 12, color: '#7a7870', lineHeight: 1.6 }}>
-              复习后按掌握程度评级，自动安排下次：
-            </p>
-            <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-              {[['陌生', '#c45c5c', '+1天'], ['模糊', '#d97757', '+3天'], ['熟悉', '#788c5d', '+7天'], ['掌握', '#5a7a3a', '+14天']].map(([label, color, day]) => (
-                <span key={label} style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 20, background: `${color}18`, color, border: `1px solid ${color}40` }}>
-                  {label} {day}
-                </span>
-              ))}
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#0f0e0c', marginBottom: 4 }}>遗忘曲线复习规则</p>
+            <p style={{ fontSize: 12, color: '#5c5850', lineHeight: 1.6 }}>复习后按掌握程度评级，自动安排下次：</p>
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+              {FAMILIARITY_LABEL.map((label, i) => {
+                const days = ['+1天', '+3天', '+7天', '+14天']
+                return (
+                  <span key={label} style={{
+                    fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                    background: FAMILIARITY_BG[i], color: FAMILIARITY_COLOR[i],
+                    border: `1px solid ${FAMILIARITY_COLOR[i]}40`,
+                  }}>
+                    {label} {days[i]}
+                  </span>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -627,10 +695,17 @@ const Vocabulary = () => {
 
       {/* 搜索 */}
       {tab === 'all' && words.length > 0 && (
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索单词或含义…"
-          style={{ width: '100%', background: '#faf9f5', border: '1.5px solid #dedad0', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#1a1917', outline: 'none', marginBottom: availableTags.length ? 10 : 16, boxSizing: 'border-box' }}
-          onFocus={e => e.target.style.borderColor = '#d97757'}
-          onBlur={e => e.target.style.borderColor = '#dedad0'}
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  搜索单词或含义…"
+          style={{
+            width: '100%', background: '#fff', border: '1.5px solid #e5e1d8',
+            borderRadius: 12, padding: '11px 16px', fontSize: 14, color: '#0f0e0c',
+            outline: 'none', marginBottom: availableTags.length ? 10 : 16,
+            boxSizing: 'border-box', fontFamily: 'inherit',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+            transition: 'border-color 0.15s',
+          }}
+          onFocus={e => e.target.style.borderColor = '#e8672a'}
+          onBlur={e => e.target.style.borderColor = '#e5e1d8'}
         />
       )}
 
@@ -638,19 +713,19 @@ const Vocabulary = () => {
       {tab === 'all' && availableTags.length > 0 && (
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, marginBottom: 14, scrollbarWidth: 'none' }}>
           <button onClick={() => setTagFilter(null)} style={{
-            flexShrink: 0, padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-            border: `1.5px solid ${tagFilter === null ? '#d97757' : '#dedad0'}`,
-            background: tagFilter === null ? '#fdf0ea' : '#faf9f5',
-            color: tagFilter === null ? '#d97757' : '#7a7870',
-            cursor: 'pointer', whiteSpace: 'nowrap',
+            flexShrink: 0, padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+            border: `1.5px solid ${tagFilter === null ? '#e8672a' : '#e5e1d8'}`,
+            background: tagFilter === null ? '#fff3ee' : '#fff',
+            color: tagFilter === null ? '#e8672a' : '#5c5850',
+            cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
           }}>全部</button>
           {availableTags.map(tag => (
             <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? null : tag)} style={{
-              flexShrink: 0, padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-              border: `1.5px solid ${tagFilter === tag ? '#d97757' : '#dedad0'}`,
-              background: tagFilter === tag ? '#fdf0ea' : '#faf9f5',
-              color: tagFilter === tag ? '#d97757' : '#7a7870',
-              cursor: 'pointer', whiteSpace: 'nowrap',
+              flexShrink: 0, padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+              border: `1.5px solid ${tagFilter === tag ? '#e8672a' : '#e5e1d8'}`,
+              background: tagFilter === tag ? '#fff3ee' : '#fff',
+              color: tagFilter === tag ? '#e8672a' : '#5c5850',
+              cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
             }}>{tag}</button>
           ))}
         </div>
@@ -663,9 +738,14 @@ const Vocabulary = () => {
             const count = words.filter(w => w.familiarity === level).length
             if (count === 0) return null
             return (
-              <div key={level} style={{ flex: 1, textAlign: 'center', background: FAMILIARITY_BG[level], borderRadius: 10, padding: '8px 4px' }}>
-                <p style={{ fontSize: 16, fontWeight: 700, color: FAMILIARITY_COLOR[level] }}>{count}</p>
-                <p style={{ fontSize: 10, color: FAMILIARITY_COLOR[level] }}>{label}</p>
+              <div key={level} style={{
+                flex: 1, textAlign: 'center',
+                background: FAMILIARITY_BG[level],
+                border: `1px solid ${FAMILIARITY_COLOR[level]}30`,
+                borderRadius: 12, padding: '10px 4px',
+              }}>
+                <p style={{ fontSize: 18, fontWeight: 800, color: FAMILIARITY_COLOR[level] }}>{count}</p>
+                <p style={{ fontSize: 10, fontWeight: 600, color: FAMILIARITY_COLOR[level] }}>{label}</p>
               </div>
             )
           })}
@@ -674,39 +754,51 @@ const Vocabulary = () => {
 
       {/* 今日复习入口 */}
       {tab === 'due' && dueWords.length > 0 && (
-        <div style={{ background: '#fdf0ea', border: '1px solid #f5c4a8', borderRadius: 14, padding: '16px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{
+          background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+          borderRadius: 18, padding: '18px 20px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+        }}>
           <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#d97757', marginBottom: 2 }}>
-              📅 今天有 {dueWords.length} 个单词需要复习
+            <p style={{ fontSize: 15, fontWeight: 700, color: '#0f0e0c', marginBottom: 4 }}>
+              📅 今天有 <span style={{ color: '#e8672a' }}>{dueWords.length}</span> 个单词需要复习
             </p>
-            <p style={{ fontSize: 12, color: '#7a7870' }}>翻卡模式 · 一个一个过 · 5分钟搞定</p>
+            <p style={{ fontSize: 12, color: '#9e998e' }}>翻卡模式 · 一个一个过 · 5分钟搞定</p>
           </div>
           <button onClick={() => setReviewMode(true)} style={{
-            background: '#d97757', color: '#fff', border: 'none', borderRadius: 10,
-            padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+            background: 'linear-gradient(135deg, #f28040, #e05020)',
+            color: '#fff', border: 'none', borderRadius: 12,
+            padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            flexShrink: 0, fontFamily: 'inherit',
+            boxShadow: '0 3px 12px rgba(232,103,42,0.28)',
           }}>开始复习 →</button>
         </div>
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px 0' }}>
-          <p className="spin" style={{ display: 'inline-block', fontSize: 24 }}>⏳</p>
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <p className="spin" style={{ display: 'inline-block', fontSize: 28 }}>⏳</p>
         </div>
       ) : displayWords.length === 0 ? (
-        <Card style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <p style={{ fontSize: 36, marginBottom: 12 }}>
+        <div style={{
+          background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+          borderRadius: 20, padding: '48px 24px', textAlign: 'center',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+        }}>
+          <p style={{ fontSize: 40, marginBottom: 12 }}>
             {tab === 'due' ? '🎉' : search ? '🔍' : '📚'}
           </p>
-          <p style={{ fontWeight: 600, color: '#1a1917', marginBottom: 6 }}>
+          <p style={{ fontWeight: 700, fontSize: 16, color: '#0f0e0c', marginBottom: 8 }}>
             {tab === 'due' ? '今天没有需要复习的单词' : search ? '没有匹配的单词' : '词汇本还是空的'}
           </p>
-          <p style={{ fontSize: 13, color: '#b0aea5' }}>
+          <p style={{ fontSize: 13, color: '#9e998e', lineHeight: 1.6 }}>
             {tab === 'due' ? '太棒了！所有单词都复习完了 🙌' : search ? '换个关键词试试' : '上场景实战或自如交流课时，点击词汇旁的 + 可一键存入；也可点击右上角"+ 添加"手动录入'}
           </p>
           {tab === 'all' && !search && (
-            <Button onClick={() => setShowAdd(true)} style={{ marginTop: 16 }}>手动添加单词</Button>
+            <Button onClick={() => setShowAdd(true)} style={{ marginTop: 20 }}>手动添加单词</Button>
           )}
-        </Card>
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {displayWords.map(word => (

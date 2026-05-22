@@ -47,47 +47,63 @@ const GrammarTab = () => {
   }
 
   return (
-    <div className="space-y-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Card>
-        <p className="text-sm text-[#b0aea5] mb-3">输入一段英文，AI 帮你找出语法问题并给出修改建议</p>
+        <p style={{ fontSize: 13, color: '#9e998e', marginBottom: 14 }}>输入一段英文，AI 帮你找出语法问题并给出修改建议</p>
         <textarea
           value={text} onChange={e => setText(e.target.value)}
           placeholder="Type your English here... e.g. I go to school yesterday."
           rows={4}
-          className="w-full bg-[#faf9f5] border border-[#e8e6dc] rounded-xl px-4 py-3 text-sm text-[#141413] outline-none focus:border-[#d97757] transition-colors resize-none"
+          style={{
+            width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+            borderRadius: 14, padding: '12px 16px', fontSize: 14, color: '#0f0e0c',
+            outline: 'none', boxSizing: 'border-box', resize: 'none', fontFamily: 'inherit',
+            transition: 'border-color 0.15s',
+          }}
+          onFocus={e => e.target.style.borderColor = '#e8672a'}
+          onBlur={e => e.target.style.borderColor = '#e5e1d8'}
         />
-        <Button onClick={handleCheck} disabled={loading || !text.trim()} className="w-full mt-3">
+        <Button onClick={handleCheck} disabled={loading || !text.trim()} style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>
           {loading ? '分析中…' : '🤖 AI 语法检查'}
         </Button>
-        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+        {error && (
+          <div style={{ background: '#fdf0f0', border: '1px solid #f5b0b0', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: '#d94040', marginTop: 10 }}>
+            {error}
+          </div>
+        )}
       </Card>
+
       {result && (
-        <div className="space-y-3 fade-in">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} className="fade-in">
           <Card>
-            <p className="text-xs text-[#b0aea5] mb-1">修改后的正确版本</p>
-            <p className="text-[#141413] font-medium">{result.corrected}</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>修改后的正确版本</p>
+            <p style={{ fontSize: 15, fontWeight: 600, color: '#0f0e0c', lineHeight: 1.6 }}>{result.corrected}</p>
           </Card>
           {result.issues?.length > 0 && (
             <Card>
-              <p className="text-sm font-semibold text-[#141413] mb-3">📝 语法问题</p>
-              <div className="space-y-3">
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#0f0e0c', marginBottom: 14 }}>📝 语法问题</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {result.issues.map((issue, i) => (
-                  <div key={i} className="border-l-2 border-[#d97757] pl-3">
-                    <p className="text-sm"><span className="line-through text-[#b0aea5]">{issue.error}</span> → <span className="text-[#d97757] font-medium">{issue.correction}</span></p>
-                    <p className="text-xs text-[#b0aea5]">{issue.reason}</p>
+                  <div key={i} style={{ borderLeft: '3px solid #e8672a', paddingLeft: 14 }}>
+                    <p style={{ fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ textDecoration: 'line-through', color: '#9e998e' }}>{issue.error}</span>
+                      <span style={{ color: '#9e998e', margin: '0 6px' }}>→</span>
+                      <span style={{ color: '#e8672a', fontWeight: 700 }}>{issue.correction}</span>
+                    </p>
+                    <p style={{ fontSize: 12, color: '#5c5850' }}>{issue.reason}</p>
                   </div>
                 ))}
               </div>
             </Card>
           )}
           {result.grammar_tip && (
-            <Card className="bg-[#f5e6df] border-[#f5e6df]">
-              <p className="text-sm text-[#d97757]">💡 语法小贴士：{result.grammar_tip}</p>
-            </Card>
+            <div style={{ background: '#fff3ee', border: '1px solid #f5c4a8', borderRadius: 16, padding: '12px 16px' }}>
+              <p style={{ fontSize: 13, color: '#e8672a' }}>💡 语法小贴士：{result.grammar_tip}</p>
+            </div>
           )}
           {result.new_words?.length > 0 && (
             <Card>
-              <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 8 }}>📚 本句词汇（点 + 存入词汇本）</p>
+              <p style={{ fontSize: 12, color: '#9e998e', marginBottom: 10 }}>📚 本句词汇（点 + 存入词汇本）</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {result.new_words.map(({ en, zh }) => (
                   <VocabChip key={en} en={en} zh={zh}
@@ -97,7 +113,9 @@ const GrammarTab = () => {
               </div>
             </Card>
           )}
-          {result.encouragement && <p className="text-sm text-[#788c5d] text-center">{result.encouragement}</p>}
+          {result.encouragement && (
+            <p style={{ fontSize: 13, color: '#3a9a5f', textAlign: 'center', fontWeight: 600 }}>{result.encouragement}</p>
+          )}
         </div>
       )}
     </div>
@@ -129,68 +147,87 @@ const TechTab = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="bg-[#f0eeff] border-[#d0c8f0]">
-        <p className="text-sm text-[#7a6bba]">💻 粘贴报错信息、命令行输出、技术文档片段或代码注释，AI 帮你理解</p>
-      </Card>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ background: '#f3eeff', border: '1px solid #d5c5f0', borderRadius: 16, padding: '12px 16px' }}>
+        <p style={{ fontSize: 13, color: '#7b5ea7' }}>💻 粘贴报错信息、命令行输出、技术文档片段或代码注释，AI 帮你理解</p>
+      </div>
       <Card>
         <textarea
           value={input} onChange={e => setInput(e.target.value)}
-          placeholder="粘贴英文报错、命令或技术文档…&#10;e.g. TypeError: Cannot read properties of undefined (reading 'map')"
+          placeholder={'粘贴英文报错、命令或技术文档…\ne.g. TypeError: Cannot read properties of undefined (reading \'map\')'}
           rows={5}
-          className="w-full bg-[#faf9f5] border border-[#e8e6dc] rounded-xl px-4 py-3 text-sm text-[#141413] outline-none focus:border-[#7a6bba] transition-colors resize-none font-mono"
+          style={{
+            width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+            borderRadius: 14, padding: '12px 16px', fontSize: 13, color: '#0f0e0c',
+            outline: 'none', boxSizing: 'border-box', resize: 'none',
+            fontFamily: 'monospace', transition: 'border-color 0.15s',
+          }}
+          onFocus={e => e.target.style.borderColor = '#7b5ea7'}
+          onBlur={e => e.target.style.borderColor = '#e5e1d8'}
         />
-        <Button onClick={handleAnalyze} disabled={loading || !input.trim()} className="w-full mt-3" style={{ background: loading ? '#d0c8f0' : '#7a6bba' }}>
+        <button onClick={handleAnalyze} disabled={loading || !input.trim()} style={{
+          width: '100%', marginTop: 12, padding: '12px',
+          borderRadius: 12,
+          background: loading || !input.trim() ? '#e5e1d8' : 'linear-gradient(135deg, #9b72d0, #7b5ea7)',
+          color: loading || !input.trim() ? '#9e998e' : '#fff',
+          border: 'none', fontSize: 14, fontWeight: 700, cursor: loading || !input.trim() ? 'default' : 'pointer',
+          fontFamily: 'inherit',
+          boxShadow: !loading && input.trim() ? '0 3px 12px rgba(123,94,167,0.28)' : 'none',
+        }}>
           {loading ? '分析中…' : '🔍 AI 解析'}
-        </Button>
-        {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+        </button>
+        {error && (
+          <div style={{ background: '#fdf0f0', border: '1px solid #f5b0b0', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: '#d94040', marginTop: 10 }}>
+            {error}
+          </div>
+        )}
       </Card>
 
       {result && (
-        <div className="space-y-3 fade-in">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 12px', borderRadius: 20, background: '#f0eeff', color: '#7a6bba' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} className="fade-in">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 12px', borderRadius: 20, background: '#f3eeff', color: '#7b5ea7' }}>
               {typeLabels[result.type] || result.type}
             </span>
           </div>
           <Card>
-            <p className="text-xs text-[#b0aea5] mb-2">整体含义</p>
-            <p className="text-sm text-[#141413] leading-relaxed">{result.translation}</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>整体含义</p>
+            <p style={{ fontSize: 14, color: '#0f0e0c', lineHeight: 1.7 }}>{result.translation}</p>
           </Card>
           {result.key_terms?.length > 0 && (
             <Card>
-              <p className="text-sm font-semibold text-[#141413] mb-3">🔑 关键术语</p>
-              <div className="space-y-4">
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#0f0e0c', marginBottom: 14 }}>🔑 关键术语</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {result.key_terms.map((term, i) => (
-                  <div key={i} style={{ borderLeft: '2px solid #7a6bba', paddingLeft: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 3 }}>
-                      <span style={{ fontWeight: 700, fontSize: 15, color: '#1a1917', cursor: 'pointer' }} onClick={() => speak(term.term)}>
+                  <div key={i} style={{ borderLeft: '3px solid #7b5ea7', paddingLeft: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 800, fontSize: 15, color: '#0f0e0c', cursor: 'pointer' }} onClick={() => speak(term.term)}>
                         {term.term}
                       </span>
-                      <span style={{ fontSize: 12, color: '#b0aea5', fontFamily: 'monospace' }}>{term.phonetic}</span>
-                      <span style={{ fontSize: 11, color: '#7a7870' }}>— {term.meaning}</span>
+                      <span style={{ fontSize: 12, color: '#9e998e', fontFamily: 'monospace' }}>{term.phonetic}</span>
+                      <span style={{ fontSize: 12, color: '#5c5850' }}>— {term.meaning}</span>
                     </div>
-                    {term.usage && <p style={{ fontSize: 12, color: '#7a7870', fontStyle: 'italic' }}>{term.usage}</p>}
+                    {term.usage && <p style={{ fontSize: 12, color: '#5c5850', fontStyle: 'italic' }}>{term.usage}</p>}
                   </div>
                 ))}
               </div>
             </Card>
           )}
           {result.error_analysis && (
-            <Card style={{ background: '#fdf0ea', border: '1px solid #f5c4a8' }}>
-              <p className="text-sm font-semibold text-[#d97757] mb-2">🔧 报错分析与解决思路</p>
-              <p className="text-sm text-[#1a1917] leading-relaxed">{result.error_analysis}</p>
-            </Card>
+            <div style={{ background: '#fff3ee', border: '1px solid #f5c4a8', borderRadius: 16, padding: '14px 16px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#e8672a', marginBottom: 8 }}>🔧 报错分析与解决思路</p>
+              <p style={{ fontSize: 13, color: '#0f0e0c', lineHeight: 1.7 }}>{result.error_analysis}</p>
+            </div>
           )}
           {result.expression_tip && (
-            <Card style={{ background: '#f0eeff', border: '1px solid #d0c8f0' }}>
-              <p className="text-xs text-[#b0aea5] mb-1">工作中常用英文表达</p>
-              <p className="text-sm text-[#7a6bba]">{result.expression_tip}</p>
-            </Card>
+            <div style={{ background: '#f3eeff', border: '1px solid #d5c5f0', borderRadius: 16, padding: '12px 16px' }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>工作中常用英文表达</p>
+              <p style={{ fontSize: 13, color: '#7b5ea7' }}>{result.expression_tip}</p>
+            </div>
           )}
           {result.tts_summary && (
             <div style={{ textAlign: 'right' }}>
-              <button onClick={() => speakMultilingual(result.tts_summary)} style={{ fontSize: 12, color: '#7a6bba', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <button onClick={() => speakMultilingual(result.tts_summary)} style={{ fontSize: 13, color: '#7b5ea7', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
                 🔊 听老师讲解
               </button>
             </div>
@@ -241,23 +278,27 @@ const SnapTab = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="bg-[#fdf0ea] border-[#f5c4a8]">
-        <p className="text-sm text-[#d97757]">📸 拍一张生活中看到的英文照片，AI 帮你识别并讲解词汇和语法</p>
-      </Card>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ background: '#fff3ee', border: '1px solid #f5c4a8', borderRadius: 16, padding: '12px 16px' }}>
+        <p style={{ fontSize: 13, color: '#e8672a' }}>📸 拍一张生活中看到的英文照片，AI 帮你识别并讲解词汇和语法</p>
+      </div>
       <div
         onClick={() => fileRef.current?.click()}
-        style={{ border: '2px dashed #dedad0', borderRadius: 16, padding: '32px 24px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s' }}
-        onMouseEnter={e => e.currentTarget.style.borderColor = '#d97757'}
-        onMouseLeave={e => e.currentTarget.style.borderColor = '#dedad0'}
+        style={{
+          border: '2px dashed #e5e1d8', borderRadius: 18, padding: '32px 24px',
+          textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s',
+          background: '#fff',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = '#e8672a'; e.currentTarget.style.background = '#fff8f4' }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e1d8'; e.currentTarget.style.background = '#fff' }}
       >
         {preview ? (
-          <img src={preview} alt="preview" style={{ maxHeight: 200, maxWidth: '100%', borderRadius: 10, objectFit: 'contain', margin: '0 auto' }} />
+          <img src={preview} alt="preview" style={{ maxHeight: 200, maxWidth: '100%', borderRadius: 12, objectFit: 'contain', margin: '0 auto' }} />
         ) : (
           <>
-            <p style={{ fontSize: 40, marginBottom: 8 }}>📷</p>
-            <p style={{ fontSize: 14, color: '#7a7870' }}>点击上传图片</p>
-            <p style={{ fontSize: 12, color: '#b0aea5', marginTop: 4 }}>支持 JPG、PNG、WEBP</p>
+            <p style={{ fontSize: 44, marginBottom: 10 }}>📷</p>
+            <p style={{ fontSize: 14, fontWeight: 600, color: '#5c5850' }}>点击上传图片</p>
+            <p style={{ fontSize: 12, color: '#9e998e', marginTop: 4 }}>支持 JPG、PNG、WEBP</p>
           </>
         )}
       </div>
@@ -265,69 +306,76 @@ const SnapTab = () => {
       {loading && (
         <Card style={{ textAlign: 'center', padding: '32px' }}>
           <p className="spin" style={{ fontSize: 28, display: 'inline-block' }}>📖</p>
-          <p style={{ fontSize: 13, color: '#7a7870', marginTop: 8 }}>AI 正在识别图片内容…</p>
+          <p style={{ fontSize: 13, color: '#9e998e', marginTop: 10 }}>AI 正在识别图片内容…</p>
         </Card>
       )}
-      {error && <p style={{ color: '#c45c5c', fontSize: 13, textAlign: 'center' }}>{error}</p>}
+      {error && <p style={{ color: '#d94040', fontSize: 13, textAlign: 'center' }}>{error}</p>}
       {result && (
-        <div className="space-y-3 fade-in">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} className="fade-in">
           {result.recognized_text && (
             <Card>
-              <p className="text-xs text-[#b0aea5] mb-1">识别到的英文</p>
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#1a1917' }}>{result.recognized_text}</p>
-              <p style={{ fontSize: 13, color: '#7a7870', marginTop: 4 }}>{result.translation}</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>识别到的英文</p>
+              <p style={{ fontSize: 17, fontWeight: 700, color: '#0f0e0c' }}>{result.recognized_text}</p>
+              <p style={{ fontSize: 13, color: '#5c5850', marginTop: 6 }}>{result.translation}</p>
             </Card>
           )}
           {result.vocabulary?.length > 0 && (
             <Card>
-              <p className="text-sm font-semibold text-[#141413] mb-3">📚 词汇讲解</p>
-              <div className="space-y-4">
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#0f0e0c', marginBottom: 14 }}>📚 词汇讲解</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {result.vocabulary.map((vocab, i) => (
-                  <div key={i} style={{ borderLeft: '2px solid #d97757', paddingLeft: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <div key={i} style={{ borderLeft: '3px solid #e8672a', paddingLeft: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, flexWrap: 'wrap', gap: 6 }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                        <span style={{ fontWeight: 700, fontSize: 15, color: '#1a1917', cursor: 'pointer' }} onClick={() => speak(vocab.word)}>{vocab.word}</span>
-                        <span style={{ fontSize: 11, color: '#b0aea5' }}>{vocab.phonetic}</span>
-                        <span style={{ fontSize: 11, color: '#7a7870' }}>{vocab.part_of_speech}</span>
+                        <span style={{ fontWeight: 800, fontSize: 15, color: '#0f0e0c', cursor: 'pointer' }} onClick={() => speak(vocab.word)}>{vocab.word}</span>
+                        <span style={{ fontSize: 11, color: '#9e998e', fontFamily: 'monospace' }}>{vocab.phonetic}</span>
+                        <span style={{ fontSize: 11, color: '#5c5850' }}>{vocab.part_of_speech}</span>
                       </div>
                       <button onClick={() => handleSaveWord(vocab)} disabled={savedWords.has(vocab.word)}
-                        style={{ fontSize: 11, color: savedWords.has(vocab.word) ? '#788c5d' : '#d97757', background: 'none', border: 'none', cursor: savedWords.has(vocab.word) ? 'default' : 'pointer' }}>
+                        style={{
+                          fontSize: 11, fontWeight: 700,
+                          color: savedWords.has(vocab.word) ? '#3a9a5f' : '#e8672a',
+                          background: savedWords.has(vocab.word) ? '#eaf5ef' : '#fff3ee',
+                          border: `1px solid ${savedWords.has(vocab.word) ? '#3a9a5f40' : '#f5c4a8'}`,
+                          borderRadius: 20, padding: '3px 10px',
+                          cursor: savedWords.has(vocab.word) ? 'default' : 'pointer', fontFamily: 'inherit',
+                        }}>
                         {savedWords.has(vocab.word) ? '✅ 已保存' : '+ 加入词汇本'}
                       </button>
                     </div>
-                    <p style={{ fontSize: 13, color: '#7a7870' }}>{vocab.meaning}</p>
-                    <p style={{ fontSize: 12, color: '#b0aea5', marginTop: 2 }}>{vocab.example} — {vocab.example_zh}</p>
+                    <p style={{ fontSize: 13, color: '#5c5850' }}>{vocab.meaning}</p>
+                    <p style={{ fontSize: 12, color: '#9e998e', marginTop: 3 }}>{vocab.example} — {vocab.example_zh}</p>
                   </div>
                 ))}
               </div>
             </Card>
           )}
           {result.grammar_tip && (
-            <Card style={{ background: '#f0eeff', border: '1px solid #d0c8f0' }}>
-              <p className="text-sm font-semibold text-[#7a6bba] mb-1">📐 语法解析</p>
-              <p className="text-sm text-[#7a7870]">{result.grammar_tip}</p>
-            </Card>
+            <div style={{ background: '#f3eeff', border: '1px solid #d5c5f0', borderRadius: 16, padding: '12px 16px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#7b5ea7', marginBottom: 6 }}>📐 语法解析</p>
+              <p style={{ fontSize: 13, color: '#5c5850' }}>{result.grammar_tip}</p>
+            </div>
           )}
           {result.similar_expressions?.length > 0 && (
             <Card>
-              <p className="text-sm font-semibold text-[#141413] mb-2">💬 类似表达</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#0f0e0c', marginBottom: 10 }}>💬 类似表达</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {result.similar_expressions.map((exp, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 13, color: '#1a1917', flex: 1 }}>{exp}</span>
-                    <button onClick={() => speak(exp)} style={{ fontSize: 11, color: '#b0aea5', background: 'none', border: 'none', cursor: 'pointer' }}>🔊</button>
+                    <span style={{ fontSize: 13, color: '#0f0e0c', flex: 1 }}>{exp}</span>
+                    <button onClick={() => speak(exp)} style={{ fontSize: 12, color: '#9e998e', background: 'none', border: 'none', cursor: 'pointer' }}>🔊</button>
                   </div>
                 ))}
               </div>
             </Card>
           )}
           {result.teacher_comment && (
-            <Card style={{ background: '#eaf2e3', border: '1px solid #c4ddb0' }}>
-              <p className="text-sm text-[#5a7a3a]">👩‍🏫 {result.teacher_comment}</p>
-            </Card>
+            <div style={{ background: '#eaf5ef', border: '1px solid #3a9a5f30', borderRadius: 16, padding: '12px 16px' }}>
+              <p style={{ fontSize: 13, color: '#3a9a5f' }}>👩‍🏫 {result.teacher_comment}</p>
+            </div>
           )}
           <button onClick={() => { setPreview(null); setResult(null); setSavedWords(new Set()) }}
-            style={{ width: '100%', textAlign: 'center', fontSize: 13, color: '#b0aea5', background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}>
+            style={{ width: '100%', textAlign: 'center', fontSize: 13, color: '#9e998e', background: 'none', border: 'none', cursor: 'pointer', padding: '8px', fontFamily: 'inherit' }}>
             重新上传图片
           </button>
         </div>
@@ -385,37 +433,46 @@ const ListeningTab = () => {
     : 0
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Card style={{ background: '#e8f4ff', border: '1px solid #b8d8f0' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ background: '#e8f4ff', border: '1px solid #b8d8f0', borderRadius: 16, padding: '12px 16px' }}>
         <p style={{ fontSize: 13, color: '#4a7a9b' }}>
           🎧 听一段真实场景对话，用中文回答理解问题。训练"听懂英语"的能力，不只是会说。
         </p>
-      </Card>
+      </div>
 
-      <Button onClick={handleGenerate} disabled={loading} style={{ width: '100%', justifyContent: 'center', background: '#4a7a9b' }}>
+      <button onClick={handleGenerate} disabled={loading} style={{
+        width: '100%', padding: '13px', borderRadius: 14,
+        background: loading ? '#e5e1d8' : 'linear-gradient(135deg, #4a9bb8, #2a7a9b)',
+        color: loading ? '#9e998e' : '#fff',
+        border: 'none', fontSize: 14, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
+        fontFamily: 'inherit',
+        boxShadow: !loading ? '0 3px 12px rgba(74,122,155,0.28)' : 'none',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+      }}>
         {loading ? <><span className="spin" style={{ display: 'inline-block' }}>⟳</span> 生成中…</> : '🎲 随机生成听力练习'}
-      </Button>
-      {error && <p style={{ color: '#c45c5c', fontSize: 13, textAlign: 'center' }}>{error}</p>}
+      </button>
+      {error && <p style={{ color: '#d94040', fontSize: 13, textAlign: 'center' }}>{error}</p>}
 
       {exercise && (
         <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* 话题 + 播放 */}
           <Card>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <p style={{ fontSize: 11, color: '#b0aea5', marginBottom: 3 }}>本次话题</p>
-                <p style={{ fontSize: 16, fontWeight: 700, color: '#1a1917' }}>🗂 {exercise.topic}</p>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>本次话题</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: '#0f0e0c' }}>🗂 {exercise.topic}</p>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
                 <button
                   onClick={handlePlay}
                   disabled={playing}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6,
                     padding: '10px 18px', borderRadius: 12, fontSize: 13, fontWeight: 700,
-                    background: playing ? '#f5f3ee' : '#d97757',
-                    color: playing ? '#b0aea5' : '#fff',
+                    background: playing ? '#f5f3ef' : 'linear-gradient(135deg, #4a9bb8, #2a7a9b)',
+                    color: playing ? '#9e998e' : '#fff',
                     border: 'none', cursor: playing ? 'default' : 'pointer',
+                    boxShadow: !playing ? '0 3px 10px rgba(74,122,155,0.25)' : 'none',
+                    fontFamily: 'inherit',
                   }}
                 >
                   {playing ? <><span className="spin" style={{ display: 'inline-block' }}>⟳</span> 播放中…</> : '▶ 播放对话'}
@@ -423,41 +480,42 @@ const ListeningTab = () => {
                 <div style={{ display: 'flex', gap: 4 }}>
                   {[[0.65, '慢'], [0.82, '正常'], [1.0, '快']].map(([r, label]) => (
                     <button key={r} onClick={() => setTtsRate(r)} style={{
-                      padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600,
-                      border: `1px solid ${ttsRate === r ? '#d97757' : '#dedad0'}`,
-                      background: ttsRate === r ? '#fdf0ea' : '#faf9f5',
-                      color: ttsRate === r ? '#d97757' : '#b0aea5', cursor: 'pointer',
+                      padding: '3px 9px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                      border: `1.5px solid ${ttsRate === r ? '#4a7a9b' : '#e5e1d8'}`,
+                      background: ttsRate === r ? '#e8f4ff' : '#f5f3ef',
+                      color: ttsRate === r ? '#4a7a9b' : '#9e998e', cursor: 'pointer',
+                      fontFamily: 'inherit',
                     }}>{label}</button>
                   ))}
                 </div>
               </div>
             </div>
 
-            <p style={{ fontSize: 11, color: '#b0aea5', marginBottom: 8 }}>
+            <p style={{ fontSize: 12, color: '#9e998e', marginBottom: 10 }}>
               💡 先播放，尽量不看文字。听完再作答，可重复播放。
             </p>
 
-            {/* 对话文本（默认折叠，听完后可展开） */}
             <details style={{ marginTop: 8 }}>
-              <summary style={{ fontSize: 12, color: '#7a7870', cursor: 'pointer', userSelect: 'none' }}>
+              <summary style={{ fontSize: 12, color: '#5c5850', cursor: 'pointer', userSelect: 'none', fontFamily: 'inherit' }}>
                 📄 查看对话原文（建议先听再看）
               </summary>
-              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {exercise.dialogue.map((line, i) => (
                   <div key={i} style={{
                     display: 'flex', gap: 10, alignItems: 'flex-start',
                     flexDirection: line.speaker === 'B' ? 'row-reverse' : 'row',
                   }}>
                     <div style={{
-                      width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                      background: line.speaker === 'A' ? '#fdf0ea' : '#f0eeff',
+                      width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                      background: line.speaker === 'A' ? '#fff3ee' : '#f3eeff',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 11, fontWeight: 700,
-                      color: line.speaker === 'A' ? '#d97757' : '#7a6bba',
+                      color: line.speaker === 'A' ? '#e8672a' : '#7b5ea7',
+                      border: `1.5px solid ${line.speaker === 'A' ? '#f5c4a8' : '#d5c5f0'}`,
                     }}>{line.speaker}</div>
                     <div style={{ maxWidth: '80%' }}>
-                      <p style={{ fontSize: 14, fontWeight: 600, color: '#1a1917' }}>{line.text}</p>
-                      <p style={{ fontSize: 11, color: '#b0aea5', marginTop: 2 }}>{line.zh}</p>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: '#0f0e0c', lineHeight: 1.5 }}>{line.text}</p>
+                      <p style={{ fontSize: 11, color: '#9e998e', marginTop: 2 }}>{line.zh}</p>
                     </div>
                   </div>
                 ))}
@@ -465,32 +523,32 @@ const ListeningTab = () => {
             </details>
           </Card>
 
-          {/* 理解问题 */}
           <Card>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#1a1917', marginBottom: 14 }}>📝 理解问题</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#0f0e0c', marginBottom: 16 }}>📝 理解问题</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {exercise.questions.map((q, qi) => (
                 <div key={qi}>
-                  <p style={{ fontSize: 13, color: '#1a1917', marginBottom: 8, fontWeight: 600 }}>
+                  <p style={{ fontSize: 13, color: '#0f0e0c', marginBottom: 10, fontWeight: 600 }}>
                     {qi + 1}. {q.q}
                   </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                     {q.options.map((opt, oi) => {
                       const selected = userAnswers[qi] === opt
                       const correct = opt === q.answer
-                      let bg = '#faf9f5', border = '#dedad0', color = '#1a1917'
+                      let bg = '#f5f3ef', border = '#e5e1d8', color = '#0f0e0c'
                       if (submitted) {
-                        if (correct) { bg = '#eaf2e3'; border = '#88c870'; color = '#5a7a3a' }
-                        else if (selected && !correct) { bg = '#fdeaea'; border = '#f0a0a0'; color = '#c45c5c' }
+                        if (correct) { bg = '#eaf5ef'; border = '#3a9a5f50'; color = '#3a9a5f' }
+                        else if (selected && !correct) { bg = '#fdf0f0'; border = '#d9404050'; color = '#d94040' }
                       } else if (selected) {
-                        bg = '#fdf0ea'; border = '#f5c4a8'; color = '#d97757'
+                        bg = '#fff3ee'; border = '#f5c4a8'; color = '#e8672a'
                       }
                       return (
                         <button key={oi} onClick={() => !submitted && setUserAnswers(prev => ({ ...prev, [qi]: opt }))}
                           style={{
-                            textAlign: 'left', padding: '10px 14px', borderRadius: 10,
+                            textAlign: 'left', padding: '11px 16px', borderRadius: 12,
                             background: bg, border: `1.5px solid ${border}`, color,
-                            fontSize: 13, cursor: submitted ? 'default' : 'pointer',
+                            fontSize: 13, fontWeight: selected || (submitted && correct) ? 600 : 400,
+                            cursor: submitted ? 'default' : 'pointer',
                             transition: 'all 0.15s', fontFamily: 'inherit',
                           }}>
                           {opt} {submitted && correct && '✓'}
@@ -499,7 +557,7 @@ const ListeningTab = () => {
                     })}
                   </div>
                   {submitted && (
-                    <p style={{ fontSize: 12, color: '#788c5d', marginTop: 6 }}>
+                    <p style={{ fontSize: 12, color: '#3a9a5f', marginTop: 8, lineHeight: 1.5 }}>
                       💡 {q.explain}
                     </p>
                   )}
@@ -512,23 +570,31 @@ const ListeningTab = () => {
                 onClick={handleSubmit}
                 disabled={Object.keys(userAnswers).length < exercise.questions.length}
                 style={{
-                  marginTop: 16, width: '100%', padding: '12px 0', borderRadius: 12,
-                  background: Object.keys(userAnswers).length < exercise.questions.length ? '#ece9e0' : '#d97757',
-                  color: Object.keys(userAnswers).length < exercise.questions.length ? '#b0aea5' : '#fff',
-                  border: 'none', fontSize: 14, fontWeight: 700, cursor: Object.keys(userAnswers).length < exercise.questions.length ? 'default' : 'pointer',
+                  marginTop: 18, width: '100%', padding: '13px 0', borderRadius: 14,
+                  background: Object.keys(userAnswers).length < exercise.questions.length
+                    ? '#e5e1d8'
+                    : 'linear-gradient(135deg, #f28040, #e05020)',
+                  color: Object.keys(userAnswers).length < exercise.questions.length ? '#9e998e' : '#fff',
+                  border: 'none', fontSize: 14, fontWeight: 700,
+                  cursor: Object.keys(userAnswers).length < exercise.questions.length ? 'default' : 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: Object.keys(userAnswers).length >= exercise.questions.length ? '0 3px 12px rgba(232,103,42,0.28)' : 'none',
                 }}
               >
                 提交答案
               </button>
             ) : (
-              <div style={{ marginTop: 16, textAlign: 'center' }}>
-                <p style={{ fontSize: 18, fontWeight: 800, color: score === exercise.questions.length ? '#5a7a3a' : '#d97757', marginBottom: 4 }}>
+              <div style={{ marginTop: 18, textAlign: 'center' }}>
+                <p style={{ fontSize: 20, fontWeight: 800, color: score === exercise.questions.length ? '#3a9a5f' : '#e8672a', marginBottom: 6 }}>
                   {score}/{exercise.questions.length} 题正确 {score === exercise.questions.length ? '🎉' : '💪'}
                 </p>
                 <button onClick={handleGenerate} style={{
-                  marginTop: 10, padding: '10px 24px', borderRadius: 10,
-                  background: '#4a7a9b', color: '#fff', border: 'none',
+                  marginTop: 10, padding: '11px 28px', borderRadius: 12,
+                  background: 'linear-gradient(135deg, #4a9bb8, #2a7a9b)',
+                  color: '#fff', border: 'none',
                   fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 3px 10px rgba(74,122,155,0.25)',
                 }}>
                   再来一题
                 </button>
@@ -556,24 +622,26 @@ const Speaking = () => {
   const [mode, setMode] = useState('free')
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
-      <h1 className="text-xl font-bold text-[#141413] mb-2" style={{ fontFamily: 'Poppins, Arial, sans-serif' }}>
-        💬 练习中心
-      </h1>
-      <p className="text-sm text-[#b0aea5] mb-6">口语录音 · 语法纠错 · 听力理解 · 编程英语 · 随拍识词</p>
+    <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>练习中心</h1>
+        <p style={{ fontSize: 13, color: '#9e998e' }}>口语录音 · 语法纠错 · 听力理解 · 编程英语 · 随拍识词</p>
+      </div>
 
       {/* Tab 切换 */}
-      <div style={{ display: 'flex', background: '#f0ede4', borderRadius: 14, padding: 4, marginBottom: 24, gap: 2 }}>
+      <div style={{ display: 'flex', background: '#f0ede6', borderRadius: 14, padding: 4, marginBottom: 24, gap: 2 }}>
         {TABS.map(([key, label]) => (
           <button
             key={key}
             onClick={() => setMode(key)}
             style={{
-              flex: 1, padding: '8px 2px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+              flex: 1, padding: '8px 2px', borderRadius: 10, fontSize: 11, fontWeight: 700,
               border: 'none', cursor: 'pointer', transition: 'all 0.15s',
               background: mode === key ? '#fff' : 'transparent',
-              color: mode === key ? '#141413' : '#b0aea5',
-              boxShadow: mode === key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+              color: mode === key ? '#0f0e0c' : '#9e998e',
+              boxShadow: mode === key ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
               fontFamily: 'inherit',
             }}
           >
@@ -585,17 +653,20 @@ const Speaking = () => {
       {mode === 'free' && (
         <div>
           {drillWord ? (
-            <div style={{ background: '#fdf0ea', border: '1.5px solid #f5c4a8', borderRadius: 14, padding: '14px 18px', marginBottom: 16 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#d97757', marginBottom: 6 }}>🎯 弱点定向练习</p>
-              <p style={{ fontSize: 20, fontWeight: 800, color: '#1a1917', marginBottom: 4 }}>{drillWord}</p>
-              <p style={{ fontSize: 12, color: '#7a7870' }}>
+            <div style={{
+              background: '#fff3ee', border: '1.5px solid #f5c4a8',
+              borderRadius: 18, padding: '16px 20px', marginBottom: 16,
+            }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#e8672a', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>🎯 弱点定向练习</p>
+              <p style={{ fontSize: 22, fontWeight: 800, color: '#0f0e0c', marginBottom: 6 }}>{drillWord}</p>
+              <p style={{ fontSize: 13, color: '#5c5850' }}>
                 请朗读这个单词，尽量发音清晰准确。可以多录几次查看 AI 分析结果。
               </p>
             </div>
           ) : (
-            <Card className="mb-4 bg-[#f5e6df] border-[#f5e6df]">
-              <p className="text-sm text-[#d97757]">💡 用英文说任何你想说的，AI 会分析你的发音并给出反馈</p>
-            </Card>
+            <div style={{ background: '#fff3ee', border: '1px solid #f5c4a8', borderRadius: 16, padding: '12px 16px', marginBottom: 16 }}>
+              <p style={{ fontSize: 13, color: '#e8672a' }}>💡 用英文说任何你想说的，AI 会分析你的发音并给出反馈</p>
+            </div>
           )}
           <AudioRecorder
             targetText={drillWord || "Say anything in English!"}

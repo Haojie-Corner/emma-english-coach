@@ -12,6 +12,13 @@ import VocabChip from '../../components/ui/VocabChip'
 import { speakMultilingual, stopSpeaking } from '../../utils/tts'
 import { showToast } from '../../utils/toast'
 
+const extractGrammarNote = (content) => {
+  const match = content.match(/📝\s*建议[：:]\s*([^\n]+(?:\n(?![✅💡\*\-]).*)*)/m)
+  if (!match) return null
+  const text = match[1].trim().replace(/\n.*/g, '').trim()
+  return text.length > 4 && !text.startsWith('（') && !text.includes('说得') ? text : null
+}
+
 const exportConversation = (messages, title) => {
   const lines = messages.map(m => `${m.role === 'user' ? '我' : 'AI'}：${m.content}`).join('\n\n')
   const text = `【${title}】对话记录\n${new Date().toLocaleString('zh-CN')}\n\n${lines}`
@@ -134,6 +141,10 @@ const FluencyLesson = () => {
     try {
       const apiMessages = newMessages.map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content }))
       const reply = await chatWithFluency(lesson.id, lesson.title, lesson.aiPrompt, apiMessages)
+      const grammarNote = extractGrammarNote(reply)
+      if (grammarNote) {
+        setMessages(prev => prev.map(m => m.id === userMsg.id ? { ...m, grammarNote } : m))
+      }
       const aiMsg = { id: Date.now() + 1, role: 'ai', content: reply }
       setMessages(prev => [...prev, aiMsg])
       stopSpeaking()
@@ -385,6 +396,15 @@ const FluencyLesson = () => {
                     }}>
                       {msg.content}
                     </div>
+                    {msg.role === 'user' && msg.grammarNote && (
+                      <div className="fade-in" style={{
+                        marginTop: 5, padding: '6px 10px', borderRadius: '10px 10px 10px 4px',
+                        background: '#fdf6e3', border: '1px solid #f0d080', fontSize: 11,
+                        color: '#7a6020', lineHeight: 1.5, maxWidth: '100%',
+                      }}>
+                        📝 {msg.grammarNote}
+                      </div>
+                    )}
                     {msg.role === 'ai' && (
                       <>
                         <button onClick={() => handleSpeak(msg)} style={{
