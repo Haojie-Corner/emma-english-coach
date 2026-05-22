@@ -25,19 +25,25 @@ const callDeepSeek = async (messages, systemPrompt) => {
   return data.choices?.[0]?.message?.content ?? ''
 }
 
-export const chatWithScene = async (sceneId, sceneName, sceneDesc, messages) => {
+export const chatWithScene = async (sceneId, sceneName, sceneDesc, messages, userRole = '', aiRole = '', roleSwitched = false) => {
+  const myRole = roleSwitched ? aiRole : userRole
+  const theirRole = roleSwitched ? userRole : aiRole
+  const roleDesc = myRole && theirRole
+    ? `\n用户扮演：${myRole}\nAI 扮演：${theirRole}`
+    : ''
+
   const systemPrompt = `你是一个 AI 英语口语陪练助手，帮助中文母语零基础学习者练习英语对话。
 
 当前场景：${sceneName}
 场景描述：${sceneDesc}
-用户级别：零基础初学者
+用户级别：零基础初学者${roleDesc}
 
 对话规则：
 1. 用简单、日常的英语与用户对话（避免复杂词汇）
 2. 每次回复格式：
 
 **[角色对话]**
-（用英文正常对话，保持角色）
+（用英文正常对话，保持你扮演的角色${theirRole ? `（${theirRole}）` : ''}）
 
 **[学习反馈]**
 - ✅ 说得好：（如果用户说对了，给予鼓励）
@@ -180,6 +186,19 @@ export const correctGrammar = async (userText) => {
 new_words 提取本句中 2-4 个值得零基础学习者掌握的词汇或短语，优先选修改后的正确版本里出现的词。`
 
   return callDeepSeek([{ role: 'user', content: userText }], systemPrompt)
+}
+
+export const rateSentence = async (word, sentence) => {
+  const systemPrompt = `你是一位鼓励型英语老师，学生正在用给定单词造句练习。简洁评价即可。
+只输出 JSON：
+{
+  "score": 0-100,
+  "word_used": true或false（单词是否出现在句中）,
+  "feedback": "中文评价，鼓励为主，如有问题指出改进方向（30字内）",
+  "corrected": "如果句子有语法问题给出改进版本，否则为null",
+  "encouragement": "中文鼓励语（10字内）"
+}`
+  return callDeepSeek([{ role: 'user', content: `目标单词：${word}\n学生造句：${sentence}` }], systemPrompt)
 }
 
 export const chatWithEmma = async (messages, progressSummary, pageContext = '') => {

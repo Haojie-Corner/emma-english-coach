@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getDemoLesson, demoLessons } from '../../data/demo'
 import { scoreSpeechSimilarity } from '../../services/gemini'
@@ -42,6 +42,10 @@ const DemoLesson = () => {
   const [error, setError] = useState('')
   const [savedVocabs, setSavedVocabs] = useState(new Set())
   const [savingVocab, setSavingVocab] = useState(null)
+  const [studentAudioUrl, setStudentAudioUrl] = useState(null)
+  const [comparing, setComparing] = useState(false)
+  const [ttsRate, setTtsRate] = useState(1.0)
+  const compareAudioRef = useRef(null)
 
   const handleSaveVocab = async (en) => {
     if (!user || savedVocabs.has(en)) return
@@ -54,7 +58,7 @@ const DemoLesson = () => {
     finally { setSavingVocab(null) }
   }
 
-  const { status: recStatus, startRecording, stopRecording, getBase64, reset: resetRec } = useAudioRecorder()
+  const { status: recStatus, audioBlob, startRecording, stopRecording, getBase64, reset: resetRec } = useAudioRecorder()
   const isRecording = recStatus === 'recording'
 
   useEffect(() => {
@@ -67,6 +71,11 @@ const DemoLesson = () => {
         try {
           const data = await scoreSpeechSimilarity(base64, lesson.practiceTarget, lesson.practiceZh)
           setResult(data)
+          // 保存学生录音 blob URL 用于对比回放
+          if (audioBlob) {
+            if (studentAudioUrl) URL.revokeObjectURL(studentAudioUrl)
+            setStudentAudioUrl(URL.createObjectURL(audioBlob))
+          }
           if (user) await updateProgress(user.id, 'demo', lesson.id, data.overall_score >= 70 ? 'completed' : 'in_progress', data.overall_score)
           if (data.voice_script) speakMultilingual(data.voice_script)
         } catch (e) {
@@ -78,6 +87,14 @@ const DemoLesson = () => {
     }
   }, [recStatus]) // eslint-disable-line
 
+  // 离开时释放 blob URL
+  useEffect(() => {
+    return () => {
+      if (studentAudioUrl) URL.revokeObjectURL(studentAudioUrl)
+      if (compareAudioRef.current) { compareAudioRef.current.pause(); compareAudioRef.current = null }
+    }
+  }, []) // eslint-disable-line
+
   if (!lesson) return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
       <p style={{ color: '#7a7870' }}>课程不存在</p>
@@ -88,7 +105,7 @@ const DemoLesson = () => {
   const handlePlayLine = (line, index) => {
     stopSpeaking()
     setPlayingLine(index)
-    speak(line.text, 0.85, () => setPlayingLine(null))
+    speak(line.text, ttsRate, () => setPlayingLine(null))
   }
 
   const handlePlayAll = () => {
@@ -97,7 +114,7 @@ const DemoLesson = () => {
     const playNext = () => {
       if (i >= lesson.dialogue.length) { setPlayingLine(null); return }
       setPlayingLine(i)
-      speak(lesson.dialogue[i].text, 0.85, () => { i++; setTimeout(playNext, 500) })
+      speak(lesson.dialogue[i].text, ttsRate, () => { i++; setTimeout(playNext, 500) })
     }
     playNext()
   }
@@ -107,9 +124,28 @@ const DemoLesson = () => {
       stopRecording()
     } else {
       setResult(null)
+      setComparing(false)
+      if (compareAudioRef.current) { compareAudioRef.current.pause(); compareAudioRef.current = null }
       resetRec()
       startRecording()
     }
+  }
+
+  /* 对比回放：先播 TTS 示范，再播学生录音 */
+  const handleCompare = () => {
+    if (comparing) return
+    setComparing(true)
+    stopSpeaking()
+    speak(lesson.practiceTarget, ttsRate, () => {
+      setTimeout(() => {
+        if (!studentAudioUrl) { setComparing(false); return }
+        const audio = new Audio(studentAudioUrl)
+        compareAudioRef.current = audio
+        audio.onended = () => { setComparing(false); compareAudioRef.current = null }
+        audio.onerror = () => { setComparing(false); compareAudioRef.current = null }
+        audio.play().catch(() => setComparing(false))
+      }, 700)
+    })
   }
 
   return (
@@ -215,9 +251,21 @@ const DemoLesson = () => {
             <p style={{ fontSize: 12, color: '#b0aea5', marginBottom: 6 }}>练习内容</p>
             <p style={{ fontSize: 16, fontWeight: 700, color: '#1a1917', lineHeight: 1.6 }}>{lesson.practiceTarget}</p>
             <p style={{ fontSize: 13, color: '#7a7870', marginTop: 4 }}>{lesson.practiceZh}</p>
-            <button onClick={() => speak(lesson.practiceTarget, 0.8)} style={{ fontSize: 12, color: '#d97757', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 8 }}>
-              🔊 听一遍示范
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+              <button onClick={() => speak(lesson.practiceTarget, ttsRate)} style={{ fontSize: 12, color: '#d97757', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                🔊 听示范
+              </button>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[0.75, 1.0, 1.25].map(r => (
+                  <button key={r} onClick={() => setTtsRate(r)} style={{
+                    padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                    border: `1px solid ${ttsRate === r ? '#d97757' : '#dedad0'}`,
+                    background: ttsRate === r ? '#fdf0ea' : '#faf9f5',
+                    color: ttsRate === r ? '#d97757' : '#b0aea5', cursor: 'pointer',
+                  }}>{r === 1.0 ? '正常' : r < 1 ? `慢速` : `快速`}</button>
+                ))}
+              </div>
+            </div>
           </Card>
 
           <div style={{ textAlign: 'center', padding: '16px 0' }}>
@@ -252,6 +300,32 @@ const DemoLesson = () => {
                 <ScoreBar label="内容相似度" score={result.similarity_score} />
                 <ScoreBar label="发音清晰度" score={result.pronunciation_score} />
                 <ScoreBar label="语调节奏" score={result.intonation_score} />
+
+                {/* 对比回放按钮 */}
+                {studentAudioUrl && (
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #f0ede4' }}>
+                    <p style={{ fontSize: 11, color: '#7a7870', marginBottom: 8 }}>🎧 对比回放</p>
+                    <button
+                      onClick={handleCompare}
+                      disabled={comparing}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                        background: comparing ? '#f5f3ee' : '#f0eeff',
+                        border: `1.5px solid ${comparing ? '#dedad0' : '#c0b0e8'}`,
+                        color: comparing ? '#b0aea5' : '#7a6bba',
+                        cursor: comparing ? 'default' : 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      {comparing
+                        ? <><span className="spin" style={{ display: 'inline-block' }}>⟳</span> 播放中…</>
+                        : '🔄 示范 → 我的录音 对比'}
+                    </button>
+                    <p style={{ fontSize: 10, color: '#b0aea5', marginTop: 5 }}>
+                      先播示范音，间隔 0.7s 后播你的录音，自己听差距
+                    </p>
+                  </div>
+                )}
               </Card>
 
               {result.highlight && (
@@ -280,7 +354,7 @@ const DemoLesson = () => {
               )}
 
               <div style={{ display: 'flex', gap: 10 }}>
-                <Button onClick={() => { setResult(null); setError(''); resetRec() }} variant="secondary" style={{ flex: 1, justifyContent: 'center' }}>
+                <Button onClick={() => { setResult(null); setError(''); setStudentAudioUrl(null); resetRec() }} variant="secondary" style={{ flex: 1, justifyContent: 'center' }}>
                   再试一次
                 </Button>
                 <Button onClick={() => navigate('/course/demo')} style={{ flex: 1, justifyContent: 'center' }}>

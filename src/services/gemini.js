@@ -130,6 +130,47 @@ export const analyzeImage = async (imageBase64, mimeType = 'image/jpeg') => {
 }
 
 
+export const generateListeningExercise = async () => {
+  const topics = ['咖啡店点餐', '问路指路', '自我介绍', '超市购物', '天气闲聊', '预约餐厅', '乘坐出租车', '旅馆入住', '图书馆借书', '邮局寄包裹']
+  const topic = topics[Math.floor(Math.random() * topics.length)]
+  const prompt = `你是英语听力练习助手，专为中文母语零基础学习者设计。
+
+话题：${topic}
+
+请生成一段简短的英语听力练习，只输出 JSON，不要任何额外文字：
+{
+  "topic": "${topic}",
+  "dialogue": [
+    { "speaker": "A", "text": "英文句子（最多12个词）", "zh": "中文翻译" },
+    { "speaker": "B", "text": "英文回复（最多12个词）", "zh": "中文翻译" }
+  ],
+  "questions": [
+    {
+      "q": "理解问题（中文提问）",
+      "options": ["选项A（中文）", "选项B（中文）", "选项C（中文）"],
+      "answer": "正确选项（与options中某一项完全一致）",
+      "explain": "解释（中文，1句，说清楚哪句对话里提到的）"
+    },
+    {
+      "q": "第二道理解题（中文提问，与第一题考察不同信息点）",
+      "options": ["选项A（中文）", "选项B（中文）", "选项C（中文）"],
+      "answer": "正确选项",
+      "explain": "解释（中文，1句）"
+    }
+  ]
+}
+
+要求：
+- 对话3-5轮，每句不超过12个词，真正适合零基础
+- 用词简单常见，不用复杂词汇
+- 2道选择题，3个选项，各考察不同信息点`
+
+  const raw = await callGemini([{ text: prompt }])
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('AI 返回格式异常')
+  return JSON.parse(match[0])
+}
+
 export const expandVocabulary = async (word, context = '') => {
   const contextLine = context ? `\n使用场景/来源课程：${context}（请根据此场景选择最相关的词义）` : ''
   const prompt = `你是英语词典助手，针对中文母语零基础学习者。

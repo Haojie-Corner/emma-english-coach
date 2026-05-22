@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import { useNavigate } from 'react-router-dom'
 import { modules } from '../data/phonics'
-import { getVocabulary } from '../services/supabase'
+import { getVocabulary, getAllRecordings, getLessonScoreHistory } from '../services/supabase'
+import { showToast } from '../utils/toast'
 
 /* ── 30天打卡热图 ── */
 const CheckInHeatmap = ({ history }) => {
@@ -99,6 +100,11 @@ const Profile = () => {
   const { streak, progress, getModuleCompletion, checkInHistory, weeklyLessonCounts, dueVocabCount } = useProgressStore()
   const navigate = useNavigate()
   const [vocabStats, setVocabStats] = useState(null)
+  const [weaknesses, setWeaknesses] = useState(null)  // null = loading, [] = none found
+  const [dailyGoal, setDailyGoal] = useState(() => parseInt(localStorage.getItem('dailyGoal') || '2', 10))
+  const [savingGoal, setSavingGoal] = useState(false)
+  const [scoreHistory, setScoreHistory] = useState([])
+  const [showShare, setShowShare] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -107,6 +113,40 @@ const Profile = () => {
       setVocabStats({ total: words.length, mastered: byFamiliarity[3], byFamiliarity })
     }).catch(() => {})
   }, [user])
+
+  /* ── 发音进步曲线（每课得分历史） ── */
+  useEffect(() => {
+    if (!user) return
+    getLessonScoreHistory(user.id).then(setScoreHistory).catch(() => {})
+  }, [user])
+
+  /* ── 发音弱点分析（从历史录音聚合） ── */
+  useEffect(() => {
+    if (!user) return
+    getAllRecordings(user.id).then(recs => {
+      const issueMap = {}
+      recs.forEach(rec => {
+        let fb = rec.ai_feedback
+        if (typeof fb === 'string') { try { fb = JSON.parse(fb) } catch { return } }
+        if (!fb?.pronunciation_issues?.length) return
+        fb.pronunciation_issues.forEach(issue => {
+          const key = issue.word?.toLowerCase()
+          if (!key) return
+          if (!issueMap[key]) issueMap[key] = { word: issue.word, ipa: issue.correct_ipa || '', count: 0, tip: issue.tip || '' }
+          issueMap[key].count++
+        })
+      })
+      const top = Object.values(issueMap).sort((a, b) => b.count - a.count).slice(0, 4)
+      setWeaknesses(top)
+    }).catch(() => setWeaknesses([]))
+  }, [user])
+
+  const handleSaveGoal = () => {
+    localStorage.setItem('dailyGoal', String(dailyGoal))
+    setSavingGoal(true)
+    setTimeout(() => setSavingGoal(false), 1200)
+    showToast(`每日目标已设为 ${dailyGoal} 课`, 'success')
+  }
 
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
 
@@ -117,6 +157,15 @@ const Profile = () => {
     : 0
 
   const weekTotal = Object.values(weeklyLessonCounts).reduce((s, v) => s + v, 0)
+
+  /* ── 发音进步折线图（按时间取最近20次有效录音得分） ── */
+  const trendScores = useMemo(() => {
+    return scoreHistory.slice(-20).map(r => r.ai_score).filter(s => s != null)
+  }, [scoreHistory])
+
+  const trendImproved = trendScores.length >= 2
+    ? trendScores[trendScores.length - 1] > trendScores[0]
+    : null
 
   const handleLogout = async () => {
     await logout()
@@ -157,6 +206,38 @@ const Profile = () => {
         </div>
       </Card>
 
+      {/* 每日目标设置 */}
+      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>每日学习目标</h2>
+      <Card style={{ marginBottom: 20, padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 10 }}>
+              每天完成 <span style={{ fontWeight: 800, color: '#d97757', fontSize: 18 }}>{dailyGoal}</span> 课
+            </p>
+            <input
+              type="range" min={1} max={8} value={dailyGoal}
+              onChange={e => setDailyGoal(Number(e.target.value))}
+              style={{ width: '100%', accentColor: '#d97757' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ fontSize: 10, color: '#b0aea5' }}>1课/天（轻松）</span>
+              <span style={{ fontSize: 10, color: '#b0aea5' }}>8课/天（高强度）</span>
+            </div>
+          </div>
+          <button
+            onClick={handleSaveGoal}
+            style={{
+              background: savingGoal ? '#788c5d' : '#d97757',
+              color: '#fff', border: 'none', borderRadius: 10,
+              padding: '9px 16px', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', flexShrink: 0, transition: 'background 0.3s',
+            }}
+          >
+            {savingGoal ? '✓ 已保存' : '保存'}
+          </button>
+        </div>
+      </Card>
+
       {/* 学习统计 */}
       <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>学习统计</h2>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
@@ -184,10 +265,123 @@ const Profile = () => {
         <WeeklyBarChart counts={weeklyLessonCounts} />
       </Card>
 
+      {/* 发音进步曲线 */}
+      {trendScores.length >= 2 && (
+        <>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>发音进步曲线</h2>
+          <Card style={{ marginBottom: 20, padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 13, color: '#7a7870' }}>最近 {trendScores.length} 次录音得分</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: trendImproved ? '#788c5d' : '#d97757' }}>
+                {trendImproved ? '📈 持续进步中！' : '💪 继续努力'}
+              </span>
+            </div>
+            {(() => {
+              const W = 280, H = 60
+              const max = Math.max(...trendScores, 60)
+              const pts = trendScores.map((s, i) => {
+                const x = trendScores.length === 1 ? W / 2 : (i / (trendScores.length - 1)) * W
+                const y = H - (s / max) * H * 0.9
+                return `${x},${y}`
+              }).join(' ')
+              const latest = trendScores[trendScores.length - 1]
+              const color = latest >= 80 ? '#788c5d' : latest >= 60 ? '#d97757' : '#c45c5c'
+              return (
+                <div style={{ overflowX: 'auto' }}>
+                  <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ minWidth: 200 }}>
+                    <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5"
+                      strokeLinejoin="round" strokeLinecap="round" />
+                    {trendScores.map((s, i) => {
+                      const x = trendScores.length === 1 ? W / 2 : (i / (trendScores.length - 1)) * W
+                      const y = H - (s / max) * H * 0.9
+                      const isLast = i === trendScores.length - 1
+                      return (
+                        <g key={i}>
+                          <circle cx={x} cy={y} r={isLast ? 5 : 3} fill={color} opacity={isLast ? 1 : 0.5} />
+                          {isLast && (
+                            <text x={x} y={y - 8} textAnchor="middle" fontSize="10" fontWeight="700"
+                              fill={color} fontFamily="-apple-system,Arial,sans-serif">{s}</text>
+                          )}
+                        </g>
+                      )
+                    })}
+                  </svg>
+                </div>
+              )
+            })()}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ fontSize: 10, color: '#b0aea5' }}>最早</span>
+              <span style={{ fontSize: 10, color: '#b0aea5' }}>最近</span>
+            </div>
+          </Card>
+        </>
+      )}
+
       {/* 30天打卡日历 */}
       <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>打卡记录</h2>
       <Card style={{ marginBottom: 20, padding: '16px 20px' }}>
         <CheckInHeatmap history={checkInHistory} />
+      </Card>
+
+      {/* 发音弱点分析 */}
+      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', marginBottom: 10 }}>发音弱点分析</h2>
+      <Card style={{ marginBottom: 20, padding: '16px 20px' }}>
+        {weaknesses === null ? (
+          <p style={{ fontSize: 13, color: '#b0aea5', textAlign: 'center' }}>分析中…</p>
+        ) : weaknesses.length === 0 ? (
+          <p style={{ fontSize: 13, color: '#b0aea5', textAlign: 'center' }}>
+            暂无录音数据，完成几课发音练习后这里会显示你的弱点单词
+          </p>
+        ) : (
+          <>
+            <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 12 }}>
+              根据你的历史录音分析，以下单词发音出现问题次数最多：
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {weaknesses.map((w, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  background: '#faf9f5', borderRadius: 10, padding: '10px 14px',
+                  border: '1px solid #ece9e0',
+                }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                    background: ['#fdeaea', '#fdf0ea', '#fdf6e3', '#eaf2e3'][i] || '#f5f3ee',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 800,
+                    color: ['#c45c5c', '#d97757', '#c4a35a', '#788c5d'][i] || '#7a7870',
+                  }}>
+                    {i + 1}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: '#1a1917' }}>{w.word}</span>
+                      {w.ipa && <span style={{ fontSize: 11, color: '#b0aea5', fontFamily: 'monospace' }}>{w.ipa}</span>}
+                    </div>
+                    {w.tip && <p style={{ fontSize: 11, color: '#7a7870', marginTop: 2 }}>{w.tip}</p>}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20,
+                      background: '#fdeaea', color: '#c45c5c',
+                    }}>出现 {w.count} 次</span>
+                    <button
+                      onClick={() => navigate(`/practice/speaking?drill=${encodeURIComponent(w.word)}`)}
+                      style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                        background: '#fdf0ea', color: '#d97757',
+                        border: '1px solid #f5c4a8', cursor: 'pointer',
+                      }}
+                    >🎤 练习</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: 11, color: '#b0aea5', marginTop: 12, textAlign: 'center' }}>
+              点击「🎤 练习」直接跳转到发音练习页
+            </p>
+          </>
+        )}
       </Card>
 
       {/* 各模块进度 */}
@@ -267,9 +461,60 @@ const Profile = () => {
         </>
       )}
 
+      {/* 分享进度 */}
+      <button onClick={() => setShowShare(true)} style={{
+        width: '100%', padding: '12px', borderRadius: 12, marginBottom: 12,
+        background: 'linear-gradient(135deg, #fdf0ea, #fff8f4)',
+        border: '1.5px solid #f5c4a8', cursor: 'pointer',
+        fontSize: 13, fontWeight: 700, color: '#d97757',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+      }}>
+        🏆 分享我的学习进度
+      </button>
+
       <Button variant="secondary" onClick={handleLogout} style={{ width: '100%', justifyContent: 'center' }}>
         退出登录
       </Button>
+
+      {/* 分享卡弹窗 */}
+      {showShare && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={e => { if (e.target === e.currentTarget) setShowShare(false) }}
+        >
+          <div style={{ background: '#fff', borderRadius: 24, width: '100%', maxWidth: 360, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            {/* 分享卡主体 */}
+            <div style={{ background: 'linear-gradient(135deg, #e07c58 0%, #be5530 100%)', padding: '28px 28px 24px', textAlign: 'center' }}>
+              <p style={{ fontSize: 36, marginBottom: 8 }}>🎓</p>
+              <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>{displayName} 的英语学习报告</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>AI 英语陪练 · {new Date().toLocaleDateString('zh-CN')}</p>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                {[
+                  { emoji: '🔥', value: `${streak} 天`, label: '连续打卡' },
+                  { emoji: '📚', value: `${totalCompleted} 节`, label: '完成课程' },
+                  { emoji: '⭐', value: `${avgScore || '--'} 分`, label: '平均得分' },
+                  { emoji: '📖', value: `${vocabStats?.total || 0} 词`, label: '词汇积累' },
+                ].map(item => (
+                  <div key={item.label} style={{ background: '#faf9f5', borderRadius: 12, padding: '12px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 18 }}>{item.emoji}</p>
+                    <p style={{ fontSize: 18, fontWeight: 800, color: '#1a1917' }}>{item.value}</p>
+                    <p style={{ fontSize: 11, color: '#7a7870' }}>{item.label}</p>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: 11, color: '#b0aea5', textAlign: 'center', marginBottom: 16 }}>
+                💡 截图此页面分享到朋友圈 / 微信
+              </p>
+              <button onClick={() => setShowShare(false)} style={{
+                width: '100%', padding: '11px', borderRadius: 10,
+                background: '#f0ede4', border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, color: '#7a7870',
+              }}>关闭</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

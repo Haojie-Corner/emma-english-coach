@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import useAudioRecorder from '../hooks/useAudioRecorder'
 import { analyzePronunciation } from '../services/gemini'
 import { saveRecording, getRecordings } from '../services/supabase'
@@ -57,6 +57,47 @@ const btnBase = {
   display: 'flex', alignItems: 'center', gap: 4,
   padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
   border: '1.5px solid', cursor: 'pointer',
+}
+
+/* ── 录音波形可视化 ── */
+const Waveform = ({ analyserRef }) => {
+  const barsRef = useRef([])
+  const rafRef = useRef(null)
+  const BAR_COUNT = 20
+
+  useEffect(() => {
+    const draw = () => {
+      const analyser = analyserRef.current
+      if (!analyser) {
+        barsRef.current.forEach(b => { if (b) b.style.height = '4px' })
+        return
+      }
+      const data = new Uint8Array(analyser.frequencyBinCount)
+      analyser.getByteFrequencyData(data)
+      const step = Math.floor(data.length / BAR_COUNT)
+      barsRef.current.forEach((bar, i) => {
+        if (!bar) return
+        const val = data[i * step] / 255
+        const h = Math.max(4, Math.round(val * 40))
+        bar.style.height = `${h}px`
+        bar.style.opacity = `${0.4 + val * 0.6}`
+      })
+      rafRef.current = requestAnimationFrame(draw)
+    }
+    rafRef.current = requestAnimationFrame(draw)
+    return () => rafRef.current && cancelAnimationFrame(rafRef.current)
+  }, [analyserRef])
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, height: 44, padding: '0 8px' }}>
+      {Array.from({ length: BAR_COUNT }).map((_, i) => (
+        <div key={i} ref={el => barsRef.current[i] = el} style={{
+          width: 3, height: 4, borderRadius: 2,
+          background: '#d97757', transition: 'height 0.08s ease-out',
+        }} />
+      ))}
+    </div>
+  )
 }
 
 const TeacherAvatar = ({ speakState, hasPlayed, preloading, onPause, onResume, onReplay, onRestart }) => (
@@ -121,7 +162,7 @@ const TeacherAvatar = ({ speakState, hasPlayed, preloading, onPause, onResume, o
 )
 
 const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
-  const { status, audioBlob, audioUrl, error, startRecording, stopRecording, reset, getBase64 } = useAudioRecorder()
+  const { status, audioBlob, audioUrl, error, startRecording, stopRecording, reset, getBase64, analyserRef } = useAudioRecorder()
   const [analyzePhase, setAnalyzePhase] = useState(null)  // null | 'processing' | 'analyzing'
   const [result, setResult] = useState(null)
   const [analyzeError, setAnalyzeError] = useState(null)
@@ -359,6 +400,8 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
           >
             {status === 'recording' ? '⏹' : '🎤'}
           </button>
+
+          {status === 'recording' && <Waveform analyserRef={analyserRef} />}
 
           <p style={{ fontSize: 13, color: '#7a7870' }}>
             {status === 'idle'       && '点击麦克风开始录音'}

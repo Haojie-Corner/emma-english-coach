@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import useUserStore from '../store/userStore'
 import { getVocabulary, getDueVocabulary, addVocabularyWord, updateVocabularyFamiliarity, deleteVocabularyWord } from '../services/supabase'
 import { expandVocabulary } from '../services/gemini'
+import { rateSentence } from '../services/deepseek'
 import { speak } from '../utils/tts'
 
 const FAMILIARITY_LABEL = ['陌生', '模糊', '熟悉', '掌握']
@@ -113,16 +114,23 @@ const WordCard = ({ word, onFamiliarityChange, onDelete }) => {
 
 /* ── 闪卡复习模式 ── */
 const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
+  const [mode, setMode] = useState('normal') // 'normal' | 'reverse' | 'compose'
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
-  const [done, setDone] = useState([]) // { word, level }
+  const [done, setDone] = useState([])
   const [updating, setUpdating] = useState(false)
+  const [inputVal, setInputVal] = useState('')
+  const [answered, setAnswered] = useState(null) // null | 'correct' | 'wrong'
+  const [composeResult, setComposeResult] = useState(null) // null | {score, feedback, corrected}
+  const [composing, setComposing] = useState(false)
+  const inputRef = useRef(null)
 
   const current = words[index]
   const total = words.length
   const progress = Math.round((index / total) * 100)
+  const started = index > 0 || flipped
 
-  const handleRate = async (level) => {
+  const advance = async (level) => {
     if (updating) return
     setUpdating(true)
     await onUpdateFamiliarity(current.word, level)
@@ -133,10 +141,35 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
     } else {
       setIndex(index + 1)
       setFlipped(false)
+      setInputVal('')
+      setAnswered(null)
+      setComposeResult(null)
     }
   }
 
-  // 完成页
+  const handleCompose = async () => {
+    if (!inputVal.trim() || composing) return
+    setComposing(true)
+    try {
+      const raw = await rateSentence(current.word, inputVal.trim())
+      const data = JSON.parse(raw)
+      setComposeResult(data)
+      setFlipped(true)
+    } catch {
+      setComposeResult({ score: 0, feedback: '评分失败，请稍后重试', corrected: null })
+      setFlipped(true)
+    } finally {
+      setComposing(false)
+    }
+  }
+
+  const handleCheck = () => {
+    if (!inputVal.trim()) return
+    const correct = inputVal.trim().toLowerCase() === current.word.toLowerCase()
+    setAnswered(correct ? 'correct' : 'wrong')
+    setFlipped(true)
+  }
+
   if (index >= total) {
     const counts = [0, 0, 0, 0]
     done.forEach(d => counts[d.level]++)
@@ -161,7 +194,7 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', padding: '24px 16px' }}>
       {/* 进度条 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <button onClick={onFinish} style={{ fontSize: 13, color: '#7a7870', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← 退出</button>
         <div style={{ flex: 1, height: 6, background: '#ece9e0', borderRadius: 3, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${progress}%`, background: '#d97757', borderRadius: 3, transition: 'width 0.3s' }} />
@@ -169,39 +202,175 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
         <span style={{ fontSize: 12, color: '#7a7870', flexShrink: 0 }}>{index}/{total}</span>
       </div>
 
-      {/* 闪卡 */}
-      <div
-        onClick={() => !flipped && setFlipped(true)}
-        style={{
-          background: '#fff', border: '1.5px solid #dedad0', borderRadius: 20,
-          padding: '40px 28px', textAlign: 'center', cursor: flipped ? 'default' : 'pointer',
-          minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.07)', transition: 'box-shadow 0.2s',
-          marginBottom: 20,
-        }}
-      >
-        <p style={{ fontSize: 36, fontWeight: 800, color: '#1a1917', marginBottom: 8 }}>{current.word}</p>
-        {current.phonetic && <p style={{ fontSize: 14, color: '#b0aea5', fontFamily: 'monospace', marginBottom: 12 }}>{current.phonetic}</p>}
-        <button onClick={e => { e.stopPropagation(); speak(current.word) }} style={{ fontSize: 12, color: '#d97757', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 16 }}>🔊 听发音</button>
+      {/* 模式切换（仅第一张卡翻转前显示） */}
+      {!started && (
+        <div style={{ display: 'flex', background: '#f0ede4', borderRadius: 10, padding: 3, marginBottom: 16 }}>
+          {[['normal', '英→中'], ['reverse', '中→英'], ['compose', '造句']].map(([m, label]) => (
+            <button key={m} onClick={() => setMode(m)} style={{
+              flex: 1, padding: '7px 0', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              background: mode === m ? '#fff' : 'transparent',
+              color: mode === m ? '#1a1917' : '#b0aea5',
+              boxShadow: mode === m ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s',
+            }}>{label}</button>
+          ))}
+        </div>
+      )}
 
-        {!flipped ? (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ width: 40, height: 2, background: '#ece9e0', margin: '0 auto 8px' }} />
-            <p style={{ fontSize: 12, color: '#b0aea5' }}>点击翻转查看释义</p>
-          </div>
-        ) : (
-          <div className="fade-in" style={{ marginTop: 8, width: '100%' }}>
-            <div style={{ width: 40, height: 2, background: '#d97757', margin: '0 auto 16px' }} />
-            <p style={{ fontSize: 18, fontWeight: 600, color: '#1a1917', marginBottom: 8 }}>{current.meaning}</p>
-            {current.example && (
-              <div style={{ background: '#faf9f5', borderRadius: 10, padding: '10px 14px', textAlign: 'left', marginTop: 10 }}>
-                <p style={{ fontSize: 13, color: '#1a1917', fontStyle: 'italic' }}>"{current.example}"</p>
-                {current.example_zh && <p style={{ fontSize: 12, color: '#7a7870', marginTop: 4 }}>{current.example_zh}</p>}
+      {mode === 'compose' ? (
+        /* ── 造句模式：看单词 → 造句 → AI 评分 ── */
+        <div style={{
+          background: '#fff', border: `1.5px solid ${flipped ? '#dedad0' : '#dedad0'}`,
+          borderRadius: 20, padding: '32px 28px', textAlign: 'center',
+          minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.07)', marginBottom: 20,
+        }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: '#b0aea5', letterSpacing: '0.08em', marginBottom: 12 }}>用这个单词造句</p>
+          <p style={{ fontSize: 32, fontWeight: 800, color: '#1a1917', marginBottom: 4 }}>{current.word}</p>
+          {current.phonetic && <p style={{ fontSize: 12, color: '#b0aea5', fontFamily: 'monospace', marginBottom: 8 }}>{current.phonetic}</p>}
+          <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 16 }}>{current.meaning}</p>
+          {!flipped ? (
+            <div style={{ width: '100%' }}>
+              <textarea
+                ref={inputRef}
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                placeholder="用英文造一个句子…"
+                rows={2}
+                autoFocus
+                style={{
+                  width: '100%', background: '#faf9f5', border: '1.5px solid #dedad0',
+                  borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#1a1917',
+                  outline: 'none', boxSizing: 'border-box', resize: 'none', fontFamily: 'inherit',
+                }}
+                onFocus={e => e.target.style.borderColor = '#d97757'}
+                onBlur={e => e.target.style.borderColor = '#dedad0'}
+              />
+              <button onClick={handleCompose} disabled={!inputVal.trim() || composing} style={{
+                width: '100%', marginTop: 10, padding: '11px', borderRadius: 10,
+                background: inputVal.trim() && !composing ? '#d97757' : '#ece9e0',
+                color: inputVal.trim() && !composing ? '#fff' : '#b0aea5',
+                border: 'none', fontSize: 14, fontWeight: 600,
+                cursor: inputVal.trim() && !composing ? 'pointer' : 'default',
+                fontFamily: 'inherit',
+              }}>
+                {composing ? '✨ AI 评分中…' : '提交造句'}
+              </button>
+            </div>
+          ) : composeResult && (
+            <div className="fade-in" style={{ width: '100%' }}>
+              <div style={{
+                background: composeResult.score >= 70 ? '#eaf2e3' : '#fdf0ea',
+                borderRadius: 12, padding: '14px 16px', marginBottom: 12,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: composeResult.score >= 70 ? '#5a7a3a' : '#d97757' }}>
+                    {composeResult.score >= 70 ? '✓' : '✎'} {composeResult.score} 分
+                  </span>
+                  <span style={{ fontSize: 12, color: '#7a7870', fontStyle: 'italic' }}>"{inputVal}"</span>
+                </div>
+                <p style={{ fontSize: 13, color: '#1a1917' }}>{composeResult.feedback}</p>
+                {composeResult.corrected && (
+                  <p style={{ fontSize: 12, color: '#5a7a3a', marginTop: 6 }}>建议：{composeResult.corrected}</p>
+                )}
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      ) : mode === 'normal' ? (
+        /* ── 正向：显示英文，点击翻转看释义 ── */
+        <div
+          onClick={() => !flipped && setFlipped(true)}
+          style={{
+            background: '#fff', border: '1.5px solid #dedad0', borderRadius: 20,
+            padding: '40px 28px', textAlign: 'center', cursor: flipped ? 'default' : 'pointer',
+            minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.07)', marginBottom: 20,
+          }}
+        >
+          <p style={{ fontSize: 36, fontWeight: 800, color: '#1a1917', marginBottom: 8 }}>{current.word}</p>
+          {current.phonetic && <p style={{ fontSize: 14, color: '#b0aea5', fontFamily: 'monospace', marginBottom: 12 }}>{current.phonetic}</p>}
+          <button onClick={e => { e.stopPropagation(); speak(current.word) }} style={{ fontSize: 12, color: '#d97757', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 16 }}>🔊 听发音</button>
+          {!flipped ? (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ width: 40, height: 2, background: '#ece9e0', margin: '0 auto 8px' }} />
+              <p style={{ fontSize: 12, color: '#b0aea5' }}>点击翻转查看释义</p>
+            </div>
+          ) : (
+            <div className="fade-in" style={{ marginTop: 8, width: '100%' }}>
+              <div style={{ width: 40, height: 2, background: '#d97757', margin: '0 auto 16px' }} />
+              <p style={{ fontSize: 18, fontWeight: 600, color: '#1a1917', marginBottom: 8 }}>{current.meaning}</p>
+              {current.example && (
+                <div style={{ background: '#faf9f5', borderRadius: 10, padding: '10px 14px', textAlign: 'left', marginTop: 10 }}>
+                  <p style={{ fontSize: 13, color: '#1a1917', fontStyle: 'italic' }}>"{current.example}"</p>
+                  {current.example_zh && <p style={{ fontSize: 12, color: '#7a7870', marginTop: 4 }}>{current.example_zh}</p>}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ── 反向：显示中文释义，用户输入英文单词 ── */
+        <div style={{
+          background: '#fff',
+          border: `1.5px solid ${flipped ? (answered === 'correct' ? '#788c5d' : '#c45c5c') : '#dedad0'}`,
+          borderRadius: 20, padding: '32px 28px', textAlign: 'center',
+          minHeight: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.07)', marginBottom: 20, transition: 'border-color 0.2s',
+        }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: '#b0aea5', letterSpacing: '0.08em', marginBottom: 12 }}>看释义写英文</p>
+          <p style={{ fontSize: 22, fontWeight: 700, color: '#1a1917', marginBottom: 6 }}>{current.meaning}</p>
+          {current.example_zh && !flipped && (
+            <p style={{ fontSize: 12, color: '#7a7870', fontStyle: 'italic', marginBottom: 8 }}>"{current.example_zh}"</p>
+          )}
+          {!flipped ? (
+            <div style={{ width: '100%', marginTop: 16 }}>
+              <input
+                ref={inputRef}
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCheck()}
+                placeholder="输入英文单词…"
+                autoFocus
+                style={{
+                  width: '100%', background: '#faf9f5', border: '1.5px solid #dedad0',
+                  borderRadius: 10, padding: '12px 14px', fontSize: 16, color: '#1a1917',
+                  outline: 'none', boxSizing: 'border-box', textAlign: 'center',
+                  fontFamily: 'inherit', letterSpacing: '0.05em',
+                }}
+                onFocus={e => e.target.style.borderColor = '#d97757'}
+                onBlur={e => e.target.style.borderColor = '#dedad0'}
+              />
+              <button onClick={handleCheck} disabled={!inputVal.trim()} style={{
+                width: '100%', marginTop: 10, padding: '11px', borderRadius: 10,
+                background: inputVal.trim() ? '#d97757' : '#ece9e0',
+                color: inputVal.trim() ? '#fff' : '#b0aea5',
+                border: 'none', fontSize: 14, fontWeight: 600,
+                cursor: inputVal.trim() ? 'pointer' : 'default',
+                fontFamily: 'inherit', transition: 'all 0.15s',
+              }}>确认</button>
+            </div>
+          ) : (
+            <div className="fade-in" style={{ width: '100%', marginTop: 16 }}>
+              {answered === 'correct' ? (
+                <div style={{ background: '#eaf2e3', borderRadius: 10, padding: '12px 16px' }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#5a7a3a', marginBottom: 4 }}>✓ 答对了！</p>
+                  <p style={{ fontSize: 24, fontWeight: 800, color: '#5a7a3a' }}>{current.word}</p>
+                </div>
+              ) : (
+                <div style={{ background: '#fdeaea', borderRadius: 10, padding: '12px 16px' }}>
+                  <p style={{ fontSize: 12, color: '#c45c5c', marginBottom: 4 }}>✗ 你的答案：<span style={{ fontWeight: 600 }}>{inputVal}</span></p>
+                  <p style={{ fontSize: 12, color: '#7a7870', marginBottom: 4 }}>正确答案：</p>
+                  <p style={{ fontSize: 24, fontWeight: 800, color: '#1a1917' }}>{current.word}</p>
+                  {current.phonetic && <p style={{ fontSize: 12, color: '#b0aea5', fontFamily: 'monospace', marginTop: 4 }}>{current.phonetic}</p>}
+                </div>
+              )}
+              <button onClick={() => speak(current.word)} style={{ fontSize: 12, color: '#d97757', background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0 0' }}>🔊 听发音</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 评级按钮（翻转后显示） */}
       {flipped && (
@@ -209,7 +378,7 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
           <p style={{ fontSize: 12, color: '#7a7870', textAlign: 'center', marginBottom: 10 }}>这个单词你掌握得怎么样？</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {FAMILIARITY_LABEL.map((label, level) => (
-              <button key={level} onClick={() => handleRate(level)} disabled={updating} style={{
+              <button key={level} onClick={() => advance(level)} disabled={updating} style={{
                 padding: '12px 8px', borderRadius: 12, fontSize: 13, fontWeight: 600,
                 border: `1.5px solid ${FAMILIARITY_COLOR[level]}`,
                 background: FAMILIARITY_BG[level], color: FAMILIARITY_COLOR[level],
@@ -330,6 +499,19 @@ const AddWordModal = ({ onClose, onAdd, userId }) => {
   )
 }
 
+const getSourceTag = (source) => {
+  if (!source || source === 'manual') return '手动'
+  if (source === 'snap') return '随拍'
+  if (source === '语法练习') return '语法'
+  if (source.startsWith('场景实战')) return '场景实战'
+  if (source.startsWith('自如交流')) return '自如交流'
+  if (source.startsWith('场景演绎')) return '场景演绎'
+  if (source.startsWith('语音语调')) return '语音语调'
+  if (source.startsWith('自然拼读')) return '自然拼读'
+  if (source.startsWith('Emma')) return 'Emma'
+  return '其他'
+}
+
 /* ── 主页面 ── */
 const Vocabulary = () => {
   const { user } = useUserStore()
@@ -341,6 +523,7 @@ const Vocabulary = () => {
   const [showAdd, setShowAdd] = useState(false)
   const [reviewMode, setReviewMode] = useState(false)
   const [search, setSearch] = useState('')
+  const [tagFilter, setTagFilter] = useState(null)
 
   const loadWords = useCallback(async () => {
     if (!user) return
@@ -366,9 +549,16 @@ const Vocabulary = () => {
     await loadWords()
   }
 
-  const filtered = words.filter(w =>
-    !search || w.word.toLowerCase().includes(search.toLowerCase()) || w.meaning.includes(search)
-  )
+  const availableTags = useMemo(() => {
+    const tags = [...new Set(words.map(w => getSourceTag(w.source)))]
+    return tags.length > 1 ? tags : []
+  }, [words])
+
+  const filtered = words.filter(w => {
+    if (search && !w.word.toLowerCase().includes(search.toLowerCase()) && !w.meaning.includes(search)) return false
+    if (tagFilter && getSourceTag(w.source) !== tagFilter) return false
+    return true
+  })
   const displayWords = tab === 'due' ? dueWords : filtered
 
   // 闪卡复习模式全屏覆盖
@@ -438,10 +628,32 @@ const Vocabulary = () => {
       {/* 搜索 */}
       {tab === 'all' && words.length > 0 && (
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索单词或含义…"
-          style={{ width: '100%', background: '#faf9f5', border: '1.5px solid #dedad0', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#1a1917', outline: 'none', marginBottom: 16, boxSizing: 'border-box' }}
+          style={{ width: '100%', background: '#faf9f5', border: '1.5px solid #dedad0', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#1a1917', outline: 'none', marginBottom: availableTags.length ? 10 : 16, boxSizing: 'border-box' }}
           onFocus={e => e.target.style.borderColor = '#d97757'}
           onBlur={e => e.target.style.borderColor = '#dedad0'}
         />
+      )}
+
+      {/* 来源标签筛选 */}
+      {tab === 'all' && availableTags.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, marginBottom: 14, scrollbarWidth: 'none' }}>
+          <button onClick={() => setTagFilter(null)} style={{
+            flexShrink: 0, padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+            border: `1.5px solid ${tagFilter === null ? '#d97757' : '#dedad0'}`,
+            background: tagFilter === null ? '#fdf0ea' : '#faf9f5',
+            color: tagFilter === null ? '#d97757' : '#7a7870',
+            cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>全部</button>
+          {availableTags.map(tag => (
+            <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? null : tag)} style={{
+              flexShrink: 0, padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+              border: `1.5px solid ${tagFilter === tag ? '#d97757' : '#dedad0'}`,
+              background: tagFilter === tag ? '#fdf0ea' : '#faf9f5',
+              color: tagFilter === tag ? '#d97757' : '#7a7870',
+              cursor: 'pointer', whiteSpace: 'nowrap',
+            }}>{tag}</button>
+          ))}
+        </div>
       )}
 
       {/* 熟练度统计 */}

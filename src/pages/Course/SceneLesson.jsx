@@ -10,6 +10,22 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import VocabChip from '../../components/ui/VocabChip'
 import { speakMultilingual, stopSpeaking } from '../../utils/tts'
+import { showToast } from '../../utils/toast'
+
+const extractGrammarNote = (content) => {
+  const match = content.match(/📝\s*建议[：:]\s*([^\n]+(?:\n(?![✅💡\*\-]).*)*)/m)
+  if (!match) return null
+  const text = match[1].trim().replace(/\n.*/g, '').trim()
+  return text.length > 4 && !text.startsWith('（') && !text.includes('说得') ? text : null
+}
+
+const exportConversation = (messages, title) => {
+  const lines = messages.map(m =>
+    `${m.role === 'user' ? '我' : 'AI'}：${m.content}`
+  ).join('\n\n')
+  const text = `【${title}】对话记录\n${new Date().toLocaleString('zh-CN')}\n\n${lines}`
+  navigator.clipboard.writeText(text).then(() => showToast('对话已复制到剪贴板', 'success')).catch(() => showToast('复制失败，请手动选择文本', 'error'))
+}
 
 const parseVocabFromMessage = (content) => {
   const match = content.match(/💡 新词汇[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
@@ -37,6 +53,7 @@ const SceneLesson = () => {
   const [loading, setLoading] = useState(false)
   const [started, setStarted] = useState(false)
   const [completed, setCompleted] = useState(false)
+  const [roleSwitched, setRoleSwitched] = useState(false)
   const [speakingMsgId, setSpeakingMsgId] = useState(null)
   const [pastSessions, setPastSessions] = useState([])
   const [savedVocabs, setSavedVocabs] = useState(new Set())
@@ -103,13 +120,18 @@ const SceneLesson = () => {
     setCompleted(true)
   }
 
+  const myRole = roleSwitched ? scene.aiRole : scene.role
+  const theirRole = roleSwitched ? scene.role : scene.aiRole
+
   const handleStart = async () => {
     setStarted(true)
     setLoading(true)
     try {
-      const greeting = await chatWithScene(scene.id, scene.title, scene.description, [
-        { role: 'user', content: 'Hello, let\'s start the conversation practice.' }
-      ])
+      const greeting = await chatWithScene(
+        scene.id, scene.title, scene.description,
+        [{ role: 'user', content: 'Hello, let\'s start the conversation practice.' }],
+        scene.role, scene.aiRole, roleSwitched,
+      )
       const aiMsg = { id: Date.now(), role: 'ai', content: greeting }
       setMessages([aiMsg])
       speakMultilingual(greeting, () => setSpeakingMsgId(null))
@@ -132,7 +154,11 @@ const SceneLesson = () => {
     inputRef.current?.focus()
     try {
       const apiMessages = newMessages.map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content }))
-      const reply = await chatWithScene(scene.id, scene.title, scene.description, apiMessages)
+      const reply = await chatWithScene(scene.id, scene.title, scene.description, apiMessages, scene.role, scene.aiRole, roleSwitched)
+      const grammarNote = extractGrammarNote(reply)
+      if (grammarNote) {
+        setMessages(prev => prev.map(m => m.id === userMsg.id ? { ...m, grammarNote } : m))
+      }
       const aiMsg = { id: Date.now() + 1, role: 'ai', content: reply }
       setMessages(prev => [...prev, aiMsg])
       stopSpeaking()
@@ -175,10 +201,24 @@ const SceneLesson = () => {
           <span style={{ fontSize: 11, color: '#d97757', background: '#fdf0ea', padding: '2px 10px', borderRadius: 20, fontWeight: 600 }}>{scene.difficulty}</span>
         </div>
         <p style={{ fontSize: 13, color: '#7a7870' }}>{scene.description}</p>
-        <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: '#7a7870' }}>👤 你的角色：<strong>{scene.role}</strong></span>
-          <span style={{ fontSize: 11, color: '#7a7870' }}>🤖 AI 扮演：<strong>{scene.aiRole}</strong></span>
+        <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: '#7a7870' }}>👤 你的角色：<strong style={{ color: roleSwitched ? '#7a6bba' : '#d97757' }}>{myRole}</strong></span>
+          <span style={{ fontSize: 11, color: '#7a7870' }}>🤖 AI 扮演：<strong>{theirRole}</strong></span>
           <span style={{ fontSize: 11, color: '#7a7870' }}>⏱ {scene.duration}</span>
+          {!started && scene.role && scene.aiRole && (
+            <button
+              onClick={() => setRoleSwitched(v => !v)}
+              style={{
+                fontSize: 11, fontWeight: 600,
+                background: roleSwitched ? '#f0eeff' : '#faf9f5',
+                color: roleSwitched ? '#7a6bba' : '#7a7870',
+                border: `1px solid ${roleSwitched ? '#c0b0e8' : '#dedad0'}`,
+                borderRadius: 20, padding: '3px 10px', cursor: 'pointer',
+              }}
+            >
+              🔄 {roleSwitched ? '已换角色' : '换角色试试'}
+            </button>
+          )}
         </div>
 
         {/* 核心词汇 — 每个词可一键存入词汇本 */}
@@ -220,7 +260,8 @@ const SceneLesson = () => {
             <p style={{ fontSize: 36, marginBottom: 10 }}>🎭</p>
             <p className="font-title" style={{ fontSize: 16, color: '#1a1917', marginBottom: 8 }}>准备好了吗？</p>
             <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 12, lineHeight: 1.6 }}>
-              AI 会扮演 <strong>{scene.aiRole}</strong>，你扮演 <strong>{scene.role}</strong>。<br />
+              AI 会扮演 <strong>{theirRole}</strong>，你扮演 <strong style={{ color: '#d97757' }}>{myRole}</strong>。<br />
+              {roleSwitched && <span style={{ fontSize: 11, color: '#7a6bba' }}>🔄 已换角色 · </span>}
               尽量用英语对话，不会的单词可以先猜猜！
             </p>
             {scene.objectives?.length > 0 && (
@@ -263,6 +304,15 @@ const SceneLesson = () => {
                 }}>
                   {msg.content}
                 </div>
+                {msg.role === 'user' && msg.grammarNote && (
+                  <div className="fade-in" style={{
+                    marginTop: 5, padding: '6px 10px', borderRadius: '10px 10px 10px 4px',
+                    background: '#fdf6e3', border: '1px solid #f0d080', fontSize: 11,
+                    color: '#7a6020', lineHeight: 1.5, maxWidth: '100%',
+                  }}>
+                    📝 {msg.grammarNote}
+                  </div>
+                )}
                 {msg.role === 'ai' && (
                   <>
                     <button
@@ -274,7 +324,6 @@ const SceneLesson = () => {
                     >
                       {speakingMsgId === msg.id ? '🔊 播放中…' : '🔊 朗读'}
                     </button>
-                    {/* 解析出的新词汇芯片 */}
                     {vocabChips.length > 0 && (
                       <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                         {vocabChips.map((v, i) => (
@@ -348,9 +397,14 @@ const SceneLesson = () => {
                   padding: '7px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600,
                   border: '1.5px solid #5a7a3a', color: '#5a7a3a', background: '#eaf2e3',
                   cursor: 'pointer', whiteSpace: 'nowrap',
-                }}>
-                  完成 ✓
-                </button>
+                }}>完成 ✓</button>
+              )}
+              {messages.length >= 2 && (
+                <button onClick={() => exportConversation(messages, scene.title)} style={{
+                  padding: '7px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+                  border: '1.5px solid #dedad0', color: '#7a7870', background: '#faf9f5',
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                }}>📋 复制</button>
               )}
             </div>
           </div>

@@ -10,6 +10,13 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import VocabChip from '../../components/ui/VocabChip'
 import { speakMultilingual, stopSpeaking } from '../../utils/tts'
+import { showToast } from '../../utils/toast'
+
+const exportConversation = (messages, title) => {
+  const lines = messages.map(m => `${m.role === 'user' ? '我' : 'AI'}：${m.content}`).join('\n\n')
+  const text = `【${title}】对话记录\n${new Date().toLocaleString('zh-CN')}\n\n${lines}`
+  navigator.clipboard.writeText(text).then(() => showToast('对话已复制到剪贴板', 'success')).catch(() => showToast('复制失败', 'error'))
+}
 
 const parseVocabFromMessage = (content) => {
   const match = content.match(/💡 (?:学到了|新词汇)[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
@@ -448,9 +455,14 @@ const FluencyLesson = () => {
                       padding: '7px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600,
                       border: '1.5px solid #5a7a3a', color: '#5a7a3a', background: '#eaf2e3',
                       cursor: 'pointer', whiteSpace: 'nowrap',
-                    }}>
-                      完成 ✓
-                    </button>
+                    }}>完成 ✓</button>
+                  )}
+                  {messages.length >= 2 && (
+                    <button onClick={() => exportConversation(messages, lesson.title)} style={{
+                      padding: '7px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600,
+                      border: '1.5px solid #dedad0', color: '#7a7870', background: '#faf9f5',
+                      cursor: 'pointer', whiteSpace: 'nowrap',
+                    }}>📋 复制</button>
                   )}
                 </div>
               </div>

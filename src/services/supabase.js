@@ -231,6 +231,27 @@ export const getRecentConversations = async (userId, limit = 5) => {
   return data || []
 }
 
+export const getAllRecordings = async (userId, limit = 60) => {
+  const { data } = await supabase
+    .from('recordings')
+    .select('lesson_id, ai_score, ai_feedback, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return data || []
+}
+
+export const getLessonScoreHistory = async (userId) => {
+  const { data } = await supabase
+    .from('recordings')
+    .select('lesson_id, ai_score, created_at')
+    .eq('user_id', userId)
+    .not('ai_score', 'is', null)
+    .order('created_at', { ascending: true })
+    .limit(300)
+  return data || []
+}
+
 export const getStreak = async (userId) => {
   const { data } = await supabase
     .from('check_ins')

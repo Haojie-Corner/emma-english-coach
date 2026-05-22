@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
@@ -8,6 +8,9 @@ import { mindsetLessons } from '../data/mindset'
 import { demoLessons } from '../data/demo'
 import { sceneCategories } from '../data/scenes'
 import { fluencyLessons } from '../data/fluency'
+import MilestoneModal, { checkMilestone } from '../components/ui/MilestoneModal'
+import { getDueVocabulary } from '../services/supabase'
+import { speak } from '../utils/tts'
 
 /* ── 进度环 ── */
 const ProgressRing = ({ pct, size = 48, color = '#d97757' }) => {
@@ -66,10 +69,47 @@ const LEARNING_PATH = [
 
 const Dashboard = () => {
   const { user } = useUserStore()
-  const { progress, streak, checkedInToday, loading: progressLoading, fetchProgress, doCheckIn, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
+  const { progress, streak, checkedInToday, loading: progressLoading, weeklyLessonCounts, fetchProgress, doCheckIn, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
   const navigate = useNavigate()
+  const [milestone, setMilestone] = useState(null)
+  const [wordOfDay, setWordOfDay] = useState(null)
 
   useEffect(() => { if (user) fetchProgress(user.id) }, [user])
+
+  /* ── 每日单词（从到期词汇随机取一个，按日期缓存） ── */
+  useEffect(() => {
+    if (!user) return
+    const todayKey = `wod_${new Date().toISOString().split('T')[0]}`
+    const cached = localStorage.getItem(todayKey)
+    if (cached) { try { setWordOfDay(JSON.parse(cached)) } catch {} return }
+    getDueVocabulary(user.id).then(words => {
+      if (!words.length) return
+      const w = words[Math.floor(Math.random() * Math.min(words.length, 5))]
+      localStorage.setItem(todayKey, JSON.stringify(w))
+      setWordOfDay(w)
+    }).catch(() => {})
+  }, [user])
+
+  /* ── 里程碑检测（只在数据加载完后跑一次） ── */
+  useEffect(() => {
+    if (progressLoading || !user) return
+    const completedCount = progress.filter(p => p.status === 'completed').length
+    if (completedCount >= 1 && checkMilestone('first_lesson')) { setMilestone('first_lesson'); return }
+    if (streak >= 7  && checkMilestone('streak_7'))  { setMilestone('streak_7');  return }
+    if (streak >= 30 && checkMilestone('streak_30')) { setMilestone('streak_30'); return }
+    if (progress.some(p => p.score >= 90) && checkMilestone('score_90')) { setMilestone('score_90'); return }
+    for (const mod of modules) {
+      const pct = getModuleCompletion(mod.id, mod.totalLessons)
+      if (pct === 100 && checkMilestone(`first_module_${mod.id}`)) { setMilestone('first_module'); return }
+    }
+  }, [progressLoading]) // eslint-disable-line
+
+  /* ── 今日目标 ── */
+  const dailyGoal = parseInt(localStorage.getItem('dailyGoal') || '2', 10)
+  const todayStr = new Date().toISOString().split('T')[0]
+  const todayCompleted = weeklyLessonCounts?.[todayStr] || 0
+  const goalReached = todayCompleted >= dailyGoal
+  const weekTotal = Object.values(weeklyLessonCounts || {}).reduce((s, v) => s + v, 0)
 
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
 
@@ -85,6 +125,18 @@ const Dashboard = () => {
     const first = LEARNING_PATH[0]
     return { lesson: first.lessons[0], ...first }
   }, [progress, isModuleUnlocked])
+
+  /* ── 低分课程（<70分 的已完成课，找最差的） ── */
+  const lowScoreLesson = useMemo(() => {
+    const poorOnes = progress.filter(p => p.status === 'completed' && p.score != null && p.score < 70)
+    if (poorOnes.length === 0) return null
+    const worst = poorOnes.reduce((a, b) => a.score < b.score ? a : b)
+    for (const track of LEARNING_PATH) {
+      const lesson = track.lessons.find(l => l.id === worst.lesson_id)
+      if (lesson) return { lesson, score: worst.score, ...track }
+    }
+    return null
+  }, [progress])
 
   const weakModule = useMemo(() => {
     const scored = LEARNING_PATH
@@ -108,7 +160,16 @@ const Dashboard = () => {
       tag: '主线', tagColor: '#d97757',
     })
     if (dueVocabCount > 0) {
-      list.push({ icon: '📚', title: `复习 ${dueVocabCount} 个单词`, sub: '到期词汇 · 遗忘曲线复习', to: '/vocabulary', tag: '复习', tagColor: '#788c5d' })
+      list.push({ icon: '📚', title: `复习 ${dueVocabCount} 个单词`, sub: '到期词汇 · 遗忘曲线复习', to: '/vocabulary?tab=due', tag: '复习', tagColor: '#788c5d' })
+    }
+    if (lowScoreLesson && list.length < 3) {
+      list.push({
+        icon: lowScoreLesson.icon,
+        title: `重练 ${lowScoreLesson.lesson.title}`,
+        sub: `上次得分 ${lowScoreLesson.score} 分 · 建议重新练习`,
+        to: lowScoreLesson.getPath(lowScoreLesson.lesson.id),
+        tag: '补弱', tagColor: '#c45c5c',
+      })
     }
     if (weakModule && weakModule.avg < 75 && list.length < 3) {
       list.push({ icon: weakModule.icon, title: `加强 ${weakModule.label.split('·')[0].trim()}`, sub: `当前平均 ${weakModule.avg} 分 · 建议多练`, to: `/course/${weakModule.moduleId}`, tag: '加强', tagColor: '#c4a35a' })
@@ -121,10 +182,14 @@ const Dashboard = () => {
       }
     }
     return list.slice(0, 3)
-  }, [progress, nextLessonInfo, isModuleUnlocked, dueVocabCount, weakModule])
+  }, [progress, nextLessonInfo, isModuleUnlocked, dueVocabCount, weakModule, lowScoreLesson])
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px' }}>
+
+      {milestone && (
+        <MilestoneModal milestoneKey={milestone} onClose={() => setMilestone(null)} />
+      )}
 
       {/* ── 头部：问候 + 打卡/连胜 ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -157,7 +222,42 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* ── 新用户引导（首次使用，无任何学习进度） ── */}
+      {/* ── 今日目标进度条 ── */}
+      {dailyGoal > 0 && (
+        <div style={{
+          background: goalReached ? '#eaf2e3' : '#fff',
+          border: `1px solid ${goalReached ? '#c4ddb0' : '#e8e4dc'}`,
+          borderRadius: 14, padding: '12px 16px', marginBottom: 20,
+          display: 'flex', alignItems: 'center', gap: 14,
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: goalReached ? '#5a7a3a' : '#1a1917' }}>
+                {goalReached ? '🎯 今日目标完成！' : '📅 今日目标'}
+              </span>
+              <span style={{ fontSize: 12, color: goalReached ? '#5a7a3a' : '#7a7870' }}>
+                {todayCompleted} / {dailyGoal} 课
+              </span>
+            </div>
+            <div style={{ height: 7, background: '#ece9e0', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${Math.min((todayCompleted / dailyGoal) * 100, 100)}%`,
+                background: goalReached ? '#5a7a3a' : '#d97757',
+                borderRadius: 4, transition: 'width 0.8s ease-out',
+              }} />
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/profile')}
+            style={{ fontSize: 11, color: '#b0aea5', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
+          >
+            改目标
+          </button>
+        </div>
+      )}
+
+      {/* ── 新用户引导 ── */}
       {progress.length === 0 && !progressLoading && (
         <div style={{
           background: 'linear-gradient(135deg, #fdf0ea 0%, #fef8f4 100%)',
@@ -293,6 +393,65 @@ const Dashboard = () => {
           )
         })}
       </div>
+
+      {/* ── 今日单词 ── */}
+      {wordOfDay && (
+        <div style={{ marginBottom: 28 }}>
+          <p className="section-title">今日单词</p>
+          <div style={{
+            background: '#fff', border: '1px solid #e8e4dc', borderRadius: 16, padding: '16px 18px',
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 22, fontWeight: 800, color: '#1a1917' }}>{wordOfDay.word}</span>
+                {wordOfDay.phonetic && (
+                  <span style={{ fontSize: 12, color: '#b0aea5', fontFamily: 'monospace' }}>{wordOfDay.phonetic}</span>
+                )}
+              </div>
+              <p style={{ fontSize: 13, color: '#7a7870', marginTop: 3 }}>{wordOfDay.meaning}</p>
+              {wordOfDay.example && (
+                <p style={{ fontSize: 11, color: '#b0aea5', marginTop: 4, fontStyle: 'italic' }}>"{wordOfDay.example}"</p>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+              <button onClick={() => speak(wordOfDay.word)} style={{
+                background: '#fdf0ea', border: '1px solid #f5c4a8',
+                borderRadius: 10, padding: '7px 10px', cursor: 'pointer', fontSize: 16,
+              }}>🔊</button>
+              <button onClick={() => navigate('/vocabulary?tab=due')} style={{
+                background: '#faf9f5', border: '1px solid #dedad0',
+                borderRadius: 10, padding: '5px 8px', cursor: 'pointer',
+                fontSize: 10, fontWeight: 600, color: '#7a7870',
+              }}>复习</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 本周总结 ── */}
+      {weekTotal > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <p className="section-title">本周总结</p>
+          <div style={{ background: '#fff', border: '1px solid #e8e4dc', borderRadius: 16, padding: '14px 18px' }}>
+            <div style={{ display: 'flex', gap: 0, justifyContent: 'space-around' }}>
+              {[
+                { emoji: '📗', value: weekTotal, label: '节课', color: '#788c5d' },
+                { emoji: '🔥', value: streak, label: '天连续', color: '#d97757' },
+                { emoji: '⭐', value: progress.filter(p => p.score).length > 0
+                    ? Math.round(progress.filter(p => p.score && p.status === 'completed').reduce((s, p) => s + p.score, 0) / Math.max(1, progress.filter(p => p.score && p.status === 'completed').length))
+                    : '--', label: '平均分', color: '#7a6bba' },
+              ].map(item => (
+                <div key={item.label} style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: 18 }}>{item.emoji}</p>
+                  <p style={{ fontSize: 22, fontWeight: 800, color: item.color, lineHeight: 1.1 }}>{item.value}</p>
+                  <p style={{ fontSize: 11, color: '#a09b95', marginTop: 2 }}>{item.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 今日推荐 ── */}
       <p className="section-title">今日推荐</p>
