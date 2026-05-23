@@ -101,12 +101,27 @@ const SectionTitle = ({ children }) => (
   </p>
 )
 
+const categorizeGrammarError = (reason) => {
+  if (!reason) return '其他'
+  const r = reason
+  if (/冠词/.test(r)) return '冠词 (a/an/the)'
+  if (/时态/.test(r)) return '时态错误'
+  if (/介词/.test(r)) return '介词用法'
+  if (/单复数|复数|不可数/.test(r)) return '单复数'
+  if (/主谓一致|主语/.test(r)) return '主谓一致'
+  if (/语序|倒装/.test(r)) return '语序错误'
+  if (/词汇|用词|搭配/.test(r)) return '词汇搭配'
+  if (/because.*so|双重否定/.test(r)) return '逻辑连词'
+  return '其他语法'
+}
+
 const Profile = () => {
   const { user, logout } = useUserStore()
   const { streak, progress, getModuleCompletion, checkInHistory, weeklyLessonCounts, dueVocabCount } = useProgressStore()
   const navigate = useNavigate()
   const [vocabStats, setVocabStats] = useState(null)
   const [weaknesses, setWeaknesses] = useState(null)
+  const [grammarErrors, setGrammarErrors] = useState([])
   const [dailyGoal, setDailyGoal] = useState(() => parseInt(localStorage.getItem('dailyGoal') || '2', 10))
   const [savingGoal, setSavingGoal] = useState(false)
   const [scoreHistory, setScoreHistory] = useState([])
@@ -144,6 +159,19 @@ const Profile = () => {
       setWeaknesses(top)
     }).catch(() => setWeaknesses([]))
   }, [user])
+
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('grammarErrors') || '[]')
+      const catMap = {}
+      raw.forEach(item => {
+        const cat = categorizeGrammarError(item.reason)
+        catMap[cat] = (catMap[cat] || 0) + 1
+      })
+      const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 6)
+      setGrammarErrors(sorted)
+    } catch {}
+  }, [])
 
   const handleSaveGoal = () => {
     localStorage.setItem('dailyGoal', String(dailyGoal))
@@ -435,6 +463,43 @@ const Profile = () => {
                 </div>
               ))}
             </div>
+          </>
+        )}
+      </Card>
+
+      {/* ── Grammar Error Analysis ── */}
+      <SectionTitle>语法错误分析</SectionTitle>
+      <Card style={{ marginBottom: 20 }}>
+        {grammarErrors.length === 0 ? (
+          <p style={{ fontSize: 13, color: '#9e998e', textAlign: 'center', lineHeight: 1.6 }}>
+            还没有语法练习记录。去「练习中心 → 语法纠错」练习后，这里会统计你的高频错误类型。
+          </p>
+        ) : (
+          <>
+            <p style={{ fontSize: 12, color: '#5c5850', marginBottom: 14 }}>根据语法纠错记录，你的高频错误类型：</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {grammarErrors.map(([cat, count], i) => {
+                const max = grammarErrors[0][1]
+                const colors = ['#e8672a', '#7b5ea7', '#3a9a5f', '#4a7a9b', '#d48a10', '#9e998e']
+                const color = colors[i] || '#9e998e'
+                return (
+                  <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 12, color: '#5c5850', width: 96, flexShrink: 0 }}>{cat}</span>
+                    <div style={{ flex: 1, height: 10, background: '#f0ede6', borderRadius: 6, overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', width: `${(count / max) * 100}%`,
+                        background: color, borderRadius: 6,
+                        transition: 'width 0.8s ease-out',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color, width: 28, textAlign: 'right', flexShrink: 0 }}>{count}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <p style={{ fontSize: 11, color: '#9e998e', marginTop: 12 }}>
+              数值为出现次数。点「练习中心 → 语法纠错」继续练习，帮助减少高频错误。
+            </p>
           </>
         )}
       </Card>

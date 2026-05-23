@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getDemoLesson, demoLessons } from '../../data/demo'
+import useStudyTimer from '../../hooks/useStudyTimer'
 import { scoreSpeechSimilarity } from '../../services/gemini'
 import useAudioRecorder from '../../hooks/useAudioRecorder'
 import Card from '../../components/ui/Card'
@@ -26,6 +27,7 @@ const ScoreBar = ({ label, score }) => (
 )
 
 const DemoLesson = () => {
+  useStudyTimer()
   const { lessonId } = useParams()
   const navigate = useNavigate()
   const { user } = useUserStore()

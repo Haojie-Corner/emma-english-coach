@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getMindsetLesson, mindsetLessons } from '../../data/mindset'
+import useStudyTimer from '../../hooks/useStudyTimer'
 import { generateMindsetQuiz } from '../../services/deepseek'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -13,6 +14,7 @@ import { addVocabularyWord } from '../../services/supabase'
 import { expandVocabulary } from '../../services/gemini'
 
 const MindsetLesson = () => {
+  useStudyTimer()
   const { lessonId } = useParams()
   const navigate = useNavigate()
   const { user } = useUserStore()

@@ -11,6 +11,7 @@ import { fluencyLessons } from '../data/fluency'
 import MilestoneModal, { checkMilestone } from '../components/ui/MilestoneModal'
 import { getDueVocabulary } from '../services/supabase'
 import { speak } from '../utils/tts'
+import { getTodayStudyMinutes } from '../utils/studyTime'
 
 const routeMap = {
   phonics: '/course/phonics', intonation: '/course/intonation', mindset: '/course/mindset',
@@ -53,8 +54,10 @@ const Dashboard = () => {
   const navigate = useNavigate()
   const [milestone, setMilestone] = useState(null)
   const [wordOfDay, setWordOfDay] = useState(null)
+  const [todayMinutes, setTodayMinutes] = useState(0)
 
   useEffect(() => { if (user) fetchProgress(user.id) }, [user])
+  useEffect(() => { setTodayMinutes(getTodayStudyMinutes()) }, [])
 
   useEffect(() => {
     if (!user) return
@@ -519,6 +522,7 @@ const Dashboard = () => {
                 {[
                   { emoji: '📗', value: weekTotal, label: '节课', color: '#3a9a5f' },
                   { emoji: '🔥', value: streak, label: '天连续', color: '#e8672a' },
+                  { emoji: '⏱️', value: todayMinutes, label: '今日分钟', color: '#4a7a9b' },
                   { emoji: '⭐', value: avgScore !== null ? avgScore : '--', label: '平均分', color: '#7a6bba' },
                 ].map(item => (
                   <div key={item.label} style={{ textAlign: 'center' }}>

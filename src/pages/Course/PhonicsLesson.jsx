@@ -8,6 +8,7 @@ import useUserStore from '../../store/userStore'
 import useProgressStore from '../../store/progressStore'
 import { speak } from '../../utils/tts'
 import LessonValueBanner from '../../components/ui/LessonValueBanner'
+import useStudyTimer from '../../hooks/useStudyTimer'
 
 const LetterCard = ({ item }) => (
   <div
@@ -33,6 +34,7 @@ const LetterCard = ({ item }) => (
 )
 
 const PhonicsLesson = () => {
+  useStudyTimer()
   const { lessonId } = useParams()
   const navigate = useNavigate()
   const { user } = useUserStore()

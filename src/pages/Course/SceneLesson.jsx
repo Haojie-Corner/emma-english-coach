@@ -11,6 +11,8 @@ import Button from '../../components/ui/Button'
 import VocabChip from '../../components/ui/VocabChip'
 import { speakMultilingual, stopSpeaking } from '../../utils/tts'
 import { showToast } from '../../utils/toast'
+import VoiceInputButton from '../../components/ui/VoiceInputButton'
+import useStudyTimer from '../../hooks/useStudyTimer'
 
 const extractGrammarNote = (content) => {
   const match = content.match(/📝\s*建议[：:]\s*([^\n]+(?:\n(?![✅💡\*\-]).*)*)/m)
@@ -44,6 +46,7 @@ const parseVocabFromMessage = (content) => {
 }
 
 const SceneLesson = () => {
+  useStudyTimer()
   const { sceneId } = useParams()
   const navigate = useNavigate()
   const { user } = useUserStore()
@@ -406,9 +409,15 @@ const SceneLesson = () => {
               onBlur={e => e.target.style.borderColor = '#dedad0'}
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <Button onClick={handleSend} disabled={!input.trim() || loading} style={{ padding: '10px 20px', alignSelf: 'flex-end' }}>
-                发送
-              </Button>
+              <div style={{ display: 'flex', gap: 6, alignSelf: 'flex-end' }}>
+                <VoiceInputButton
+                  disabled={loading}
+                  onResult={text => { setInput(prev => prev ? prev + ' ' + text : text) }}
+                />
+                <Button onClick={handleSend} disabled={!input.trim() || loading} style={{ padding: '10px 20px' }}>
+                  发送
+                </Button>
+              </div>
               {messages.length >= 4 && (
                 <button onClick={handleFinish} style={{
                   padding: '7px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600,

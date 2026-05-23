@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AudioRecorder from '../../components/AudioRecorder'
 import { correctGrammar, explainTechEnglish } from '../../services/deepseek'
-import { analyzeImage, expandVocabulary, generateListeningExercise } from '../../services/gemini'
+import { analyzeImage, expandVocabulary, generateListeningExercise, analyzeIeltsPart2 } from '../../services/gemini'
 import VocabChip from '../../components/ui/VocabChip'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -37,8 +37,27 @@ const GrammarTab = () => {
     try {
       const raw = await correctGrammar(text)
       const match = raw.match(/\{[\s\S]*\}/)
-      if (match) setResult(JSON.parse(match[0]))
-      else setError('AI 解析失败，请重试')
+      if (match) {
+        const parsed = JSON.parse(match[0])
+        setResult(parsed)
+        // 保存语法错误类型到 localStorage（用于 Profile 统计）
+        if (parsed.issues?.length > 0) {
+          const key = 'grammarErrors'
+          const existing = JSON.parse(localStorage.getItem(key) || '[]')
+          parsed.issues.forEach(issue => {
+            existing.push({
+              date: new Date().toISOString().split('T')[0],
+              error: issue.error,
+              correction: issue.correction,
+              reason: issue.reason,
+            })
+          })
+          // 只保留最近 200 条
+          localStorage.setItem(key, JSON.stringify(existing.slice(-200)))
+        }
+      } else {
+        setError('AI 解析失败，请重试')
+      }
     } catch (e) {
       setError('请求失败：' + e.message)
     } finally {
@@ -608,12 +627,262 @@ const ListeningTab = () => {
 }
 
 // ─── 主页面 ───────────────────────────────────────────────────────────────
+// ─── 雅思口语 Part 2 闯关 ─────────────────────────────────────────────────
+const IELTS_CARDS = [
+  { topic: 'Describe a person who has influenced you', bullets: ['Who this person is', 'How you know them', 'What they did or said', 'And explain how they influenced you'] },
+  { topic: 'Describe a memorable trip or holiday', bullets: ['Where you went', 'When you went there', 'Who you went with', 'And explain why it was memorable'] },
+  { topic: 'Describe a book or movie you enjoyed', bullets: ['What it was about', 'When you read/watched it', 'What you liked about it', 'And explain why you would recommend it'] },
+  { topic: 'Describe a skill you would like to learn', bullets: ['What the skill is', 'Why you want to learn it', 'How you would learn it', 'And explain how useful it would be'] },
+  { topic: 'Describe a place in your city you enjoy visiting', bullets: ['Where it is', 'What you can do there', 'Who you go there with', 'And explain why you enjoy it'] },
+  { topic: 'Describe a time when you helped someone', bullets: ['Who you helped', 'What the situation was', 'How you helped them', 'And explain how you felt afterwards'] },
+  { topic: 'Describe a piece of technology you use every day', bullets: ['What it is', 'How long you have had it', 'How often you use it', 'And explain why it is important to you'] },
+  { topic: 'Describe an achievement you are proud of', bullets: ['What the achievement was', 'When it happened', 'How you achieved it', 'And explain why you are proud of it'] },
+  { topic: 'Describe a traditional festival in your country', bullets: ['What the festival is', 'When it takes place', 'What people do during it', 'And explain why it is important'] },
+  { topic: 'Describe a time when you had to make an important decision', bullets: ['What the decision was', 'When you had to make it', 'How you made the decision', 'And explain whether it was the right choice'] },
+  { topic: 'Describe a sport or physical activity you enjoy', bullets: ['What it is', 'Where and when you do it', 'Who you do it with', 'And explain why you enjoy it'] },
+  { topic: 'Describe a piece of art, music, or creative work you like', bullets: ['What it is', 'Who created it', 'When you first experienced it', 'And explain why you like it'] },
+]
+
+const CueCardTab = () => {
+  const { user } = useUserStore()
+  const [cardIndex, setCardIndex] = useState(() => Math.floor(Math.random() * IELTS_CARDS.length))
+  const [phase, setPhase] = useState('ready') // ready | prep | speaking | done
+  const [countdown, setCountdown] = useState(60)
+  const [speakingTime, setSpeakingTime] = useState(0)
+  const [result, setResult] = useState(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeError, setAnalyzeError] = useState('')
+  const timerRef = useRef(null)
+  const recorderRef = useRef(null)
+  const chunksRef = useRef([])
+  const mediaRef = useRef(null)
+
+  const card = IELTS_CARDS[cardIndex]
+
+  const clearTimer = () => { if (timerRef.current) clearInterval(timerRef.current) }
+
+  const startPrep = () => {
+    setPhase('prep')
+    setCountdown(60)
+    timerRef.current = setInterval(() => {
+      setCountdown(c => {
+        if (c <= 1) { clearTimer(); startSpeaking(); return 0 }
+        return c - 1
+      })
+    }, 1000)
+  }
+
+  const startSpeaking = async () => {
+    setPhase('speaking')
+    setSpeakingTime(0)
+    chunksRef.current = []
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      mediaRef.current = recorder
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      recorder.start()
+      timerRef.current = setInterval(() => {
+        setSpeakingTime(t => t + 1)
+      }, 1000)
+    } catch {
+      setPhase('ready')
+    }
+  }
+
+  const stopSpeakingAndAnalyze = async () => {
+    clearTimer()
+    if (mediaRef.current) {
+      mediaRef.current.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const reader = new FileReader()
+        reader.readAsDataURL(blob)
+        reader.onloadend = async () => {
+          const base64 = reader.result.split(',')[1]
+          setAnalyzing(true)
+          try {
+            const r = await analyzeIeltsPart2(base64, card.topic, card.bullets)
+            setResult(r)
+            setPhase('done')
+          } catch (e) {
+            setAnalyzeError('AI 分析失败：' + e.message)
+            setPhase('done')
+          } finally {
+            setAnalyzing(false)
+          }
+        }
+      }
+      mediaRef.current.stop()
+      mediaRef.current.stream?.getTracks().forEach(t => t.stop())
+    }
+  }
+
+  useEffect(() => () => clearTimer(), [])
+
+  const reset = () => {
+    clearTimer()
+    setPhase('ready')
+    setResult(null)
+    setAnalyzeError('')
+    setSpeakingTime(0)
+    setCardIndex(Math.floor(Math.random() * IELTS_CARDS.length))
+  }
+
+  const dimLabels = { fluency_coherence: '流利连贯', lexical_resource: '词汇资源', grammar_accuracy: '语法准确', pronunciation: '发音' }
+  const dimColors = { fluency_coherence: '#e8672a', lexical_resource: '#3a9a5f', grammar_accuracy: '#7b5ea7', pronunciation: '#4a7a9b' }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ background: '#f0eeff', border: '1px solid #c8b8f0', borderRadius: 16, padding: '12px 16px' }}>
+        <p style={{ fontSize: 13, color: '#7b5ea7', lineHeight: 1.6 }}>
+          🎓 模拟雅思口语 Part 2：看题卡准备 1 分钟，然后独立发言 2 分钟，AI 按雅思四维度打分。
+        </p>
+      </div>
+
+      {/* 题卡 */}
+      <div style={{ background: '#fff', border: '2px solid #c8b8f0', borderRadius: 18, padding: '20px 22px' }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: '#9e998e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>IELTS Speaking Part 2 · Cue Card</p>
+        <p style={{ fontSize: 16, fontWeight: 700, color: '#0f0e0c', marginBottom: 14, lineHeight: 1.4 }}>{card.topic}</p>
+        <p style={{ fontSize: 12, fontWeight: 600, color: '#7b5ea7', marginBottom: 8 }}>You should say:</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 }}>
+          {card.bullets.map((b, i) => (
+            <p key={i} style={{ fontSize: 13, color: '#5c5850' }}>• {b}</p>
+          ))}
+        </div>
+      </div>
+
+      {/* 状态机 */}
+      {phase === 'ready' && (
+        <button onClick={startPrep} style={{
+          background: 'linear-gradient(135deg, #9b72d0, #7b5ea7)', color: '#fff',
+          border: 'none', borderRadius: 14, padding: '14px', fontSize: 15, fontWeight: 700,
+          cursor: 'pointer', boxShadow: '0 4px 14px rgba(123,94,167,0.32)',
+        }}>
+          开始准备（1分钟倒计时）
+        </button>
+      )}
+
+      {phase === 'prep' && (
+        <div style={{ textAlign: 'center', background: '#f0eeff', border: '1.5px solid #c8b8f0', borderRadius: 18, padding: '24px' }}>
+          <p style={{ fontSize: 13, color: '#7b5ea7', marginBottom: 8 }}>准备时间</p>
+          <p style={{ fontSize: 60, fontWeight: 800, color: countdown <= 10 ? '#dc2626' : '#7b5ea7', lineHeight: 1 }}>{countdown}</p>
+          <p style={{ fontSize: 12, color: '#9e998e', marginTop: 8 }}>思考你要说的内容…</p>
+          <button onClick={() => { clearTimer(); startSpeaking() }} style={{
+            marginTop: 16, padding: '8px 20px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+            background: '#fff', border: '1.5px solid #c8b8f0', color: '#7b5ea7', cursor: 'pointer',
+          }}>跳过准备，直接开始</button>
+        </div>
+      )}
+
+      {phase === 'speaking' && (
+        <div style={{ textAlign: 'center', background: '#fff3ee', border: '1.5px solid #f5c4a8', borderRadius: 18, padding: '24px' }}>
+          <p style={{ fontSize: 13, color: '#e8672a', marginBottom: 8 }}>🔴 录音中 — 正在发言</p>
+          <p style={{ fontSize: 48, fontWeight: 800, color: '#e8672a', lineHeight: 1 }}>
+            {Math.floor(speakingTime / 60)}:{String(speakingTime % 60).padStart(2, '0')}
+          </p>
+          <p style={{ fontSize: 12, color: '#9e998e', marginTop: 8 }}>建议发言约 2 分钟（{120 - speakingTime > 0 ? `还剩 ${120 - speakingTime}s` : '已超时，可随时停止'}）</p>
+          <button onClick={stopSpeakingAndAnalyze} style={{
+            marginTop: 16, background: '#dc2626', color: '#fff',
+            border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 14, fontWeight: 700,
+            cursor: 'pointer', boxShadow: '0 3px 10px rgba(220,38,38,0.3)',
+          }}>停止并分析</button>
+        </div>
+      )}
+
+      {(analyzing || (phase === 'done' && !result && !analyzeError)) && (
+        <div style={{ textAlign: 'center', padding: 24, color: '#7b5ea7' }}>
+          <span className="spin" style={{ display: 'inline-block', fontSize: 28 }}>⟳</span>
+          <p style={{ marginTop: 8, fontSize: 13 }}>雅思考官正在评分…</p>
+        </div>
+      )}
+
+      {analyzeError && (
+        <div style={{ background: '#fdf0f0', border: '1px solid #f5b0b0', borderRadius: 12, padding: '12px 16px', fontSize: 13, color: '#d94040' }}>
+          {analyzeError}
+        </div>
+      )}
+
+      {phase === 'done' && result && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} className="fade-in">
+          {/* 总分 */}
+          <div style={{ background: '#f0eeff', border: '2px solid #c8b8f0', borderRadius: 18, padding: '20px', textAlign: 'center' }}>
+            <p style={{ fontSize: 12, color: '#9b7ec8', fontWeight: 700, marginBottom: 6 }}>雅思口语 Part 2 综合得分</p>
+            <p style={{ fontSize: 64, fontWeight: 800, color: '#7b5ea7', lineHeight: 1 }}>{result.overall_band}</p>
+            <p style={{ fontSize: 11, color: '#9e998e', marginTop: 4 }}>满分 9.0 分</p>
+          </div>
+
+          {/* 四维度 */}
+          {result.dimension_scores && (
+            <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 16, padding: '16px 18px' }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#5c5850', marginBottom: 12 }}>四维度评分（满分 9.0）</p>
+              {Object.entries(result.dimension_scores).map(([key, val]) => (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: '#7a7870', width: 56, flexShrink: 0 }}>{dimLabels[key]}</span>
+                  <div style={{ flex: 1, height: 8, background: '#f0ede6', borderRadius: 6, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(val / 9) * 100}%`, background: dimColors[key], borderRadius: 6, transition: 'width 1s ease-out' }} />
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: dimColors[key], width: 28, textAlign: 'right', flexShrink: 0 }}>{val}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 亮点 */}
+          {result.strengths?.length > 0 && (
+            <div style={{ background: '#eaf5ef', border: '1px solid #b8dca8', borderRadius: 14, padding: '14px 16px' }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#3a9a5f', marginBottom: 8 }}>✅ 你做得好的地方</p>
+              {result.strengths.map((s, i) => <p key={i} style={{ fontSize: 13, color: '#2d7a50', marginBottom: 4 }}>• {s}</p>)}
+            </div>
+          )}
+
+          {/* 改进建议 */}
+          {result.improvements?.length > 0 && (
+            <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 14, padding: '14px 16px' }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#5c5850', marginBottom: 10 }}>📈 提升建议</p>
+              {result.improvements.map((item, i) => (
+                <div key={i} style={{ borderLeft: '3px solid #c8b8f0', paddingLeft: 12, marginBottom: 12 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#7b5ea7', marginBottom: 3 }}>{item.dimension}</p>
+                  <p style={{ fontSize: 13, color: '#0f0e0c', marginBottom: 4 }}>{item.issue}</p>
+                  <p style={{ fontSize: 12, color: '#3a9a5f', marginBottom: 4 }}>💡 {item.suggestion}</p>
+                  {item.example && <p style={{ fontSize: 12, color: '#7b5ea7', fontStyle: 'italic' }}>示例：{item.example}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 提升0.5分关键提示 */}
+          {result.band_up_tip && (
+            <div style={{ background: '#fffbea', border: '1.5px solid #f0d060', borderRadius: 14, padding: '12px 16px' }}>
+              <p style={{ fontSize: 13, color: '#7a5c00', fontWeight: 600 }}>🎯 冲分关键：{result.band_up_tip}</p>
+            </div>
+          )}
+
+          {result.voice_script && (
+            <div style={{ textAlign: 'right' }}>
+              <button onClick={() => speakMultilingual(result.voice_script)} style={{ fontSize: 13, color: '#7b5ea7', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                🔊 听考官点评
+              </button>
+            </div>
+          )}
+
+          <button onClick={reset} style={{
+            background: 'linear-gradient(135deg, #9b72d0, #7b5ea7)', color: '#fff',
+            border: 'none', borderRadius: 14, padding: '13px', fontSize: 14, fontWeight: 700,
+            cursor: 'pointer',
+          }}>换题再练 🔄</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const TABS = [
   ['free', '🎤 录音'],
   ['grammar', '📝 语法'],
   ['listening', '🎧 听力'],
   ['tech', '💻 编程'],
   ['snap', '📸 随拍'],
+  ['cuecard', '🎓 雅思'],
 ]
 
 const Speaking = () => {
@@ -680,6 +949,7 @@ const Speaking = () => {
       {mode === 'listening' && <ListeningTab />}
       {mode === 'tech' && <TechTab />}
       {mode === 'snap' && <SnapTab />}
+      {mode === 'cuecard' && <CueCardTab />}
     </div>
   )
 }

@@ -35,6 +35,36 @@ const MiniScoreChart = ({ history }) => {
   )
 }
 
+const DimensionBars = ({ scores }) => {
+  if (!scores) return null
+  const dims = [
+    { key: 'pronunciation', label: '发音准确', color: '#e8672a' },
+    { key: 'fluency',       label: '流利连贯', color: '#3a9a5f' },
+    { key: 'stress',        label: '重音节奏', color: '#7b5ea7' },
+    { key: 'intonation',    label: '语调自然', color: '#4a7a9b' },
+  ]
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+      {dims.map(d => {
+        const val = scores[d.key] ?? 0
+        return (
+          <div key={d.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: '#7a7870', width: 52, flexShrink: 0 }}>{d.label}</span>
+            <div style={{ flex: 1, height: 8, background: '#f0ede6', borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', width: `${val}%`, borderRadius: 6,
+                background: d.color,
+                transition: 'width 1s ease-out',
+              }} />
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: d.color, width: 28, textAlign: 'right', flexShrink: 0 }}>{val}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 const ScoreRing = ({ score }) => {
   const r = 32
   const circ = 2 * Math.PI * r
@@ -452,14 +482,42 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
             onRestart={handleRestart}
           />
 
-          {/* 总评分 */}
-          <Card style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <ScoreRing score={result.overall_score} />
-            <div>
-              <p style={{ fontSize: 11, color: '#7a7870', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>发音评分</p>
-              <p style={{ fontSize: 14, color: '#1a1917', lineHeight: 1.5 }}>{result.positive_feedback}</p>
+          {/* 总评分 + 4维度 */}
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <ScoreRing score={result.overall_score} />
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 11, color: '#7a7870', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>综合发音评分</p>
+                <p style={{ fontSize: 14, color: '#1a1917', lineHeight: 1.5 }}>{result.positive_feedback}</p>
+              </div>
             </div>
+            <DimensionBars scores={result.dimension_scores} />
           </Card>
+
+          {/* 对比听 */}
+          {audioUrl && (
+            <div style={{ background: '#f5f3ef', border: '1px solid #e5e1d8', borderRadius: 14, padding: '14px 16px' }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#5c5850', marginBottom: 10 }}>🎧 对比听——你的录音 vs 示范发音</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 11, color: '#7a7870', width: 56, flexShrink: 0 }}>你的录音</span>
+                  <audio src={audioUrl} controls style={{ flex: 1, height: 32 }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 11, color: '#7a7870', width: 56, flexShrink: 0 }}>示范发音</span>
+                  <button onClick={handleTargetSpeak} style={{
+                    flex: 1, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    background: activeDemo === 'target' ? '#fef0ea' : '#fff',
+                    border: `1.5px solid ${activeDemo === 'target' ? '#f5c4a8' : '#dedad0'}`,
+                    color: activeDemo === 'target' ? '#d97757' : '#5c5850',
+                    cursor: 'pointer', textAlign: 'left',
+                  }}>
+                    {activeDemo === 'target' ? (demoPaused ? '▶ 继续播放' : '⏸ 暂停') : '🔊 播放示范音频'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 具体问题 */}
           {result.pronunciation_issues?.length > 0 && (

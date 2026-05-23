@@ -45,7 +45,13 @@ export const analyzePronunciation = async (audioBase64, targetText) => {
 
 请分析这段录音的发音质量，只输出 JSON，不要有任何额外文字：
 {
-  "overall_score": 0到100的整数,
+  "overall_score": 0到100的整数（综合评分）,
+  "dimension_scores": {
+    "pronunciation": 0到100的整数（单音发音准确度：元音/辅音/音标是否准确）,
+    "fluency": 0到100的整数（流利连贯度：是否有明显停顿/结巴/过于缓慢）,
+    "stress": 0到100的整数（重音节奏：单词重音和句子重音是否正确）,
+    "intonation": 0到100的整数（语调：句末升降调是否合适，语调是否自然）
+  },
   "pronunciation_issues": [
     {
       "word": "发音有问题的单词",
@@ -169,6 +175,51 @@ export const generateListeningExercise = async () => {
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('AI 返回格式异常')
   return JSON.parse(match[0])
+}
+
+export const analyzeIeltsPart2 = async (audioBase64, topic, bulletPoints) => {
+  const prompt = `你是一位经验丰富的雅思口语考官，现在正在评估一位中文母语学习者的雅思口语 Part 2 作答。
+
+题卡话题：${topic}
+题卡要点：${bulletPoints.join('；')}
+
+请根据雅思口语四大评分维度分析这段录音，只输出 JSON，不要有任何额外文字：
+{
+  "overall_band": 数字（0.5步进的雅思分段，如5.0/5.5/6.0/6.5/7.0，不要超过9.0）,
+  "dimension_scores": {
+    "fluency_coherence": 数字（流利度与连贯性，0-9，0.5步进）,
+    "lexical_resource": 数字（词汇资源，0-9，0.5步进）,
+    "grammar_accuracy": 数字（语法广度与准确性，0-9，0.5步进）,
+    "pronunciation": 数字（发音，0-9，0.5步进）
+  },
+  "strengths": ["说得好的地方（中文，2-3条）"],
+  "improvements": [
+    {
+      "dimension": "流利度/词汇/语法/发音（选一个）",
+      "issue": "具体问题（中文）",
+      "suggestion": "改进建议（中文，具体可操作）",
+      "example": "用更好的英文表达方式举例"
+    }
+  ],
+  "band_up_tip": "如何提升0.5分的最关键建议（中文，一句话，非常具体）",
+  "voice_script": "用中文写3-4句口语化考官点评，遇到英文示范时直接嵌入英文词，供 speakMultilingual 朗读。全中文，示范时插英文，不整句英文。"
+}`
+  const raw = await callGemini([
+    { text: prompt },
+    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+  ])
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('AI 返回格式异常，请重试')
+  return JSON.parse(match[0])
+}
+
+export const transcribeSpeech = async (audioBase64) => {
+  const prompt = `请将这段英文语音准确转写为文字。只输出转写的英文文本，不要加任何解释、标点符号说明或额外内容。如果识别不到任何语音，返回空字符串。`
+  const raw = await callGemini([
+    { text: prompt },
+    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+  ])
+  return raw.trim()
 }
 
 export const expandVocabulary = async (word, context = '') => {

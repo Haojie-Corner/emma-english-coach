@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getIntonationLesson, intonationLessons } from '../../data/intonation'
+import useStudyTimer from '../../hooks/useStudyTimer'
 import AudioRecorder from '../../components/AudioRecorder'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -71,6 +72,7 @@ const ItemCard = ({ item, lessonTitle }) => {
 }
 
 const IntonationLesson = () => {
+  useStudyTimer()
   const { lessonId } = useParams()
   const navigate = useNavigate()
   const { user } = useUserStore()
