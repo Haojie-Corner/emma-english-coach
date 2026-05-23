@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AudioRecorder from '../../components/AudioRecorder'
 import { correctGrammar, explainTechEnglish } from '../../services/deepseek'
-import { analyzeImage, expandVocabulary, generateListeningExercise, analyzeIeltsPart2 } from '../../services/gemini'
+import { analyzeImage, expandVocabulary, generateListeningExercise, analyzeIeltsPart2, analyzeIeltsPart1 } from '../../services/gemini'
 import VocabChip from '../../components/ui/VocabChip'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -876,13 +876,455 @@ const CueCardTab = () => {
   )
 }
 
+// ─── 听写练习 ────────────────────────────────────────────────────────────
+const DICTATION_SENTENCES = [
+  { text: 'She works at a hospital.', zh: '她在医院工作。', level: '入门' },
+  { text: 'I like to eat pizza on weekends.', zh: '我喜欢周末吃披萨。', level: '入门' },
+  { text: 'What time does the bus leave?', zh: '公共汽车几点出发？', level: '入门' },
+  { text: 'He has been studying English for two years.', zh: '他已经学英语两年了。', level: '初级' },
+  { text: 'Could you please help me find the nearest subway station?', zh: '您能帮我找到最近的地铁站吗？', level: '初级' },
+  { text: 'I need to finish this report before the deadline.', zh: '我需要在截止日期前完成这份报告。', level: '初级' },
+  { text: 'The weather forecast says it will rain tomorrow morning.', zh: '天气预报说明天早上会下雨。', level: '初级' },
+  { text: 'She decided to change her career after working in finance for ten years.', zh: '她在金融行业工作十年后决定转行。', level: '中级' },
+  { text: 'Despite the heavy traffic, we managed to arrive at the airport on time.', zh: '尽管交通拥堵，我们还是准时到达了机场。', level: '中级' },
+  { text: 'Technology has significantly changed the way we communicate with each other.', zh: '技术极大地改变了我们相互交流的方式。', level: '中级' },
+  { text: 'The government is implementing new policies to reduce carbon emissions.', zh: '政府正在实施新政策以减少碳排放。', level: '中级' },
+  { text: 'In my opinion, maintaining a healthy work-life balance is essential for long-term success.', zh: '在我看来，保持健康的工作生活平衡对长期成功至关重要。', level: '进阶' },
+  { text: 'The research indicates that regular exercise can significantly improve mental health outcomes.', zh: '研究表明，定期锻炼可以显著改善心理健康状况。', level: '进阶' },
+  { text: 'Although she had little experience, her enthusiasm and dedication impressed the entire team.', zh: '尽管她经验不足，但她的热情和奉献精神给整个团队留下了深刻印象。', level: '进阶' },
+  { text: 'The economic downturn has forced many companies to reconsider their expansion strategies.', zh: '经济低迷迫使许多公司重新考虑其扩张战略。', level: '进阶' },
+  { text: 'Can I have a coffee, please?', zh: '请给我一杯咖啡好吗？', level: '入门' },
+  { text: 'My name is David and I am from Canada.', zh: '我叫大卫，来自加拿大。', level: '入门' },
+  { text: 'She forgot to bring her umbrella and got wet in the rain.', zh: '她忘了带伞，被雨淋湿了。', level: '初级' },
+  { text: 'Learning a new language requires patience and consistent practice every day.', zh: '学习一门新语言需要耐心和每天坚持不懈的练习。', level: '中级' },
+  { text: 'The conference will bring together experts from various fields to discuss climate change.', zh: '本次会议将汇聚来自各领域的专家，讨论气候变化问题。', level: '进阶' },
+]
+
+const LEVEL_COLOR = { '入门': '#5a8c4a', '初级': '#e8672a', '中级': '#7b5ea7', '进阶': '#d94040' }
+const LEVEL_BG = { '入门': '#eaf5ef', '初级': '#fff3ee', '中级': '#f3eeff', '进阶': '#fdf0f0' }
+
+const scoreWords = (input, target) => {
+  const normalize = s => s.toLowerCase().replace(/[^a-z\s]/g, '').trim()
+  const inputWords = normalize(input).split(/\s+/).filter(Boolean)
+  const targetWords = normalize(target).split(/\s+/).filter(Boolean)
+  let correct = 0
+  const result = targetWords.map(word => {
+    const idx = inputWords.indexOf(word)
+    if (idx !== -1) { inputWords.splice(idx, 1); correct++; return { word, ok: true } }
+    return { word, ok: false }
+  })
+  return { result, score: Math.round((correct / targetWords.length) * 100) }
+}
+
+const DictationTab = () => {
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * DICTATION_SENTENCES.length))
+  const [input, setInput] = useState('')
+  const [checked, setChecked] = useState(false)
+  const [scoreResult, setScoreResult] = useState(null)
+  const [playCount, setPlayCount] = useState(0)
+  const [levelFilter, setLevelFilter] = useState('全部')
+
+  const filtered = levelFilter === '全部' ? DICTATION_SENTENCES
+    : DICTATION_SENTENCES.filter(s => s.level === levelFilter)
+  const sentence = filtered[index % filtered.length]
+
+  const handlePlay = () => {
+    speak(sentence.text, 0.85)
+    setPlayCount(c => c + 1)
+  }
+
+  const handleCheck = () => {
+    if (!input.trim()) return
+    setScoreResult(scoreWords(input, sentence.text))
+    setChecked(true)
+  }
+
+  const handleNext = () => {
+    setIndex(i => (i + 1) % filtered.length)
+    setInput('')
+    setChecked(false)
+    setScoreResult(null)
+    setPlayCount(0)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ background: '#f0f5fb', border: '1px solid #b8d8f0', borderRadius: 16, padding: '12px 16px' }}>
+        <p style={{ fontSize: 13, color: '#4a7a9b' }}>
+          ✍️ 听一遍英文，把你听到的打出来。训练听力+拼写+发音三合一，是雅思备考最有效的方式之一。
+        </p>
+      </div>
+
+      {/* 难度筛选 */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {['全部', '入门', '初级', '中级', '进阶'].map(lv => (
+          <button key={lv} onClick={() => { setLevelFilter(lv); setIndex(0); setInput(''); setChecked(false); setScoreResult(null); setPlayCount(0) }} style={{
+            padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+            border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            background: levelFilter === lv ? '#0f0e0c' : '#f0ede6',
+            color: levelFilter === lv ? '#fff' : '#5c5850',
+          }}>{lv}</button>
+        ))}
+      </div>
+
+      {/* 题目卡 */}
+      <div style={{ background: '#fff', border: '1.5px solid #e5e1d8', borderRadius: 18, padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+            color: LEVEL_COLOR[sentence.level], background: LEVEL_BG[sentence.level],
+          }}>{sentence.level}</span>
+          <span style={{ fontSize: 12, color: '#9e998e' }}>第 {(index % filtered.length) + 1} / {filtered.length} 句</span>
+        </div>
+
+        {/* 播放按钮 */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <button onClick={handlePlay} style={{
+            flex: 1, padding: '14px', borderRadius: 14,
+            background: 'linear-gradient(135deg, #f28040, #e05020)',
+            color: '#fff', border: 'none', fontSize: 15, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: '0 3px 12px rgba(232,103,42,0.28)',
+          }}>
+            {playCount === 0 ? '▶ 播放音频' : '🔁 再听一遍'}
+          </button>
+          {playCount > 0 && (
+            <button onClick={() => speak(sentence.text, 0.65)} style={{
+              padding: '14px 16px', borderRadius: 14, background: '#f0ede6',
+              color: '#5c5850', border: 'none', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>🐢 慢速</button>
+          )}
+        </div>
+
+        {/* 输入框 */}
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder={playCount === 0 ? '先播放音频，再输入你听到的内容…' : '把你听到的英文打在这里…'}
+          disabled={checked}
+          rows={3}
+          style={{
+            width: '100%', background: checked ? '#faf9f5' : '#f5f3ef',
+            border: `1.5px solid ${checked ? '#e5e1d8' : '#dedad0'}`,
+            borderRadius: 14, padding: '12px 16px', fontSize: 14, color: '#0f0e0c',
+            outline: 'none', boxSizing: 'border-box', resize: 'none', fontFamily: 'inherit',
+          }}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !checked) { e.preventDefault(); handleCheck() } }}
+        />
+
+        {/* 检查按钮 */}
+        {!checked && (
+          <button onClick={handleCheck} disabled={!input.trim() || playCount === 0} style={{
+            marginTop: 10, width: '100%', padding: '13px', borderRadius: 14,
+            background: (!input.trim() || playCount === 0) ? '#e5e1d8' : '#0f0e0c',
+            color: (!input.trim() || playCount === 0) ? '#9e998e' : '#fff',
+            border: 'none', fontSize: 14, fontWeight: 700,
+            cursor: (!input.trim() || playCount === 0) ? 'default' : 'pointer', fontFamily: 'inherit',
+          }}>检查答案</button>
+        )}
+
+        {/* 结果 */}
+        {checked && scoreResult && (
+          <div className="fade-in" style={{ marginTop: 14 }}>
+            {/* 分数 */}
+            <div style={{ textAlign: 'center', marginBottom: 14 }}>
+              <p style={{ fontSize: 42, fontWeight: 800, color: scoreResult.score >= 90 ? '#3a9a5f' : scoreResult.score >= 60 ? '#e8672a' : '#d94040', lineHeight: 1 }}>
+                {scoreResult.score}
+              </p>
+              <p style={{ fontSize: 12, color: '#9e998e', marginTop: 4 }}>
+                {scoreResult.score === 100 ? '完美！🎉' : scoreResult.score >= 80 ? '很棒！继续 💪' : scoreResult.score >= 60 ? '不错，再练一次 🔁' : '多听几遍，慢慢来 🐢'}
+              </p>
+            </div>
+
+            {/* 逐词对比 */}
+            <div style={{ background: '#f5f3ef', borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
+              <p style={{ fontSize: 11, color: '#9e998e', marginBottom: 8 }}>逐词对比</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {scoreResult.result.map((item, i) => (
+                  <span key={i} style={{
+                    padding: '3px 10px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+                    background: item.ok ? '#eaf5ef' : '#fdf0f0',
+                    color: item.ok ? '#3a9a5f' : '#d94040',
+                  }}>{item.word}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* 正确答案 */}
+            <div style={{ background: '#eaf5ef', border: '1px solid #c4ddb0', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+              <p style={{ fontSize: 11, color: '#5a8c4a', fontWeight: 700, marginBottom: 4 }}>✅ 正确答案</p>
+              <p style={{ fontSize: 14, color: '#0f0e0c', fontWeight: 600 }}>{sentence.text}</p>
+              <p style={{ fontSize: 12, color: '#5c5850', marginTop: 4 }}>{sentence.zh}</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={handlePlay} style={{
+                flex: 1, padding: '12px', borderRadius: 12, background: '#f0ede6',
+                color: '#5c5850', border: 'none', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>🔁 再听一遍</button>
+              <button onClick={handleNext} style={{
+                flex: 2, padding: '12px', borderRadius: 12,
+                background: 'linear-gradient(135deg, #f28040, #e05020)',
+                color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+                boxShadow: '0 3px 10px rgba(232,103,42,0.28)',
+              }}>下一句 →</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── 雅思口语 Part 1 ─────────────────────────────────────────────────────
+const PART1_TOPICS = [
+  { category: '个人信息', questions: ['Can you tell me your name and where you\'re from?', 'Do you work or study? What do you do?', 'Where do you live now? Do you like it there?'] },
+  { category: '家庭', questions: ['Do you have a large family or a small family?', 'How much time do you spend with your family?', 'What do you usually do together as a family?'] },
+  { category: '爱好', questions: ['What do you like to do in your free time?', 'Have your hobbies changed since you were a child?', 'Is there a hobby you\'ve always wanted to try?'] },
+  { category: '饮食', questions: ['What\'s your favourite food?', 'Do you prefer eating at home or at a restaurant? Why?', 'Do you think people eat healthily in your country?'] },
+  { category: '旅行', questions: ['Do you like travelling? Why or why not?', 'What\'s the most interesting place you\'ve visited?', 'Do you prefer travelling alone or with others?'] },
+  { category: '科技', questions: ['How often do you use your phone? What for?', 'Do you think technology has made our lives better or worse?', 'What\'s your favourite app and why?'] },
+  { category: '学习', questions: ['Did you enjoy school when you were a child?', 'What subject did you like most at school?', 'Do you prefer studying alone or with others?'] },
+  { category: '运动', questions: ['Do you do any sports or physical exercise?', 'Did you play any sports as a child?', 'Do you think sport is important? Why?'] },
+  { category: '天气', questions: ['What\'s the weather like where you live?', 'What\'s your favourite season and why?', 'Does the weather affect your mood?'] },
+  { category: '音乐', questions: ['Do you like music? What kind?', 'Do you play a musical instrument?', 'When do you usually listen to music?'] },
+]
+
+const DIM_LABELS_P1 = [
+  { key: 'fluency_coherence', label: '流利连贯', color: '#3a9a5f' },
+  { key: 'lexical_resource', label: '词汇丰富', color: '#e8672a' },
+  { key: 'grammar_accuracy', label: '语法准确', color: '#7b5ea7' },
+  { key: 'pronunciation', label: '发音', color: '#4a7a9b' },
+]
+
+const Part1Tab = () => {
+  const { user } = useUserStore()
+  const [topicIndex, setTopicIndex] = useState(0)
+  const [qIndex, setQIndex] = useState(0)
+  const [phase, setPhase] = useState('ready') // ready | recording | analyzing | done
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+  const recorderRef = useRef(null)
+  const chunksRef = useRef([])
+  const mediaRef = useRef(null)
+
+  const topic = PART1_TOPICS[topicIndex]
+  const question = topic.questions[qIndex]
+
+  const startRecording = async () => {
+    chunksRef.current = []
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaRef.current = stream
+      const recorder = new MediaRecorder(stream)
+      recorderRef.current = recorder
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        setPhase('analyzing')
+        try {
+          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+          const base64 = await new Promise((res, rej) => {
+            const reader = new FileReader()
+            reader.onload = () => res(reader.result.split(',')[1])
+            reader.onerror = rej
+            reader.readAsDataURL(blob)
+          })
+          const data = await analyzeIeltsPart1(base64, question)
+          setResult(data)
+          setPhase('done')
+          if (data.voice_script) speakMultilingual(data.voice_script)
+        } catch (e) {
+          setError('分析失败：' + e.message)
+          setPhase('ready')
+        }
+      }
+      recorder.start()
+      setPhase('recording')
+    } catch {
+      setError('无法访问麦克风，请检查权限')
+    }
+  }
+
+  const stopRecording = () => {
+    recorderRef.current?.stop()
+  }
+
+  const handleNext = () => {
+    const nextQ = qIndex + 1
+    if (nextQ < topic.questions.length) {
+      setQIndex(nextQ)
+    } else {
+      setTopicIndex(i => (i + 1) % PART1_TOPICS.length)
+      setQIndex(0)
+    }
+    setPhase('ready')
+    setResult(null)
+    setError('')
+  }
+
+  const bandColor = (band) => band >= 7 ? '#3a9a5f' : band >= 5.5 ? '#e8672a' : '#d94040'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ background: '#f3eeff', border: '1px solid #d0c8f0', borderRadius: 16, padding: '12px 16px' }}>
+        <p style={{ fontSize: 13, color: '#7b5ea7' }}>
+          🎓 随机抽取雅思 Part 1 常见问题，录音作答，AI 给出 Band Score 和改进建议。Part 1 占总口语时长 4-5 分钟。
+        </p>
+      </div>
+
+      {/* 话题选择 */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
+        {PART1_TOPICS.map((t, i) => (
+          <button key={i} onClick={() => { setTopicIndex(i); setQIndex(0); setPhase('ready'); setResult(null); setError('') }} style={{
+            flexShrink: 0, padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+            border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+            background: topicIndex === i ? '#7b5ea7' : '#f0ede6',
+            color: topicIndex === i ? '#fff' : '#5c5850',
+          }}>{t.category}</button>
+        ))}
+      </div>
+
+      {/* 问题卡 */}
+      <div style={{ background: '#fff', border: '1.5px solid #e5e1d8', borderRadius: 18, padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#7b5ea7', background: '#f3eeff', padding: '3px 10px', borderRadius: 20 }}>
+            {topic.category} — Part 1
+          </span>
+          <span style={{ fontSize: 12, color: '#9e998e' }}>第 {qIndex + 1} / {topic.questions.length} 题</span>
+        </div>
+
+        {/* 朗读问题 */}
+        <div style={{ background: '#f5f3ef', borderRadius: 14, padding: '16px', marginBottom: 16, cursor: 'pointer' }}
+          onClick={() => speak(question)}>
+          <p style={{ fontSize: 16, color: '#0f0e0c', fontWeight: 600, lineHeight: 1.6 }}>{question}</p>
+          <p style={{ fontSize: 11, color: '#9e998e', marginTop: 6 }}>🔊 点击听题目读音</p>
+        </div>
+
+        {/* 录音控制 */}
+        {phase === 'ready' && (
+          <button onClick={startRecording} style={{
+            width: '100%', padding: '14px', borderRadius: 14,
+            background: 'linear-gradient(135deg, #f28040, #e05020)',
+            color: '#fff', border: 'none', fontSize: 15, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: '0 3px 12px rgba(232,103,42,0.28)',
+          }}>🎤 开始回答</button>
+        )}
+
+        {phase === 'recording' && (
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontSize: 13, color: '#d94040', fontWeight: 700, marginBottom: 12 }} className="recording-pulse">
+              ● 正在录音… 说完后点击停止
+            </p>
+            <button onClick={stopRecording} style={{
+              width: '100%', padding: '14px', borderRadius: 14,
+              background: '#d94040', color: '#fff', border: 'none',
+              fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            }}>⏹ 停止录音</button>
+          </div>
+        )}
+
+        {phase === 'analyzing' && (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <p className="spin" style={{ fontSize: 32, display: 'inline-block' }}>🤔</p>
+            <p style={{ fontSize: 13, color: '#9e998e', marginTop: 8 }}>AI 考官正在评分…</p>
+          </div>
+        )}
+
+        {error && <p style={{ color: '#d94040', fontSize: 13, marginTop: 8 }}>{error}</p>}
+      </div>
+
+      {/* 结果 */}
+      {phase === 'done' && result && (
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Band Score */}
+          <div style={{ background: '#fff', border: '1.5px solid #e5e1d8', borderRadius: 18, padding: '20px', textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+            <p style={{ fontSize: 12, color: '#9e998e', marginBottom: 8 }}>雅思口语 Band Score</p>
+            <p style={{ fontSize: 56, fontWeight: 800, color: bandColor(result.overall_band), lineHeight: 1 }}>{result.overall_band}</p>
+            {result.what_you_said && <p style={{ fontSize: 13, color: '#5c5850', marginTop: 8 }}>💬 {result.what_you_said}</p>}
+
+            {/* 4维度 */}
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {DIM_LABELS_P1.map(({ key, label, color }) => {
+                const val = result.dimension_scores?.[key] ?? 0
+                return (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 12, color: '#5c5850', width: 56, textAlign: 'right', flexShrink: 0 }}>{label}</span>
+                    <div style={{ flex: 1, background: '#f0ede6', borderRadius: 6, height: 8, overflow: 'hidden' }}>
+                      <div style={{ width: `${(val / 9) * 100}%`, background: color, height: '100%', borderRadius: 6, transition: 'width 0.6s ease' }} />
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color, width: 28, textAlign: 'left', flexShrink: 0 }}>{val}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 亮点 */}
+          {result.strengths?.length > 0 && (
+            <div style={{ background: '#eaf5ef', border: '1px solid #c4ddb0', borderRadius: 14, padding: '14px 16px' }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#3a9a5f', marginBottom: 8 }}>✅ 做得好</p>
+              {result.strengths.map((s, i) => <p key={i} style={{ fontSize: 13, color: '#0f0e0c', lineHeight: 1.5 }}>· {s}</p>)}
+            </div>
+          )}
+
+          {/* 改进建议 */}
+          {result.improvements?.length > 0 && (
+            <div style={{ background: '#fff', border: '1.5px solid #e5e1d8', borderRadius: 14, padding: '14px 16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#0f0e0c', marginBottom: 10 }}>📈 改进建议</p>
+              {result.improvements.map((imp, i) => (
+                <div key={i} style={{ borderLeft: '3px solid #7b5ea7', paddingLeft: 10, marginBottom: 10 }}>
+                  <p style={{ fontSize: 13, color: '#0f0e0c', fontWeight: 600 }}>{imp.issue}</p>
+                  <p style={{ fontSize: 12, color: '#5c5850', marginTop: 2 }}>{imp.suggestion}</p>
+                  {imp.example && <p style={{ fontSize: 12, color: '#7b5ea7', marginTop: 4, fontStyle: 'italic' }}>→ "{imp.example}"</p>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 提分秘诀 */}
+          {result.band_up_tip && (
+            <div style={{ background: '#fdf6e3', border: '1px solid #f0d080', borderRadius: 14, padding: '12px 16px' }}>
+              <p style={{ fontSize: 13, color: '#7a6000' }}>⭐ 提升关键：{result.band_up_tip}</p>
+            </div>
+          )}
+
+          {/* 按钮 */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            {result.voice_script && (
+              <button onClick={() => speakMultilingual(result.voice_script)} style={{
+                flex: 1, padding: '12px', borderRadius: 12, background: '#f0ede6',
+                color: '#5c5850', border: 'none', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>🔊 听点评</button>
+            )}
+            <button onClick={handleNext} style={{
+              flex: 2, padding: '12px', borderRadius: 12,
+              background: 'linear-gradient(135deg, #f28040, #e05020)',
+              color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 3px 10px rgba(232,103,42,0.25)',
+            }}>下一题 →</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const TABS = [
   ['free', '🎤 录音'],
   ['grammar', '📝 语法'],
+  ['dictation', '✍️ 听写'],
   ['listening', '🎧 听力'],
   ['tech', '💻 编程'],
   ['snap', '📸 随拍'],
-  ['cuecard', '🎓 雅思'],
+  ['part1', '🗣️ Part 1'],
+  ['cuecard', '🎓 Part 2'],
 ]
 
 const Speaking = () => {
@@ -896,7 +1338,7 @@ const Speaking = () => {
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>练习中心</h1>
-        <p style={{ fontSize: 13, color: '#9e998e' }}>口语录音 · 语法纠错 · 听力理解 · 编程英语 · 随拍识词</p>
+        <p style={{ fontSize: 13, color: '#9e998e' }}>口语录音 · 语法纠错 · 听写训练 · 雅思 Part 1/2 · 听力 · 编程 · 随拍</p>
       </div>
 
       {/* Tab 切换 */}
@@ -949,6 +1391,8 @@ const Speaking = () => {
       {mode === 'listening' && <ListeningTab />}
       {mode === 'tech' && <TechTab />}
       {mode === 'snap' && <SnapTab />}
+      {mode === 'dictation' && <DictationTab />}
+      {mode === 'part1' && <Part1Tab />}
       {mode === 'cuecard' && <CueCardTab />}
     </div>
   )

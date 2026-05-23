@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getScene, getAllScenes } from '../../data/scenes'
-import { chatWithScene } from '../../services/deepseek'
+import { chatWithScene, generateConvoReview } from '../../services/deepseek'
 import { saveConversation, getConversations, addVocabularyWord } from '../../services/supabase'
 import { expandVocabulary } from '../../services/gemini'
 import useUserStore from '../../store/userStore'
@@ -56,6 +56,8 @@ const SceneLesson = () => {
   const [loading, setLoading] = useState(false)
   const [started, setStarted] = useState(false)
   const [completed, setCompleted] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
+  const [review, setReview] = useState(null)
   const [roleSwitched, setRoleSwitched] = useState(false)
   const [speakingMsgId, setSpeakingMsgId] = useState(null)
   const [pastSessions, setPastSessions] = useState([])
@@ -125,6 +127,16 @@ const SceneLesson = () => {
     }
     stopSpeaking()
     setCompleted(true)
+    if (messages.length >= 4) {
+      setReviewing(true)
+      try {
+        const apiMsgs = messages.map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content }))
+        const raw = await generateConvoReview(apiMsgs, scene.title)
+        const match = raw.match(/\{[\s\S]*\}/)
+        if (match) setReview(JSON.parse(match[0]))
+      } catch { /* silently skip review */ }
+      finally { setReviewing(false) }
+    }
   }
 
   const myRole = roleSwitched ? scene.aiRole : scene.role
@@ -376,12 +388,86 @@ const SceneLesson = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 完成卡片 */}
+      {/* 完成卡片 + 复盘 */}
       {completed && (
-        <div style={{ background: '#eaf2e3', border: '1px solid #c4ddb0', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }} className="fade-in">
-          <p style={{ fontSize: 28, marginBottom: 8 }}>🎉</p>
-          <p className="font-title" style={{ fontSize: 16, color: '#5a7a3a', marginBottom: 6 }}>场景练习完成！</p>
-          <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 16 }}>很棒！继续练习其他场景，英文会越来越流利。</p>
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ background: '#eaf2e3', border: '1px solid #c4ddb0', borderRadius: 14, padding: '16px 20px', textAlign: 'center' }}>
+            <p style={{ fontSize: 24, marginBottom: 6 }}>🎉</p>
+            <p className="font-title" style={{ fontSize: 15, color: '#5a7a3a', marginBottom: 4 }}>场景练习完成！</p>
+            <p style={{ fontSize: 13, color: '#7a7870' }}>AI 正在为你生成本次对话复盘…</p>
+          </div>
+
+          {reviewing && (
+            <div style={{ textAlign: 'center', padding: '16px' }}>
+              <p className="spin" style={{ fontSize: 28, display: 'inline-block' }}>🤔</p>
+              <p style={{ fontSize: 13, color: '#9e998e', marginTop: 8 }}>AI 正在分析你的对话表现…</p>
+            </div>
+          )}
+
+          {review && !reviewing && (
+            <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* 综合得分 */}
+              <div style={{ background: '#fff', border: '1.5px solid #e5e1d8', borderRadius: 16, padding: '16px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <p style={{ fontSize: 12, color: '#9e998e', marginBottom: 8 }}>本次对话综合评分</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <p style={{ fontSize: 48, fontWeight: 800, color: review.overall_score >= 80 ? '#3a9a5f' : review.overall_score >= 60 ? '#e8672a' : '#d94040', lineHeight: 1 }}>
+                    {review.overall_score}
+                  </p>
+                  <div style={{ flex: 1 }}>
+                    {[
+                      { key: 'fluency', label: '流利度', color: '#3a9a5f' },
+                      { key: 'grammar', label: '语法', color: '#e8672a' },
+                      { key: 'vocabulary', label: '词汇', color: '#7b5ea7' },
+                      { key: 'communication', label: '沟通', color: '#4a7a9b' },
+                    ].map(({ key, label, color }) => {
+                      const val = review.dimension_scores?.[key] ?? 0
+                      return (
+                        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                          <span style={{ fontSize: 11, color: '#5c5850', width: 36, flexShrink: 0 }}>{label}</span>
+                          <div style={{ flex: 1, background: '#f0ede6', borderRadius: 4, height: 6, overflow: 'hidden' }}>
+                            <div style={{ width: `${val}%`, background: color, height: '100%', borderRadius: 4 }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color, width: 26, flexShrink: 0 }}>{val}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                {review.encouragement && <p style={{ fontSize: 13, color: '#5c5850', marginTop: 10 }}>💬 {review.encouragement}</p>}
+              </div>
+
+              {/* 亮点 */}
+              {review.strengths?.length > 0 && (
+                <div style={{ background: '#eaf5ef', border: '1px solid #c4ddb0', borderRadius: 14, padding: '12px 16px' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#3a9a5f', marginBottom: 8 }}>✅ 本次亮点</p>
+                  {review.strengths.map((s, i) => <p key={i} style={{ fontSize: 13, color: '#0f0e0c', lineHeight: 1.5 }}>· {s}</p>)}
+                </div>
+              )}
+
+              {/* Top 3 问题 */}
+              {review.top3_issues?.length > 0 && (
+                <div style={{ background: '#fff', border: '1.5px solid #e5e1d8', borderRadius: 14, padding: '12px 16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#0f0e0c', marginBottom: 10 }}>📈 需要改进的3个点</p>
+                  {review.top3_issues.map((issue, i) => (
+                    <div key={i} style={{ borderLeft: '3px solid #e8672a', paddingLeft: 10, marginBottom: 10 }}>
+                      <p style={{ fontSize: 13, color: '#0f0e0c', fontWeight: 600 }}>{issue.issue}</p>
+                      {issue.example && <p style={{ fontSize: 12, color: '#d94040', marginTop: 2, fontStyle: 'italic' }}>原句："{issue.example}"</p>}
+                      {issue.fix && <p style={{ fontSize: 12, color: '#3a9a5f', marginTop: 2 }}>→ 更好："{issue.fix}"</p>}
+                      {issue.tip && <p style={{ fontSize: 12, color: '#5c5850', marginTop: 2 }}>{issue.tip}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 下一步 */}
+              {review.next_step && (
+                <div style={{ background: '#fdf6e3', border: '1px solid #f0d080', borderRadius: 14, padding: '12px 16px' }}>
+                  <p style={{ fontSize: 13, color: '#7a6000' }}>⭐ 下一步建议：{review.next_step}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
             <Button onClick={() => navigate('/course/scenes')}>查看全部场景</Button>
             <Button variant="secondary" onClick={() => navigate('/dashboard')}>返回首页</Button>

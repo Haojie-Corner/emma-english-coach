@@ -237,3 +237,44 @@ export const expandVocabulary = async (word, context = '') => {
   if (!match) throw new Error('AI 返回格式异常')
   return JSON.parse(match[0])
 }
+
+export const analyzeIeltsPart1 = async (audioBase64, question) => {
+  const prompt = `你是一位专业雅思口语考官，正在评估考生回答 Part 1 问题的表现。
+
+问题：${question}
+
+请从以下4个维度评分（每项0-9分，可用0.5步进）：
+- 流利度与连贯性（Fluency & Coherence）：语速是否自然、是否卡顿、是否有逻辑
+- 词汇丰富程度（Lexical Resource）：用词是否多样准确，有无地道表达
+- 语法范围与准确性（Grammatical Range & Accuracy）：句式是否多样，有无明显语法错误
+- 发音（Pronunciation）：是否清晰易懂，语调自然
+
+只输出 JSON：
+{
+  "overall_band": 综合分（0-9的数字，可用0.5步进，如6.5）,
+  "dimension_scores": {
+    "fluency_coherence": 0-9的数字,
+    "lexical_resource": 0-9的数字,
+    "grammar_accuracy": 0-9的数字,
+    "pronunciation": 0-9的数字
+  },
+  "what_you_said": "简短总结考生回答的内容要点（中文，30字内）",
+  "strengths": ["做得好的具体点1（中文）", "做得好的具体点2（中文）"],
+  "improvements": [
+    {
+      "issue": "问题描述（中文，15字内）",
+      "suggestion": "改进建议（中文，20字内）",
+      "example": "更好的英文表达示例"
+    }
+  ],
+  "band_up_tip": "提升0.5分的最关键一个建议（中文，25字内）",
+  "voice_script": "用中文写2句老师点评口播，遇到英文示范时直接嵌入英文词，供speakMultilingual朗读"
+}`
+  const raw = await callGemini([
+    { text: prompt },
+    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+  ])
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('AI 返回格式异常')
+  return JSON.parse(match[0])
+}

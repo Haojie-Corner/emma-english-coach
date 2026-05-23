@@ -204,6 +204,41 @@ export const rateSentence = async (word, sentence) => {
   return callDeepSeek([{ role: 'user', content: `目标单词：${word}\n学生造句：${sentence}` }], systemPrompt)
 }
 
+export const generateConvoReview = async (messages, sceneName) => {
+  const dialogue = messages
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .map(m => `${m.role === 'user' ? '学生' : 'AI'}：${m.content.slice(0, 200)}`)
+    .join('\n')
+
+  const systemPrompt = `你是一位英语口语教练，负责对一段练习对话做整体复盘评估。
+场景：${sceneName}
+对话记录：
+${dialogue}
+
+请从口语练习角度进行综合评价。只输出 JSON：
+{
+  "overall_score": 0-100的整数（综合口语表现），
+  "dimension_scores": {
+    "fluency": 0-100（流利度），
+    "grammar": 0-100（语法准确性），
+    "vocabulary": 0-100（词汇丰富度），
+    "communication": 0-100（沟通有效性）
+  },
+  "strengths": ["亮点1（中文，15字内）", "亮点2（中文，15字内）"],
+  "top3_issues": [
+    {
+      "issue": "问题描述（中文，20字内）",
+      "example": "对话中的原句（英文，如果有）",
+      "fix": "更好的说法（英文）",
+      "tip": "简短说明（中文，20字内）"
+    }
+  ],
+  "next_step": "最值得下一步练习的一件事（中文，30字内）",
+  "encouragement": "鼓励语（中文，20字内）"
+}`
+  return callDeepSeek([{ role: 'user', content: '请复盘这段对话练习' }], systemPrompt)
+}
+
 export const chatWithEmma = async (messages, progressSummary, pageContext = '') => {
   const { name, streak, totalCompleted, moduleProgress, dueVocabCount } = progressSummary
 
