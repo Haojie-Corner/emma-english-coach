@@ -278,3 +278,42 @@ export const analyzeIeltsPart1 = async (audioBase64, question) => {
   if (!match) throw new Error('AI 返回格式异常')
   return JSON.parse(match[0])
 }
+
+export const analyzeIeltsPart3 = async (audioBase64, topic, question) => {
+  const prompt = `你是一位专业雅思口语考官，正在评估考生回答 Part 3 深度讨论题的表现。
+
+话题：${topic}
+问题：${question}
+
+Part 3 重点考察抽象观点、原因结果、对比、让步和例证。请比 Part 1 更严格，尤其看回答是否有深度、是否能展开观点。
+
+只输出 JSON：
+{
+  "overall_band": 综合分（0-9的数字，可用0.5步进，如6.5）,
+  "dimension_scores": {
+    "fluency_coherence": 0-9的数字,
+    "lexical_resource": 0-9的数字,
+    "grammar_accuracy": 0-9的数字,
+    "pronunciation": 0-9的数字
+  },
+  "argument_summary": "用中文概括考生核心观点（40字内）",
+  "strengths": ["做得好的具体点1（中文）", "做得好的具体点2（中文）"],
+  "improvements": [
+    {
+      "dimension": "流利度/词汇/语法/发音/观点展开（选一个）",
+      "issue": "具体问题（中文，20字内）",
+      "suggestion": "改进建议（中文，30字内）",
+      "example": "更好的英文表达示例"
+    }
+  ],
+  "band_up_tip": "提升0.5分的最关键一个建议（中文，30字内）",
+  "voice_script": "用中文写2-3句考官点评口播，遇到英文示范时直接嵌入英文词，供speakMultilingual朗读"
+}`
+  const raw = await callGemini([
+    { text: prompt },
+    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+  ])
+  const match = raw.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error('AI 返回格式异常')
+  return JSON.parse(match[0])
+}

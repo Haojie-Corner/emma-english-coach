@@ -135,7 +135,9 @@ const buildTodayPlan = ({ profile, ieltsGoal, nextLessonInfo, dueVocabCount, low
       : { title: level === 'starter' ? '发音热身' : '开口热身', sub: '录 1 次短句，先把嘴巴叫醒', to: '/practice/speaking', icon: '🎤' }
 
   const outputPractice = goal === 'ielts'
-    ? { title: '雅思独白训练', sub: '做 1 张 Cue Card，练结构和展开', to: '/practice/speaking?tab=cuecard', icon: '🎓' }
+    ? Number(ieltsGoal?.currentBand || 0) >= 6
+      ? { title: '雅思深度讨论', sub: '练 1 道 Part 3，训练观点展开和让步', to: '/practice/speaking?tab=part3', icon: '🎯' }
+      : { title: '雅思独白训练', sub: '做 1 张 Cue Card，练结构和展开', to: '/practice/speaking?tab=cuecard', icon: '🎓' }
     : isModuleUnlocked('scenes')
       ? { title: '场景对话输出', sub: '完成一轮真实场景对话，结束后看复盘', to: '/course/scenes', icon: '💬' }
       : { title: '句子输出训练', sub: '用今日内容说 3 句自己的英文', to: '/practice/speaking?tab=grammar', icon: '✍️' }

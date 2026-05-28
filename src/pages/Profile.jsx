@@ -451,7 +451,7 @@ const Profile = () => {
                     <p style={{ fontSize: 12.5, fontWeight: 800, color: '#0f0e0c' }}>{item.part} · {item.topic || '口语练习'}</p>
                     <p style={{ fontSize: 11, color: '#9e998e' }}>{new Date(item.createdAt).toLocaleDateString('zh-CN')}</p>
                   </div>
-                  <button onClick={() => navigate(item.part === 'Part 2' ? '/practice/speaking?tab=cuecard' : '/practice/speaking?tab=part1')} style={{
+                  <button onClick={() => navigate(item.part === 'Part 3' ? '/practice/speaking?tab=part3' : item.part === 'Part 2' ? '/practice/speaking?tab=cuecard' : '/practice/speaking?tab=part1')} style={{
                     fontSize: 11, fontWeight: 800, color: '#7b5ea7',
                     background: '#fff', border: '1px solid #d5c5f0',
                     borderRadius: 20, padding: '4px 9px', cursor: 'pointer',
