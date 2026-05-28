@@ -409,14 +409,13 @@ const ListeningTab = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [playing, setPlaying] = useState(false)
-  const [showAnswers, setShowAnswers] = useState(false)
   const [userAnswers, setUserAnswers] = useState({})
   const [submitted, setSubmitted] = useState(false)
   const [ttsRate, setTtsRate] = useState(0.82)
 
   const handleGenerate = async () => {
     setLoading(true); setError(''); setExercise(null)
-    setShowAnswers(false); setUserAnswers({}); setSubmitted(false)
+    setUserAnswers({}); setSubmitted(false)
     stopSpeaking()
     try {
       const data = await generateListeningExercise()
@@ -432,7 +431,6 @@ const ListeningTab = () => {
     if (!exercise?.dialogue?.length) return
     stopSpeaking()
     setPlaying(true)
-    setShowAnswers(false)
     let i = 0
     const playNext = () => {
       if (i >= exercise.dialogue.length) { setPlaying(false); return }
@@ -644,7 +642,6 @@ const IELTS_CARDS = [
 ]
 
 const CueCardTab = () => {
-  const { user } = useUserStore()
   const [cardIndex, setCardIndex] = useState(() => Math.floor(Math.random() * IELTS_CARDS.length))
   const [phase, setPhase] = useState('ready') // ready | prep | speaking | done
   const [countdown, setCountdown] = useState(60)
@@ -653,7 +650,6 @@ const CueCardTab = () => {
   const [analyzing, setAnalyzing] = useState(false)
   const [analyzeError, setAnalyzeError] = useState('')
   const timerRef = useRef(null)
-  const recorderRef = useRef(null)
   const chunksRef = useRef([])
   const mediaRef = useRef(null)
 
@@ -1101,7 +1097,6 @@ const DIM_LABELS_P1 = [
 ]
 
 const Part1Tab = () => {
-  const { user } = useUserStore()
   const [topicIndex, setTopicIndex] = useState(0)
   const [qIndex, setQIndex] = useState(0)
   const [phase, setPhase] = useState('ready') // ready | recording | analyzing | done

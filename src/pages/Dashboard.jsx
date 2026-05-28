@@ -63,7 +63,7 @@ const Dashboard = () => {
     if (!user) return
     const todayKey = `wod_${new Date().toISOString().split('T')[0]}`
     const cached = localStorage.getItem(todayKey)
-    if (cached) { try { setWordOfDay(JSON.parse(cached)) } catch {} return }
+    if (cached) { try { setWordOfDay(JSON.parse(cached)) } catch { /* ignore stale cache */ } return }
     getDueVocabulary(user.id).then(words => {
       if (!words.length) return
       const w = words[Math.floor(Math.random() * Math.min(words.length, 5))]

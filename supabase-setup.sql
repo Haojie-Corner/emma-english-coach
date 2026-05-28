@@ -1,5 +1,6 @@
--- AI 英语陪练大师 — Supabase 数据库初始化
--- 在 Supabase Dashboard → SQL Editor 中运行此文件
+-- AI 英语陪练大师 — Supabase 数据库初始化 / 增量修复
+-- 在 Supabase Dashboard → SQL Editor 中运行此文件。
+-- 已创建过表的项目也可以重复运行；ALTER 语句会补齐旧版本缺失字段。
 
 -- 启用 RLS（行级安全）
 -- 用户进度表
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   messages        jsonb,
   overall_score   int,
   summary         text,
+  message_count   int DEFAULT 0,
   created_at      timestamp DEFAULT now()
 );
 
@@ -45,13 +47,14 @@ CREATE TABLE IF NOT EXISTS vocabulary (
   user_id         uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   word            text NOT NULL,
   phonetic        text,
-  translation     text,
-  example_en      text,
+  meaning         text,
+  example         text,
   example_zh      text,
-  source_lesson   text,
+  source          text,
   familiarity     int DEFAULT 0 CHECK (familiarity BETWEEN 0 AND 3),
   next_review     timestamp,
-  created_at      timestamp DEFAULT now()
+  created_at      timestamp DEFAULT now(),
+  UNIQUE(user_id, word)
 );
 
 -- 打卡记录表
@@ -65,6 +68,24 @@ CREATE TABLE IF NOT EXISTS check_ins (
   UNIQUE(user_id, check_in_date)
 );
 
+-- 旧版本表结构增量修复
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS message_count int DEFAULT 0;
+ALTER TABLE vocabulary ADD COLUMN IF NOT EXISTS meaning text;
+ALTER TABLE vocabulary ADD COLUMN IF NOT EXISTS example text;
+ALTER TABLE vocabulary ADD COLUMN IF NOT EXISTS source text;
+
+-- 如果旧表没有唯一约束，补齐 upsert 所需约束
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'vocabulary_user_id_word_key'
+  ) THEN
+    ALTER TABLE vocabulary ADD CONSTRAINT vocabulary_user_id_word_key UNIQUE (user_id, word);
+  END IF;
+END $$;
+
 -- 开启 Row Level Security
 ALTER TABLE user_progress  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recordings     ENABLE ROW LEVEL SECURITY;
@@ -73,12 +94,40 @@ ALTER TABLE vocabulary     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE check_ins      ENABLE ROW LEVEL SECURITY;
 
 -- 每张表只允许用户访问自己的数据
+DROP POLICY IF EXISTS "user_progress_own" ON user_progress;
 CREATE POLICY "user_progress_own" ON user_progress  FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "recordings_own" ON recordings;
 CREATE POLICY "recordings_own"    ON recordings      FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "conversations_own" ON conversations;
 CREATE POLICY "conversations_own" ON conversations   FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "vocabulary_own" ON vocabulary;
 CREATE POLICY "vocabulary_own"    ON vocabulary      FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "check_ins_own" ON check_ins;
 CREATE POLICY "check_ins_own"     ON check_ins       FOR ALL USING (auth.uid() = user_id);
 
--- 创建录音文件 Storage Bucket（在 Supabase Dashboard → Storage 中手动创建名为 recordings 的 bucket）
--- 或运行：
--- INSERT INTO storage.buckets (id, name, public) VALUES ('recordings', 'recordings', false);
+-- 创建录音文件 Storage Bucket，并允许用户读写自己目录下的录音
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('recordings', 'recordings', false)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "recordings_upload_own_folder" ON storage.objects;
+CREATE POLICY "recordings_upload_own_folder"
+ON storage.objects
+FOR INSERT
+WITH CHECK (
+  bucket_id = 'recordings'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+DROP POLICY IF EXISTS "recordings_read_own_folder" ON storage.objects;
+CREATE POLICY "recordings_read_own_folder"
+ON storage.objects
+FOR SELECT
+USING (
+  bucket_id = 'recordings'
+  AND auth.uid()::text = (storage.foldername(name))[1]
+);

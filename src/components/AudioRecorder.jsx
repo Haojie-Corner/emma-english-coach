@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import useAudioRecorder from '../hooks/useAudioRecorder'
 import { analyzePronunciation } from '../services/gemini'
 import { saveRecording, getRecordings } from '../services/supabase'
@@ -230,7 +230,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
 
   // Cancel all in-flight prefetch requests (called before user-triggered playback)
   const cancelPrefetches = () => {
-    prefetchAborts.current.forEach(ac => { try { ac.abort() } catch {} })
+    prefetchAborts.current.forEach(ac => { try { ac.abort() } catch { /* already closed */ } })
     prefetchAborts.current = []
   }
 

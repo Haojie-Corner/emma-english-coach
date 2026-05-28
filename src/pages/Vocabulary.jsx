@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import useUserStore from '../store/userStore'
 import { getVocabulary, getDueVocabulary, addVocabularyWord, updateVocabularyFamiliarity, deleteVocabularyWord } from '../services/supabase'
@@ -440,7 +439,7 @@ const AddWordModal = ({ onClose, onAdd, userId }) => {
         example: data.example || prev.example,
         example_zh: data.example_zh || prev.example_zh,
       }))
-    } catch (e) {
+    } catch {
       setError('AI 填写失败，请手动输入')
     } finally {
       setAiLoading(false)

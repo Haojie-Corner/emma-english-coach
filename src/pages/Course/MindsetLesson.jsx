@@ -57,7 +57,7 @@ const MindsetLesson = () => {
         setQuiz(q)
         setPreviousQuestions(prev => [...prev, q.question])
       }
-    } catch (e) {
+    } catch {
       setQuiz({ error: '出题失败，请重试' })
     } finally {
       setLoading(false)
@@ -113,7 +113,7 @@ const MindsetLesson = () => {
         `认知重塑·${lesson.title}`,
       )
       setSavedVocabs(prev => new Set([...prev, en]))
-    } catch {}
+    } catch { /* vocabulary save is optional */ }
     finally { setSavingVocab(null) }
   }
 

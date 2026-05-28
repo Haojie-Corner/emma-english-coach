@@ -95,36 +95,6 @@ const elevenLabsFetch = async (text, modelId, rate, onEnd) => {
   }
 }
 
-// ---- Web Speech API fallback (English, fixed voice) ----
-const FEMALE_VOICE_NAMES = [
-  'Samantha', 'Victoria', 'Karen', 'Moira', 'Tessa', 'Allison', 'Ava',
-  'Google US English', 'Microsoft Zira', 'Microsoft Eva',
-]
-let cachedEnVoice = null
-
-const getFemaleVoice = () => {
-  if (cachedEnVoice) return cachedEnVoice
-  const voices = window.speechSynthesis.getVoices()
-  for (const name of FEMALE_VOICE_NAMES) {
-    const v = voices.find(v => v.name.includes(name) && v.lang.startsWith('en'))
-    if (v) { cachedEnVoice = v; return v }
-  }
-  return voices.find(v => v.lang.startsWith('en')) ?? null
-}
-
-const speakFallback = (text, rate, onEnd) => {
-  const go = () => {
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'en-US'; u.rate = rate; u.pitch = 1.05
-    if (onEnd) u.onend = onEnd
-    const v = getFemaleVoice()
-    if (v) u.voice = v
-    window.speechSynthesis.speak(u)
-  }
-  if (window.speechSynthesis.getVoices().length > 0) go()
-  else window.speechSynthesis.addEventListener('voiceschanged', go, { once: true })
-}
-
 // ---- Public API ----
 
 export const MODEL_QUALITY = 'eleven_multilingual_v2'  // practice audio — highest quality

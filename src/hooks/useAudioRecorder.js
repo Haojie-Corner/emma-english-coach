@@ -55,7 +55,7 @@ const useAudioRecorder = () => {
 
       recorder.start()
       setStatus('recording')
-    } catch (err) {
+    } catch {
       setError('无法访问麦克风，请检查权限设置')
       setStatus('error')
     }

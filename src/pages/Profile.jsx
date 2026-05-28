@@ -170,7 +170,7 @@ const Profile = () => {
       })
       const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 6)
       setGrammarErrors(sorted)
-    } catch {}
+    } catch { /* ignore malformed local history */ }
   }, [])
 
   const handleSaveGoal = () => {

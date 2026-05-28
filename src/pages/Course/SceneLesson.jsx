@@ -15,7 +15,7 @@ import VoiceInputButton from '../../components/ui/VoiceInputButton'
 import useStudyTimer from '../../hooks/useStudyTimer'
 
 const extractGrammarNote = (content) => {
-  const match = content.match(/📝\s*建议[：:]\s*([^\n]+(?:\n(?![✅💡\*\-]).*)*)/m)
+  const match = content.match(/📝\s*建议[：:]\s*([^\n]+(?:\n(?!✅|💡|\*|-).*)*)/m)
   if (!match) return null
   const text = match[1].trim().replace(/\n.*/g, '').trim()
   return text.length > 4 && !text.startsWith('（') && !text.includes('说得') ? text : null

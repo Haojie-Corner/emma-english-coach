@@ -15,7 +15,7 @@ import VoiceInputButton from '../../components/ui/VoiceInputButton'
 import useStudyTimer from '../../hooks/useStudyTimer'
 
 const extractGrammarNote = (content) => {
-  const match = content.match(/📝\s*建议[：:]\s*([^\n]+(?:\n(?![✅💡\*\-]).*)*)/m)
+  const match = content.match(/📝\s*建议[：:]\s*([^\n]+(?:\n(?!✅|💡|\*|-).*)*)/m)
   if (!match) return null
   const text = match[1].trim().replace(/\n.*/g, '').trim()
   return text.length > 4 && !text.startsWith('（') && !text.includes('说得') ? text : null
@@ -363,7 +363,7 @@ const FluencyLesson = () => {
           {!started && pastSessions.length > 0 && (
             <div style={{ background: '#f5f0ff', border: '1px solid #d0c0e8', borderRadius: 12, padding: '12px 16px', marginBottom: 12, flexShrink: 0 }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: '#9b7ec8', marginBottom: 8 }}>📖 历史练习记录</p>
-              {pastSessions.map((s, i) => (
+              {pastSessions.map((s) => (
                 <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
                   <span style={{ fontSize: 12, color: '#7a7870', flex: 1, marginRight: 8 }}>{s.summary || '练习记录'}</span>
                   <span style={{ fontSize: 11, color: '#9b7ec8' }}>{s.message_count} 条 · {new Date(s.created_at).toLocaleDateString('zh-CN')}</span>
