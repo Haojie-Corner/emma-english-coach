@@ -9,6 +9,7 @@ import { getVocabulary, getAllRecordings, getLessonScoreHistory } from '../servi
 import { showToast } from '../utils/toast'
 import { getWeaknessSummary } from '../utils/weakness'
 import { DEFAULT_IELTS_GOAL, getIeltsAttempts, getIeltsGoal, getIeltsGoalSummary, saveIeltsGoal } from '../utils/ieltsGoal'
+import { LEARNING_STATE_SYNCED, notifyLearningStateChanged } from '../utils/learningStateSync'
 
 /* ── 30天打卡热图 ── */
 const CheckInHeatmap = ({ history }) => {
@@ -194,8 +195,29 @@ const Profile = () => {
     setIeltsAttempts(getIeltsAttempts())
   }, [])
 
+  useEffect(() => {
+    const refreshCloudState = () => {
+      setDailyGoal(parseInt(localStorage.getItem('dailyGoal') || '2', 10))
+      setIeltsGoal(getIeltsGoal() || DEFAULT_IELTS_GOAL)
+      setIeltsAttempts(getIeltsAttempts())
+      setWeaknessSummary(getWeaknessSummary())
+      try {
+        const raw = JSON.parse(localStorage.getItem('grammarErrors') || '[]')
+        const catMap = {}
+        raw.forEach(item => {
+          const cat = categorizeGrammarError(item.reason)
+          catMap[cat] = (catMap[cat] || 0) + 1
+        })
+        setGrammarErrors(Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 6))
+      } catch { /* ignore malformed cloud state */ }
+    }
+    window.addEventListener(LEARNING_STATE_SYNCED, refreshCloudState)
+    return () => window.removeEventListener(LEARNING_STATE_SYNCED, refreshCloudState)
+  }, [])
+
   const handleSaveGoal = () => {
     localStorage.setItem('dailyGoal', String(dailyGoal))
+    notifyLearningStateChanged()
     setSavingGoal(true)
     setTimeout(() => setSavingGoal(false), 1200)
     showToast(`每日目标已设为 ${dailyGoal} 课`, 'success')

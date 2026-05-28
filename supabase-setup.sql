@@ -68,11 +68,23 @@ CREATE TABLE IF NOT EXISTS check_ins (
   UNIQUE(user_id, check_in_date)
 );
 
+-- 跨设备学习状态：保存本地学习档案（雅思目标、弱点、语法错题、Emma记忆等）
+CREATE TABLE IF NOT EXISTS learning_state (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  state_key       text NOT NULL,
+  value           jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at      timestamp DEFAULT now(),
+  UNIQUE(user_id, state_key)
+);
+
 -- 旧版本表结构增量修复
 ALTER TABLE conversations ADD COLUMN IF NOT EXISTS message_count int DEFAULT 0;
 ALTER TABLE vocabulary ADD COLUMN IF NOT EXISTS meaning text;
 ALTER TABLE vocabulary ADD COLUMN IF NOT EXISTS example text;
 ALTER TABLE vocabulary ADD COLUMN IF NOT EXISTS source text;
+ALTER TABLE learning_state ADD COLUMN IF NOT EXISTS value jsonb DEFAULT '{}'::jsonb;
+ALTER TABLE learning_state ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT now();
 
 -- 如果旧表没有唯一约束，补齐 upsert 所需约束
 DO $$
@@ -92,6 +104,7 @@ ALTER TABLE recordings     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vocabulary     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE check_ins      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE learning_state ENABLE ROW LEVEL SECURITY;
 
 -- 每张表只允许用户访问自己的数据
 DROP POLICY IF EXISTS "user_progress_own" ON user_progress;
@@ -108,6 +121,9 @@ CREATE POLICY "vocabulary_own"    ON vocabulary      FOR ALL USING (auth.uid() =
 
 DROP POLICY IF EXISTS "check_ins_own" ON check_ins;
 CREATE POLICY "check_ins_own"     ON check_ins       FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "learning_state_own" ON learning_state;
+CREATE POLICY "learning_state_own" ON learning_state FOR ALL USING (auth.uid() = user_id);
 
 -- 创建录音文件 Storage Bucket，并允许用户读写自己目录下的录音
 INSERT INTO storage.buckets (id, name, public)

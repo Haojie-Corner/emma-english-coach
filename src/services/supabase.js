@@ -252,6 +252,30 @@ export const getLessonScoreHistory = async (userId) => {
   return data || []
 }
 
+export const getLearningStateItems = async (userId) => {
+  const { data, error } = await supabase
+    .from('learning_state')
+    .select('state_key, value, updated_at')
+    .eq('user_id', userId)
+  if (error) throw error
+  return data || []
+}
+
+export const upsertLearningStateItems = async (userId, items) => {
+  if (!items.length) return
+  const now = new Date().toISOString()
+  const rows = items.map(item => ({
+    user_id: userId,
+    state_key: item.key,
+    value: item.value,
+    updated_at: now,
+  }))
+  const { error } = await supabase
+    .from('learning_state')
+    .upsert(rows, { onConflict: 'user_id,state_key' })
+  if (error) throw error
+}
+
 export const getStreak = async (userId) => {
   const { data } = await supabase
     .from('check_ins')

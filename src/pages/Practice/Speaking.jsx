@@ -11,6 +11,7 @@ import useUserStore from '../../store/userStore'
 import { addVocabularyWord } from '../../services/supabase'
 import { recordGrammarWeaknesses } from '../../utils/weakness'
 import { recordIeltsAttempt } from '../../utils/ieltsGoal'
+import { notifyLearningStateChanged } from '../../utils/learningStateSync'
 
 const IELTS_DIM_META = {
   fluency_coherence: {
@@ -130,6 +131,7 @@ const GrammarTab = () => {
           })
           // 只保留最近 200 条
           localStorage.setItem(key, JSON.stringify(existing.slice(-200)))
+          notifyLearningStateChanged()
           recordGrammarWeaknesses(parsed.issues, '语法练习')
         }
       } else {

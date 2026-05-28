@@ -13,6 +13,7 @@ import { expandVocabulary } from '../services/gemini'
 import { addVocabularyWord } from '../services/supabase'
 import VocabChip from './ui/VocabChip'
 import { buildEmmaLearningContext } from '../utils/learningContext'
+import { LEARNING_STATE_SYNCED, notifyLearningStateChanged } from '../utils/learningStateSync'
 
 const parseVocabFromMessage = (content) => {
   const match = content.match(/💡\s*(?:新词汇|学到了)[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
@@ -189,8 +190,22 @@ const EmmaBubble = () => {
   }, [isOpen, messages.length, name, routeCtx.description])
 
   useEffect(() => {
-    if (messages.length > 0) localStorage.setItem('emma_recent_messages', JSON.stringify(messages.slice(-20)))
+    if (messages.length > 0) {
+      localStorage.setItem('emma_recent_messages', JSON.stringify(messages.slice(-20)))
+      notifyLearningStateChanged()
+    }
   }, [messages])
+
+  useEffect(() => {
+    const refreshMessages = () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('emma_recent_messages') || '[]')
+        if (saved.length > 0) setMessages(saved)
+      } catch { /* ignore stale cloud state */ }
+    }
+    window.addEventListener(LEARNING_STATE_SYNCED, refreshMessages)
+    return () => window.removeEventListener(LEARNING_STATE_SYNCED, refreshMessages)
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

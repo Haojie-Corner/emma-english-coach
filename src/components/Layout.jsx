@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import useUserStore from '../store/userStore'
 import EmmaBubble from './EmmaBubble'
 import Toast from './ui/Toast'
+import { LEARNING_STATE_CHANGED, pushLearningState, syncLearningState } from '../utils/learningStateSync'
 
 /* ── SVG Nav Icons ── */
 const HomeIcon = ({ active }) => {
@@ -241,7 +242,7 @@ const BottomNav = () => (
 const BREAKPOINT = 1024
 
 const Layout = () => {
-  const { logout } = useUserStore()
+  const { user, logout } = useUserStore()
   const navigate = useNavigate()
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= BREAKPOINT)
 
@@ -250,6 +251,30 @@ const Layout = () => {
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
   }, [])
+
+  useEffect(() => {
+    if (!user?.id) return
+    let timer = null
+    const pushSoon = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => pushLearningState(user.id).catch(() => {}), 900)
+    }
+    const syncNow = () => syncLearningState(user.id).catch(() => {})
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') syncNow()
+      else pushLearningState(user.id).catch(() => {})
+    }
+    syncNow()
+    window.addEventListener(LEARNING_STATE_CHANGED, pushSoon)
+    window.addEventListener('focus', syncNow)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener(LEARNING_STATE_CHANGED, pushSoon)
+      window.removeEventListener('focus', syncNow)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [user?.id])
 
   const handleLogout = async () => {
     await logout()

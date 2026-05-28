@@ -14,6 +14,7 @@ import { speak } from '../utils/tts'
 import { getTodayStudyMinutes } from '../utils/studyTime'
 import { getWeaknessSummary } from '../utils/weakness'
 import { getIeltsGoal, getIeltsGoalSummary } from '../utils/ieltsGoal'
+import { LEARNING_STATE_SYNCED, notifyLearningStateChanged } from '../utils/learningStateSync'
 
 const routeMap = {
   phonics: '/course/phonics', intonation: '/course/intonation', mindset: '/course/mindset',
@@ -264,6 +265,16 @@ const Dashboard = () => {
     window.addEventListener('focus', refreshGoal)
     return () => window.removeEventListener('focus', refreshGoal)
   }, [])
+  useEffect(() => {
+    const refreshCloudState = () => {
+      setDiagnostic(getStoredDiagnostic())
+      setIeltsGoal(getIeltsGoal())
+      setWeaknessSummary(getWeaknessSummary())
+      setTodayMinutes(getTodayStudyMinutes())
+    }
+    window.addEventListener(LEARNING_STATE_SYNCED, refreshCloudState)
+    return () => window.removeEventListener(LEARNING_STATE_SYNCED, refreshCloudState)
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -379,6 +390,7 @@ const Dashboard = () => {
 
   const handleSaveDiagnostic = (profile) => {
     localStorage.setItem(DIAGNOSTIC_KEY, JSON.stringify(profile))
+    notifyLearningStateChanged()
     setDiagnostic(profile)
     setShowDiagnostic(false)
   }

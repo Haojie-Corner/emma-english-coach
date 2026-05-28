@@ -1,3 +1,5 @@
+import { notifyLearningStateChanged } from './learningStateSync'
+
 export const IELTS_GOAL_KEY = 'ielts_goal_profile'
 export const IELTS_ATTEMPTS_KEY = 'ielts_speaking_attempts'
 
@@ -26,6 +28,7 @@ export const saveIeltsGoal = (goal) => {
     updatedAt: new Date().toISOString(),
   }
   localStorage.setItem(IELTS_GOAL_KEY, JSON.stringify(normalized))
+  notifyLearningStateChanged()
   return normalized
 }
 
@@ -68,6 +71,7 @@ export const recordIeltsAttempt = (attempt) => {
   }
   const next = [...getIeltsAttempts(), record].slice(-100)
   localStorage.setItem(IELTS_ATTEMPTS_KEY, JSON.stringify(next))
+  notifyLearningStateChanged()
   return record
 }
 

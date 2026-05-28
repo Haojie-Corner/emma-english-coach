@@ -1,3 +1,5 @@
+import { notifyLearningStateChanged } from '../../utils/learningStateSync'
+
 const MILESTONES = {
   first_lesson:  { icon: '🌱', title: '完成第一课！',       desc: '英语之旅正式启航，发音地基从这里打起！' },
   streak_7:      { icon: '🔥', title: '连续打卡 7 天！',    desc: '一周不间断，学习习惯已经养成了 💪' },
@@ -14,6 +16,7 @@ export const checkMilestone = (key) => {
     if (seen[key]) return false
     seen[key] = Date.now()
     localStorage.setItem('milestones_seen', JSON.stringify(seen))
+    notifyLearningStateChanged()
     return true
   } catch { return false }
 }

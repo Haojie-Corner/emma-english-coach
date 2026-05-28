@@ -1,3 +1,5 @@
+import { notifyLearningStateChanged } from './learningStateSync'
+
 const TODAY_KEY = () => `studyMinutes_${new Date().toISOString().split('T')[0]}`
 
 export const addStudySeconds = (seconds) => {
@@ -5,6 +7,7 @@ export const addStudySeconds = (seconds) => {
   const key = TODAY_KEY()
   const existing = parseInt(localStorage.getItem(key) || '0', 10)
   localStorage.setItem(key, String(existing + Math.round(seconds)))
+  notifyLearningStateChanged()
 }
 
 export const getTodayStudyMinutes = () => {

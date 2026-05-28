@@ -1,3 +1,5 @@
+import { notifyLearningStateChanged } from './learningStateSync'
+
 const WEAKNESS_KEY = 'learningWeaknesses'
 const MAX_RECORDS = 300
 
@@ -28,6 +30,7 @@ export const recordWeakness = (record) => {
     ...record,
   })
   localStorage.setItem(WEAKNESS_KEY, JSON.stringify(records.slice(-MAX_RECORDS)))
+  notifyLearningStateChanged()
 }
 
 export const recordPronunciationWeaknesses = (feedback, source = '发音练习') => {
@@ -112,4 +115,3 @@ export const getWeaknessSummary = () => {
     .map(g => ({ ...g, avgScore: g.scored ? Math.round(g.totalScore / g.scored) : null }))
     .sort((a, b) => b.count - a.count || (a.avgScore ?? 100) - (b.avgScore ?? 100))
 }
-
