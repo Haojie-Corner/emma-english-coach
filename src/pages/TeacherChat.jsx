@@ -4,6 +4,7 @@ import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
 import { modules } from '../data/phonics'
 import { chatWithEmma } from '../services/deepseek'
+import { buildEmmaLearningContext } from '../utils/learningContext'
 
 /* ── Emma 头像 ── */
 const EmmaAvatar = ({ size = 40 }) => (
@@ -160,7 +161,7 @@ const TeacherChat = () => {
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content,
       }))
-      const reply = await chatWithEmma(apiMessages, progressSummary)
+      const reply = await chatWithEmma(apiMessages, progressSummary, '', buildEmmaLearningContext())
       setMessages(prev => [...prev, { role: 'emma', content: reply }])
     } catch {
       setMessages(prev => [...prev, { role: 'emma', content: '抱歉，连接出了点问题，请稍后再试 😅' }])

@@ -8,7 +8,7 @@ import useUserStore from './store/userStore'
 const App = () => {
   const { init, loading } = useUserStore()
 
-  useEffect(() => { init() }, [])
+  useEffect(() => { init() }, [init])
 
   if (loading) {
     return (

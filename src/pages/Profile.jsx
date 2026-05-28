@@ -8,7 +8,7 @@ import { modules } from '../data/phonics'
 import { getVocabulary, getAllRecordings, getLessonScoreHistory } from '../services/supabase'
 import { showToast } from '../utils/toast'
 import { getWeaknessSummary } from '../utils/weakness'
-import { DEFAULT_IELTS_GOAL, getIeltsGoal, getIeltsGoalSummary, saveIeltsGoal } from '../utils/ieltsGoal'
+import { DEFAULT_IELTS_GOAL, getIeltsAttempts, getIeltsGoal, getIeltsGoalSummary, saveIeltsGoal } from '../utils/ieltsGoal'
 
 /* ── 30天打卡热图 ── */
 const CheckInHeatmap = ({ history }) => {
@@ -137,6 +137,7 @@ const Profile = () => {
   const [weaknessSummary, setWeaknessSummary] = useState([])
   const [dailyGoal, setDailyGoal] = useState(() => parseInt(localStorage.getItem('dailyGoal') || '2', 10))
   const [ieltsGoal, setIeltsGoal] = useState(() => getIeltsGoal() || DEFAULT_IELTS_GOAL)
+  const [ieltsAttempts, setIeltsAttempts] = useState(() => getIeltsAttempts())
   const [savingGoal, setSavingGoal] = useState(false)
   const [savingIeltsGoal, setSavingIeltsGoal] = useState(false)
   const [scoreHistory, setScoreHistory] = useState([])
@@ -190,6 +191,7 @@ const Profile = () => {
 
   useEffect(() => {
     setWeaknessSummary(getWeaknessSummary())
+    setIeltsAttempts(getIeltsAttempts())
   }, [])
 
   const handleSaveGoal = () => {
@@ -215,6 +217,7 @@ const Profile = () => {
     : 0
   const weekTotal = Object.values(weeklyLessonCounts).reduce((s, v) => s + v, 0)
   const ieltsSummary = getIeltsGoalSummary(ieltsGoal)
+  const recentIeltsAttempts = ieltsAttempts.slice(-3).reverse()
 
   const trendScores = useMemo(() => {
     return scoreHistory.slice(-20).map(r => r.ai_score).filter(s => s != null)
@@ -428,6 +431,36 @@ const Profile = () => {
         }}>
           {savingIeltsGoal ? '✓ 已保存' : '保存雅思目标'}
         </button>
+        {recentIeltsAttempts.length > 0 && (
+          <div style={{ marginTop: 14, borderTop: '1px solid #eee9df', paddingTop: 12 }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#0f0e0c', marginBottom: 8 }}>最近雅思练习</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {recentIeltsAttempts.map((item, i) => (
+                <div key={`${item.createdAt}-${i}`} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  background: '#faf9f6', border: '1px solid rgba(0,0,0,0.06)',
+                  borderRadius: 12, padding: '10px 12px',
+                }}>
+                  <span style={{
+                    width: 42, height: 30, borderRadius: 10, flexShrink: 0,
+                    background: '#f3eeff', color: '#7b5ea7',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 15, fontWeight: 800,
+                  }}>{item.band}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 12.5, fontWeight: 800, color: '#0f0e0c' }}>{item.part} · {item.topic || '口语练习'}</p>
+                    <p style={{ fontSize: 11, color: '#9e998e' }}>{new Date(item.createdAt).toLocaleDateString('zh-CN')}</p>
+                  </div>
+                  <button onClick={() => navigate(item.part === 'Part 2' ? '/practice/speaking?tab=cuecard' : '/practice/speaking?tab=part1')} style={{
+                    fontSize: 11, fontWeight: 800, color: '#7b5ea7',
+                    background: '#fff', border: '1px solid #d5c5f0',
+                    borderRadius: 20, padding: '4px 9px', cursor: 'pointer',
+                  }}>再练</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* ── Weekly Chart ── */}

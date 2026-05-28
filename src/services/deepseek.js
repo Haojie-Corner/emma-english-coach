@@ -239,7 +239,7 @@ ${dialogue}
   return callDeepSeek([{ role: 'user', content: '请复盘这段对话练习' }], systemPrompt)
 }
 
-export const chatWithEmma = async (messages, progressSummary, pageContext = '') => {
+export const chatWithEmma = async (messages, progressSummary, pageContext = '', learningContext = '') => {
   const { name, streak, totalCompleted, moduleProgress, dueVocabCount } = progressSummary
 
   const modLines = Object.entries(moduleProgress)
@@ -247,6 +247,7 @@ export const chatWithEmma = async (messages, progressSummary, pageContext = '') 
     .join('；')
 
   const contextLine = pageContext ? `\n当前情境：用户${pageContext}，请根据情境给出针对性回答。` : ''
+  const memoryLine = learningContext ? `\n长期学习记忆：\n${learningContext}` : ''
 
   const systemPrompt = `你是 Emma，一位专业的 AI 英语学习顾问，专门帮助中文母语零基础成人学习英语。你了解用户的完整学习档案，能给出个性化、具体可执行的建议。
 
@@ -255,7 +256,7 @@ export const chatWithEmma = async (messages, progressSummary, pageContext = '') 
 - 连续打卡：${streak} 天
 - 已完成课程：${totalCompleted} 节
 - 各模块进度：${modLines}
-- 到期词汇：${dueVocabCount} 个${contextLine}
+- 到期词汇：${dueVocabCount} 个${contextLine}${memoryLine}
 
 你的三大职责：
 1. **学习路径建议**：根据当前进度，告诉用户接下来应该学什么、为什么、大概需要多久

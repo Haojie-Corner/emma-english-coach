@@ -10,6 +10,7 @@ import { speakMultilingual, speak, stopSpeaking } from '../../utils/tts'
 import useUserStore from '../../store/userStore'
 import { addVocabularyWord } from '../../services/supabase'
 import { recordGrammarWeaknesses } from '../../utils/weakness'
+import { recordIeltsAttempt } from '../../utils/ieltsGoal'
 
 // ─── 语法纠错 ────────────────────────────────────────────────────────────
 const GrammarTab = () => {
@@ -700,6 +701,14 @@ const CueCardTab = () => {
           setAnalyzing(true)
           try {
             const r = await analyzeIeltsPart2(base64, card.topic, card.bullets)
+            recordIeltsAttempt({
+              part: 'Part 2',
+              band: r.overall_band,
+              topic: card.topic,
+              question: card.bullets.join(' | '),
+              dimensionScores: r.dimension_scores,
+              improvements: r.improvements,
+            })
             setResult(r)
             setPhase('done')
           } catch (e) {
@@ -1131,6 +1140,14 @@ const Part1Tab = () => {
             reader.readAsDataURL(blob)
           })
           const data = await analyzeIeltsPart1(base64, question)
+          recordIeltsAttempt({
+            part: 'Part 1',
+            band: data.overall_band,
+            topic: topic.category,
+            question,
+            dimensionScores: data.dimension_scores,
+            improvements: data.improvements,
+          })
           setResult(data)
           setPhase('done')
           if (data.voice_script) speakMultilingual(data.voice_script)

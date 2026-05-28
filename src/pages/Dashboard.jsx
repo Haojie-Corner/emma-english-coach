@@ -246,7 +246,7 @@ const Dashboard = () => {
   const [showDiagnostic, setShowDiagnostic] = useState(false)
   const [weaknessSummary, setWeaknessSummary] = useState(() => getWeaknessSummary())
 
-  useEffect(() => { if (user) fetchProgress(user.id) }, [user])
+  useEffect(() => { if (user) fetchProgress(user.id) }, [user, fetchProgress])
   useEffect(() => { setTodayMinutes(getTodayStudyMinutes()) }, [])
   useEffect(() => {
     if (!progressLoading && progress.length === 0 && !diagnostic) setShowDiagnostic(true)
@@ -361,7 +361,7 @@ const Dashboard = () => {
         : { icon: '📝', title: '语法纠错练习', sub: '输入英文，AI 实时批改', to: '/practice/speaking', tag: '练习', tagColor: '#7a6bba' })
     }
     return list.slice(0, 3)
-  }, [progress, nextLessonInfo, isModuleUnlocked, dueVocabCount, weakModule, lowScoreLesson])
+  }, [nextLessonInfo, isModuleUnlocked, dueVocabCount, weakModule, lowScoreLesson])
 
   const nextModPct = getModuleCompletion(nextLessonInfo.moduleId, modules.find(m => m.id === nextLessonInfo.moduleId)?.totalLessons || 10)
   const todayPlan = useMemo(() => buildTodayPlan({

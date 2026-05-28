@@ -12,6 +12,7 @@ import { chatWithEmma } from '../services/deepseek'
 import { expandVocabulary } from '../services/gemini'
 import { addVocabularyWord } from '../services/supabase'
 import VocabChip from './ui/VocabChip'
+import { buildEmmaLearningContext } from '../utils/learningContext'
 
 const parseVocabFromMessage = (content) => {
   const match = content.match(/💡\s*(?:新词汇|学到了)[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
@@ -129,7 +130,13 @@ const EmmaBubble = () => {
   const { progress, streak, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
   const location = useLocation()
 
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('emma_recent_messages') || '[]')
+    } catch {
+      return []
+    }
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= BREAKPOINT)
@@ -179,7 +186,11 @@ const EmmaBubble = () => {
         : `嗨 ${name}！有什么可以帮你的？😊`
       setMessages([{ role: 'emma', content: greeting }])
     }
-  }, [isOpen])
+  }, [isOpen, messages.length, name, routeCtx.description])
+
+  useEffect(() => {
+    if (messages.length > 0) localStorage.setItem('emma_recent_messages', JSON.stringify(messages.slice(-20)))
+  }, [messages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -187,7 +198,6 @@ const EmmaBubble = () => {
 
   const handleClose = () => {
     close()
-    setMessages([])
     setInput('')
   }
 
@@ -203,7 +213,7 @@ const EmmaBubble = () => {
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content,
       }))
-      const reply = await chatWithEmma(apiMessages, progressSummary, routeCtx.description)
+      const reply = await chatWithEmma(apiMessages, progressSummary, routeCtx.description, buildEmmaLearningContext())
       setMessages(prev => [...prev, { role: 'emma', content: reply }])
     } catch {
       setMessages(prev => [...prev, { role: 'emma', content: '抱歉，连接出了问题，请稍后再试 😅' }])
