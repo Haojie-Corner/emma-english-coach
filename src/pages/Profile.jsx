@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { modules } from '../data/phonics'
 import { getVocabulary, getAllRecordings, getLessonScoreHistory } from '../services/supabase'
 import { showToast } from '../utils/toast'
+import { getWeaknessSummary } from '../utils/weakness'
 
 /* ── 30天打卡热图 ── */
 const CheckInHeatmap = ({ history }) => {
@@ -101,6 +102,16 @@ const SectionTitle = ({ children }) => (
   </p>
 )
 
+const weaknessRoutes = {
+  pronunciation: '/practice/speaking',
+  fluency: '/course/fluency',
+  stress: '/course/intonation',
+  intonation: '/course/intonation',
+  grammar: '/practice/speaking?tab=grammar',
+  vocabulary: '/vocabulary',
+  communication: '/course/scenes',
+}
+
 const categorizeGrammarError = (reason) => {
   if (!reason) return '其他'
   const r = reason
@@ -122,6 +133,7 @@ const Profile = () => {
   const [vocabStats, setVocabStats] = useState(null)
   const [weaknesses, setWeaknesses] = useState(null)
   const [grammarErrors, setGrammarErrors] = useState([])
+  const [weaknessSummary, setWeaknessSummary] = useState([])
   const [dailyGoal, setDailyGoal] = useState(() => parseInt(localStorage.getItem('dailyGoal') || '2', 10))
   const [savingGoal, setSavingGoal] = useState(false)
   const [scoreHistory, setScoreHistory] = useState([])
@@ -171,6 +183,10 @@ const Profile = () => {
       const sorted = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 6)
       setGrammarErrors(sorted)
     } catch { /* ignore malformed local history */ }
+  }, [])
+
+  useEffect(() => {
+    setWeaknessSummary(getWeaknessSummary())
   }, [])
 
   const handleSaveGoal = () => {
@@ -409,6 +425,64 @@ const Profile = () => {
       <SectionTitle>打卡记录</SectionTitle>
       <Card style={{ marginBottom: 20 }}>
         <CheckInHeatmap history={checkInHistory} />
+      </Card>
+
+      {/* ── Learning Weakness Profile ── */}
+      <SectionTitle>综合弱点档案</SectionTitle>
+      <Card style={{ marginBottom: 20 }}>
+        {weaknessSummary.length === 0 ? (
+          <p style={{ fontSize: 13, color: '#9e998e', textAlign: 'center', lineHeight: 1.6 }}>
+            还没有形成稳定弱点档案。完成发音分析、语法纠错或对话复盘后，这里会自动汇总最近 21 天最该补的地方。
+          </p>
+        ) : (
+          <>
+            <p style={{ fontSize: 12, color: '#5c5850', marginBottom: 14, lineHeight: 1.5 }}>
+              系统会把发音、语法和对话复盘里的问题沉淀到这里，优先处理出现次数最多的弱点。
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {weaknessSummary.slice(0, 5).map((item, i) => {
+                const color = ['#d94040', '#e8672a', '#d48a10', '#7b5ea7', '#4a7a9b'][i] || '#9e998e'
+                return (
+                  <div key={item.type} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: '#faf9f6', borderRadius: 12, padding: '12px 14px',
+                    border: '1px solid rgba(0,0,0,0.06)',
+                  }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                      background: `${color}14`, color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 13, fontWeight: 800,
+                    }}>
+                      {i + 1}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#0f0e0c' }}>{item.label}</span>
+                        {item.avgScore !== null && <span style={{ fontSize: 11, color }}>均分 {item.avgScore}</span>}
+                      </div>
+                      <p style={{ fontSize: 11, color: '#5c5850', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.latest?.fix ? `${item.latest.example || '表达'} → ${item.latest.fix}` : item.latest?.detail || '建议定向复练'}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: `${color}14`, color }}>
+                        {item.count} 次
+                      </span>
+                      <button
+                        onClick={() => navigate(weaknessRoutes[item.type] || '/practice/speaking')}
+                        style={{
+                          fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
+                          background: '#fff', color, border: `1px solid ${color}44`, cursor: 'pointer',
+                        }}
+                      >去补弱</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </Card>
 
       {/* ── Weakness Analysis ── */}

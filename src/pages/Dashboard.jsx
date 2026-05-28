@@ -12,6 +12,7 @@ import MilestoneModal, { checkMilestone } from '../components/ui/MilestoneModal'
 import { getDueVocabulary } from '../services/supabase'
 import { speak } from '../utils/tts'
 import { getTodayStudyMinutes } from '../utils/studyTime'
+import { getWeaknessSummary } from '../utils/weakness'
 
 const routeMap = {
   phonics: '/course/phonics', intonation: '/course/intonation', mindset: '/course/mindset',
@@ -48,6 +49,190 @@ const LEARNING_PATH = [
   { moduleId: 'fluency',    lessons: fluencyLessons,    getPath: id => `/course/fluency/${id}`,    label: '自如交流 · Fluency',   icon: '🗣️' },
 ]
 
+const DIAGNOSTIC_KEY = 'english_diagnostic_profile'
+
+const DIAGNOSTIC_STEPS = [
+  {
+    key: 'level',
+    title: '你现在最像哪一种？',
+    options: [
+      { value: 'starter', label: '零基础/很久没学', desc: '先稳住发音和基础句子' },
+      { value: 'basic', label: '能读但不敢说', desc: '重点练开口和短句表达' },
+      { value: 'speaking', label: '能说但常卡壳', desc: '重点练展开和纠错' },
+      { value: 'ielts', label: '备考雅思/高阶', desc: '重点练评分维度和表达质量' },
+    ],
+  },
+  {
+    key: 'goal',
+    title: '你最想先提升什么？',
+    options: [
+      { value: 'pronunciation', label: '发音更准', desc: '自然拼读、重音、语调' },
+      { value: 'conversation', label: '敢开口聊天', desc: '场景对话和流利表达' },
+      { value: 'grammar', label: '少犯语法错', desc: '纠错、改句、复练' },
+      { value: 'ielts', label: '雅思口语提分', desc: 'Part 1/2 和 Band 反馈' },
+    ],
+  },
+  {
+    key: 'minutes',
+    title: '每天比较现实的学习时间？',
+    options: [
+      { value: 10, label: '10 分钟', desc: '轻量打卡，不断线' },
+      { value: 20, label: '20 分钟', desc: '推荐节奏，稳步进步' },
+      { value: 40, label: '40 分钟', desc: '冲刺提升，练得更完整' },
+    ],
+  },
+]
+
+const getStoredDiagnostic = () => {
+  try {
+    return JSON.parse(localStorage.getItem(DIAGNOSTIC_KEY) || 'null')
+  } catch {
+    return null
+  }
+}
+
+const getDiagnosticLabel = (profile) => {
+  if (!profile) return '未诊断'
+  const levelMap = {
+    starter: '零基础起步',
+    basic: '开口突破',
+    speaking: '流利表达',
+    ielts: '雅思/高阶',
+  }
+  const goalMap = {
+    pronunciation: '发音优先',
+    conversation: '对话优先',
+    grammar: '纠错优先',
+    ielts: '雅思优先',
+  }
+  return `${levelMap[profile.level] || '个性化'} · ${goalMap[profile.goal] || '综合提升'}`
+}
+
+const weaknessPracticeMap = {
+  pronunciation: { to: '/practice/speaking', icon: '🎤', title: '补弱：发音准确度' },
+  fluency: { to: '/course/fluency', icon: '🗣️', title: '补弱：流利度' },
+  stress: { to: '/course/intonation', icon: '🎵', title: '补弱：重音节奏' },
+  intonation: { to: '/course/intonation', icon: '🎵', title: '补弱：语音语调' },
+  grammar: { to: '/practice/speaking?tab=grammar', icon: '📝', title: '补弱：语法准确' },
+  vocabulary: { to: '/vocabulary', icon: '📚', title: '补弱：词汇表达' },
+  communication: { to: '/course/scenes', icon: '💬', title: '补弱：沟通展开' },
+}
+
+const buildTodayPlan = ({ profile, nextLessonInfo, dueVocabCount, lowScoreLesson, topWeakness, isModuleUnlocked }) => {
+  const goal = profile?.goal || 'pronunciation'
+  const level = profile?.level || 'starter'
+  const minutes = Number(profile?.minutes || 20)
+  const mainMinutes = minutes >= 40 ? 16 : minutes >= 20 ? 7 : 4
+  const reviewMinutes = minutes >= 40 ? 8 : minutes >= 20 ? 5 : 2
+  const outputMinutes = minutes >= 40 ? 10 : minutes >= 20 ? 5 : 3
+  const summaryMinutes = Math.max(1, minutes - mainMinutes - reviewMinutes - outputMinutes)
+
+  const firstPractice = goal === 'grammar'
+    ? { title: '语法纠错热身', sub: '写 2 句英文，让 AI 找出最该改的地方', to: '/practice/speaking?tab=grammar', icon: '📝' }
+    : goal === 'ielts'
+      ? { title: '雅思口语热身', sub: '先做 1 道 Part 1，观察 Band 反馈', to: '/practice/speaking?tab=part1', icon: '🗣️' }
+      : { title: level === 'starter' ? '发音热身' : '开口热身', sub: '录 1 次短句，先把嘴巴叫醒', to: '/practice/speaking', icon: '🎤' }
+
+  const outputPractice = goal === 'ielts'
+    ? { title: '雅思独白训练', sub: '做 1 张 Cue Card，练结构和展开', to: '/practice/speaking?tab=cuecard', icon: '🎓' }
+    : isModuleUnlocked('scenes')
+      ? { title: '场景对话输出', sub: '完成一轮真实场景对话，结束后看复盘', to: '/course/scenes', icon: '💬' }
+      : { title: '句子输出训练', sub: '用今日内容说 3 句自己的英文', to: '/practice/speaking?tab=grammar', icon: '✍️' }
+
+  return [
+    { ...firstPractice, minutes: summaryMinutes, tag: '热身', color: '#4a7a9b' },
+    {
+      title: dueVocabCount > 0 ? `复习 ${dueVocabCount} 个到期词` : '积累今日表达',
+      sub: dueVocabCount > 0 ? '先复习旧词，防止学了就忘' : '没有到期词时，手动加入 1 个今天会用的表达',
+      to: dueVocabCount > 0 ? '/vocabulary?tab=due' : '/vocabulary',
+      icon: '📚',
+      minutes: reviewMinutes,
+      tag: '词汇',
+      color: '#3a9a5f',
+    },
+    {
+      title: topWeakness ? (weaknessPracticeMap[topWeakness.type]?.title || `补弱：${topWeakness.label}`) : lowScoreLesson ? `补弱：${lowScoreLesson.lesson.title}` : nextLessonInfo.lesson.title,
+      sub: topWeakness ? `最近出现 ${topWeakness.count} 次：${topWeakness.latest?.detail || '建议定向复练'}` : lowScoreLesson ? `上次 ${lowScoreLesson.score} 分，今天把它补上` : nextLessonInfo.label,
+      to: topWeakness ? (weaknessPracticeMap[topWeakness.type]?.to || '/practice/speaking') : lowScoreLesson ? lowScoreLesson.getPath(lowScoreLesson.lesson.id) : nextLessonInfo.getPath(nextLessonInfo.lesson.id),
+      icon: topWeakness ? (weaknessPracticeMap[topWeakness.type]?.icon || '🎯') : lowScoreLesson?.icon || nextLessonInfo.icon,
+      minutes: mainMinutes,
+      tag: topWeakness || lowScoreLesson ? '补弱' : '主线',
+      color: topWeakness || lowScoreLesson ? '#d94040' : '#e8672a',
+    },
+    { ...outputPractice, minutes: outputMinutes, tag: '输出', color: '#7b5ea7' },
+  ]
+}
+
+const DiagnosticModal = ({ initialProfile, onClose, onSave }) => {
+  const [step, setStep] = useState(0)
+  const [answers, setAnswers] = useState(initialProfile || {})
+  const current = DIAGNOSTIC_STEPS[step]
+
+  const choose = (key, value) => {
+    const next = { ...answers, [key]: value }
+    setAnswers(next)
+    if (step < DIAGNOSTIC_STEPS.length - 1) {
+      setStep(step + 1)
+      return
+    }
+    onSave({ ...next, updatedAt: new Date().toISOString() })
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(15,14,12,0.38)',
+      zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 20,
+    }}>
+      <div style={{
+        width: '100%', maxWidth: 440, background: '#fff', borderRadius: 22,
+        border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 20px 70px rgba(0,0,0,0.24)',
+        padding: 24,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
+          <div>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#e8672a', marginBottom: 5 }}>英语水平诊断</p>
+            <h2 className="font-title" style={{ fontSize: 22, color: '#0f0e0c' }}>{current.title}</h2>
+          </div>
+          <button onClick={onClose} style={{
+            width: 34, height: 34, borderRadius: 12, border: '1px solid #e5e1d8',
+            background: '#fff', color: '#9e998e', cursor: 'pointer', fontSize: 18,
+          }}>×</button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+          {DIAGNOSTIC_STEPS.map((_, i) => (
+            <div key={i} style={{
+              flex: 1, height: 5, borderRadius: 5,
+              background: i <= step ? '#e8672a' : '#f0ede6',
+            }} />
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {current.options.map(opt => (
+            <button key={opt.value} onClick={() => choose(current.key, opt.value)} style={{
+              textAlign: 'left', background: answers[current.key] === opt.value ? '#fef2ea' : '#fff',
+              border: `1.5px solid ${answers[current.key] === opt.value ? '#f3c4a2' : '#e5e1d8'}`,
+              borderRadius: 15, padding: '13px 15px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              <span style={{ display: 'block', fontSize: 14, fontWeight: 800, color: '#0f0e0c', marginBottom: 4 }}>{opt.label}</span>
+              <span style={{ display: 'block', fontSize: 12, color: '#5c5850', lineHeight: 1.5 }}>{opt.desc}</span>
+            </button>
+          ))}
+        </div>
+
+        {step > 0 && (
+          <button onClick={() => setStep(step - 1)} style={{
+            marginTop: 14, background: 'none', border: 'none', color: '#9e998e',
+            fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+          }}>← 上一步</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const Dashboard = () => {
   const { user } = useUserStore()
   const { progress, streak, checkedInToday, loading: progressLoading, weeklyLessonCounts, fetchProgress, doCheckIn, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
@@ -55,9 +240,21 @@ const Dashboard = () => {
   const [milestone, setMilestone] = useState(null)
   const [wordOfDay, setWordOfDay] = useState(null)
   const [todayMinutes, setTodayMinutes] = useState(0)
+  const [diagnostic, setDiagnostic] = useState(() => getStoredDiagnostic())
+  const [showDiagnostic, setShowDiagnostic] = useState(false)
+  const [weaknessSummary, setWeaknessSummary] = useState(() => getWeaknessSummary())
 
   useEffect(() => { if (user) fetchProgress(user.id) }, [user])
   useEffect(() => { setTodayMinutes(getTodayStudyMinutes()) }, [])
+  useEffect(() => {
+    if (!progressLoading && progress.length === 0 && !diagnostic) setShowDiagnostic(true)
+  }, [progressLoading, progress.length, diagnostic])
+  useEffect(() => {
+    const refreshWeaknesses = () => setWeaknessSummary(getWeaknessSummary())
+    refreshWeaknesses()
+    window.addEventListener('focus', refreshWeaknesses)
+    return () => window.removeEventListener('focus', refreshWeaknesses)
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -160,11 +357,32 @@ const Dashboard = () => {
   }, [progress, nextLessonInfo, isModuleUnlocked, dueVocabCount, weakModule, lowScoreLesson])
 
   const nextModPct = getModuleCompletion(nextLessonInfo.moduleId, modules.find(m => m.id === nextLessonInfo.moduleId)?.totalLessons || 10)
+  const todayPlan = useMemo(() => buildTodayPlan({
+    profile: diagnostic,
+    nextLessonInfo,
+    dueVocabCount,
+    lowScoreLesson,
+    topWeakness: weaknessSummary[0],
+    isModuleUnlocked,
+  }), [diagnostic, nextLessonInfo, dueVocabCount, lowScoreLesson, weaknessSummary, isModuleUnlocked])
+
+  const handleSaveDiagnostic = (profile) => {
+    localStorage.setItem(DIAGNOSTIC_KEY, JSON.stringify(profile))
+    setDiagnostic(profile)
+    setShowDiagnostic(false)
+  }
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
 
       {milestone && <MilestoneModal milestoneKey={milestone} onClose={() => setMilestone(null)} />}
+      {showDiagnostic && (
+        <DiagnosticModal
+          initialProfile={diagnostic}
+          onClose={() => setShowDiagnostic(false)}
+          onSave={handleSaveDiagnostic}
+        />
+      )}
 
       {/* ── Hero Header ── */}
       <div style={{
@@ -270,13 +488,13 @@ const Dashboard = () => {
               后面的语调、对话、场景课会一路解锁。
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => navigate('/course/phonics')} style={{
+              <button onClick={() => setShowDiagnostic(true)} style={{
                 background: 'linear-gradient(135deg, #f28040, #e05020)', color: '#fff',
                 border: 'none', borderRadius: 12, padding: '10px 18px',
                 fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 boxShadow: '0 3px 12px rgba(232,103,42,0.3)',
               }}>
-                🔤 开始第一课 →
+                做 1 分钟诊断 →
               </button>
               <button onClick={() => navigate('/teacher')} style={{
                 background: '#fff', color: '#e8672a', border: '1.5px solid #f3c4a2',
@@ -284,6 +502,99 @@ const Dashboard = () => {
               }}>
                 问 Emma 老师
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Diagnostic / Today Plan ── */}
+        <div style={{
+          background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+          borderRadius: 20, padding: '18px 18px', marginBottom: 20,
+          boxShadow: '0 3px 16px rgba(0,0,0,0.06)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#e8672a', marginBottom: 5 }}>今日 {diagnostic?.minutes || 20} 分钟计划</p>
+              <h2 className="font-title" style={{ fontSize: 19, color: '#0f0e0c', marginBottom: 4 }}>
+                {diagnostic ? getDiagnosticLabel(diagnostic) : '先诊断，再安排'}
+              </h2>
+              <p style={{ fontSize: 12.5, color: '#5c5850', lineHeight: 1.55 }}>
+                {diagnostic ? `按你每天 ${diagnostic.minutes || 20} 分钟的节奏安排，练完就算今天很扎实。` : '用 3 个问题判断起点，自动生成今天该练什么。'}
+              </p>
+            </div>
+            <button onClick={() => setShowDiagnostic(true)} style={{
+              background: diagnostic ? '#f5f3ef' : 'linear-gradient(135deg, #f28040, #e05020)',
+              color: diagnostic ? '#5c5850' : '#fff',
+              border: diagnostic ? '1px solid #e5e1d8' : 'none',
+              borderRadius: 12, padding: '8px 12px', fontSize: 12, fontWeight: 800,
+              cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
+            }}>
+              {diagnostic ? '重测' : '开始诊断'}
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {todayPlan.map((item, i) => (
+              <div key={`${item.tag}-${i}`} onClick={() => navigate(item.to)} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                border: '1px solid #eee9df', borderRadius: 15,
+                padding: '12px 13px', background: '#fffdfa', cursor: 'pointer',
+              }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 13, flexShrink: 0,
+                  background: `${item.color}14`, border: `1.5px solid ${item.color}25`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
+                }}>{item.icon}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f0e0c' }}>{item.title}</span>
+                    <span style={{
+                      fontSize: 10.5, fontWeight: 800, color: item.color,
+                      background: `${item.color}12`, borderRadius: 20, padding: '2px 7px',
+                    }}>{item.tag}</span>
+                  </div>
+                  <p style={{ fontSize: 12, color: '#7a756c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.sub}</p>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 800, color: item.color, flexShrink: 0 }}>{item.minutes} 分</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Weakness Profile ── */}
+        {weaknessSummary.length > 0 && (
+          <div style={{
+            background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+            borderRadius: 18, padding: '16px 18px', marginBottom: 20,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 800, color: '#d94040', marginBottom: 4 }}>弱点档案</p>
+                <p style={{ fontSize: 15, fontWeight: 800, color: '#0f0e0c' }}>最近最该补的 3 个点</p>
+              </div>
+              <span style={{ fontSize: 11, color: '#9e998e' }}>近 21 天</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {weaknessSummary.slice(0, 3).map(item => (
+                <div key={item.type} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 34, height: 34, borderRadius: 12, flexShrink: 0,
+                    background: '#fff0f0', color: '#d94040',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 16, fontWeight: 800,
+                  }}>
+                    {weaknessPracticeMap[item.type]?.icon || '🎯'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: '#0f0e0c', marginBottom: 2 }}>{item.label}</p>
+                    <p style={{ fontSize: 11.5, color: '#7a756c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.latest?.fix ? `${item.latest.example || '表达'} → ${item.latest.fix}` : item.latest?.detail || '建议定向练习'}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: '#d94040' }}>{item.count} 次</span>
+                </div>
+              ))}
             </div>
           </div>
         )}

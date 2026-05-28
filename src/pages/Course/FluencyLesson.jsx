@@ -13,6 +13,7 @@ import { speakMultilingual, stopSpeaking } from '../../utils/tts'
 import { showToast } from '../../utils/toast'
 import VoiceInputButton from '../../components/ui/VoiceInputButton'
 import useStudyTimer from '../../hooks/useStudyTimer'
+import { recordConversationWeaknesses } from '../../utils/weakness'
 
 const extractGrammarNote = (content) => {
   const match = content.match(/📝\s*建议[：:]\s*([^\n]+(?:\n(?!✅|💡|\*|-).*)*)/m)
@@ -178,7 +179,11 @@ const FluencyLesson = () => {
         const apiMsgs = messages.map(m => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.content }))
         const raw = await generateConvoReview(apiMsgs, lesson.title)
         const match = raw.match(/\{[\s\S]*\}/)
-        if (match) setReview(JSON.parse(match[0]))
+        if (match) {
+          const parsed = JSON.parse(match[0])
+          setReview(parsed)
+          recordConversationWeaknesses(parsed, `自如交流·${lesson.title}`)
+        }
       } catch { /* silently skip */ }
       finally { setReviewing(false) }
     }

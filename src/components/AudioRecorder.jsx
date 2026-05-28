@@ -5,6 +5,7 @@ import { saveRecording, getRecordings } from '../services/supabase'
 import { speak, speakMultilingual, stopSpeaking, pauseSpeaking, resumeSpeaking, prefetchAudio, playBlobUrl } from '../utils/tts'
 import Button from './ui/Button'
 import Card from './ui/Card'
+import { recordPronunciationWeaknesses } from '../utils/weakness'
 
 const MiniScoreChart = ({ history }) => {
   if (history.length < 2) return null
@@ -300,6 +301,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
       setAnalyzePhase('analyzing')
       const feedback = await analyzePronunciation(base64, targetText)
       setResult(feedback)
+      recordPronunciationWeaknesses(feedback, targetZh || targetText || '发音练习')
       if (userId && lessonId && audioBlob) {
         saveRecording(userId, lessonId, audioBlob, feedback.overall_score, feedback).catch(() => {})
       }

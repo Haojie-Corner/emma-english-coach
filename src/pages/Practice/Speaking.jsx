@@ -9,6 +9,7 @@ import Button from '../../components/ui/Button'
 import { speakMultilingual, speak, stopSpeaking } from '../../utils/tts'
 import useUserStore from '../../store/userStore'
 import { addVocabularyWord } from '../../services/supabase'
+import { recordGrammarWeaknesses } from '../../utils/weakness'
 
 // ─── 语法纠错 ────────────────────────────────────────────────────────────
 const GrammarTab = () => {
@@ -54,6 +55,7 @@ const GrammarTab = () => {
           })
           // 只保留最近 200 条
           localStorage.setItem(key, JSON.stringify(existing.slice(-200)))
+          recordGrammarWeaknesses(parsed.issues, '语法练习')
         }
       } else {
         setError('AI 解析失败，请重试')
@@ -1325,7 +1327,9 @@ const TABS = [
 const Speaking = () => {
   const [searchParams] = useSearchParams()
   const drillWord = searchParams.get('drill') || ''
-  const [mode, setMode] = useState('free')
+  const queryTab = searchParams.get('tab')
+  const initialTab = TABS.some(([key]) => key === queryTab) ? queryTab : 'free'
+  const [mode, setMode] = useState(initialTab)
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}>
