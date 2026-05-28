@@ -6,6 +6,7 @@ import { getVocabulary, getDueVocabulary, addVocabularyWord, updateVocabularyFam
 import { expandVocabulary } from '../services/gemini'
 import { rateSentence } from '../services/deepseek'
 import { speak } from '../utils/tts'
+import { buildCollocationDrills } from '../utils/collocations'
 
 const FAMILIARITY_LABEL = ['陌生', '模糊', '熟悉', '掌握']
 const FAMILIARITY_COLOR = ['#d94040', '#e8672a', '#5a8c4a', '#3a9a5f']
@@ -420,6 +421,112 @@ const FlashCardReview = ({ words, onFinish, onUpdateFamiliarity }) => {
   )
 }
 
+/* ── 词块搭配训练 ── */
+const CollocationPractice = ({ words, onFinish }) => {
+  const drills = useMemo(() => buildCollocationDrills(words), [words])
+  const [index, setIndex] = useState(0)
+  const [inputVal, setInputVal] = useState('')
+  const [checked, setChecked] = useState(false)
+  const [correctCount, setCorrectCount] = useState(0)
+
+  const current = drills[index]
+  const total = drills.length
+
+  const normalize = (value) => value.trim().toLowerCase().replace(/\s+/g, ' ')
+  const isCorrect = current && normalize(inputVal) === normalize(current.answer)
+
+  const next = () => {
+    if (checked && isCorrect) setCorrectCount(c => c + 1)
+    if (index + 1 >= total) {
+      setIndex(total)
+      return
+    }
+    setIndex(index + 1)
+    setInputVal('')
+    setChecked(false)
+  }
+
+  if (total === 0) {
+    return (
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '32px 20px', textAlign: 'center' }}>
+        <p style={{ fontSize: 44, marginBottom: 12 }}>🧩</p>
+        <h2 className="font-title" style={{ fontSize: 22, color: '#0f0e0c', marginBottom: 8 }}>还缺少可练词块</h2>
+        <p style={{ fontSize: 13, color: '#5c5850', lineHeight: 1.6, marginBottom: 20 }}>
+          先多存一些带例句的常用词，系统会自动生成搭配填空。
+        </p>
+        <Button onClick={onFinish} style={{ width: '100%', justifyContent: 'center' }}>返回词汇本</Button>
+      </div>
+    )
+  }
+
+  if (index >= total) {
+    return (
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '32px 20px', textAlign: 'center' }}>
+        <p style={{ fontSize: 48, marginBottom: 12 }}>✅</p>
+        <h2 className="font-title" style={{ fontSize: 22, color: '#0f0e0c', marginBottom: 8 }}>词块训练完成</h2>
+        <p style={{ fontSize: 13, color: '#5c5850', marginBottom: 20 }}>答对 {correctCount} / {total} 个搭配</p>
+        <Button onClick={onFinish} style={{ width: '100%', justifyContent: 'center' }}>返回词汇本</Button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ maxWidth: 520, margin: '0 auto', padding: '24px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <button onClick={onFinish} style={{ fontSize: 13, color: '#5c5850', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← 退出</button>
+        <div style={{ flex: 1, height: 6, background: '#e5e1d8', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${Math.round((index / total) * 100)}%`, background: 'linear-gradient(90deg, #7b5ea7, #4a7a9b)', borderRadius: 3 }} />
+        </div>
+        <span style={{ fontSize: 12, color: '#9e998e' }}>{index}/{total}</span>
+      </div>
+
+      <div style={{
+        background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+        borderRadius: 22, padding: '28px 24px',
+        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+      }}>
+        <p style={{ fontSize: 11, fontWeight: 800, color: '#7b5ea7', marginBottom: 10 }}>Collocation · 词块搭配</p>
+        <p style={{ fontSize: 25, fontWeight: 800, color: '#0f0e0c', lineHeight: 1.35, marginBottom: 8 }}>{current.prompt}</p>
+        <p style={{ fontSize: 13, color: '#5c5850', marginBottom: 18 }}>{current.meaning}</p>
+        <input
+          value={inputVal}
+          onChange={e => { setInputVal(e.target.value); setChecked(false) }}
+          onKeyDown={e => e.key === 'Enter' && (checked ? next() : setChecked(true))}
+          placeholder="输入完整英文搭配…"
+          autoFocus
+          style={{
+            width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+            borderRadius: 12, padding: '12px 14px', fontSize: 15,
+            color: '#0f0e0c', outline: 'none', boxSizing: 'border-box',
+            fontFamily: 'inherit',
+          }}
+        />
+        {checked && (
+          <div className="fade-in" style={{
+            marginTop: 12, padding: '12px 14px', borderRadius: 13,
+            background: isCorrect ? '#eaf5ef' : '#fff3ee',
+            border: `1px solid ${isCorrect ? '#3a9a5f40' : '#e8672a40'}`,
+          }}>
+            <p style={{ fontSize: 13, fontWeight: 800, color: isCorrect ? '#3a9a5f' : '#e8672a', marginBottom: 4 }}>
+              {isCorrect ? '答对了' : '更自然的搭配'}
+            </p>
+            <p style={{ fontSize: 18, fontWeight: 800, color: '#0f0e0c' }}>{current.answer}</p>
+            {current.example && <p style={{ fontSize: 12, color: '#5c5850', marginTop: 6, fontStyle: 'italic' }}>"{current.example}"</p>}
+          </div>
+        )}
+        <button onClick={() => checked ? next() : setChecked(true)} disabled={!inputVal.trim()} style={{
+          width: '100%', marginTop: 14, padding: '12px',
+          borderRadius: 12, border: 'none',
+          background: inputVal.trim() ? 'linear-gradient(135deg, #7b5ea7, #4a7a9b)' : '#e5e1d8',
+          color: inputVal.trim() ? '#fff' : '#9e998e',
+          fontSize: 14, fontWeight: 800, cursor: inputVal.trim() ? 'pointer' : 'default',
+          fontFamily: 'inherit',
+        }}>{checked ? '下一题' : '检查'}</button>
+      </div>
+    </div>
+  )
+}
+
 /* ── 添加单词弹窗 ── */
 const AddWordModal = ({ onClose, onAdd, userId }) => {
   const [form, setForm] = useState({ word: '', phonetic: '', meaning: '', example: '', example_zh: '' })
@@ -566,6 +673,7 @@ const Vocabulary = () => {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [reviewMode, setReviewMode] = useState(false)
+  const [collocationMode, setCollocationMode] = useState(false)
   const [search, setSearch] = useState('')
   const [tagFilter, setTagFilter] = useState(null)
 
@@ -604,6 +712,7 @@ const Vocabulary = () => {
     return true
   })
   const displayWords = tab === 'due' ? dueWords : filtered
+  const collocationDrillCount = useMemo(() => buildCollocationDrills(words).length, [words])
 
   if (reviewMode) {
     return (
@@ -615,6 +724,15 @@ const Vocabulary = () => {
     )
   }
 
+  if (collocationMode) {
+    return (
+      <CollocationPractice
+        words={words}
+        onFinish={() => setCollocationMode(false)}
+      />
+    )
+  }
+
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}>
 
@@ -622,7 +740,7 @@ const Vocabulary = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <div>
           <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>词汇本</h1>
-          <p style={{ fontSize: 13, color: '#9e998e' }}>遗忘曲线 · 科学间隔复习</p>
+          <p style={{ fontSize: 13, color: '#9e998e' }}>遗忘曲线 · 词块搭配 · 科学复习</p>
         </div>
         <button onClick={() => setShowAdd(true)} style={{
           background: 'linear-gradient(135deg, #f28040, #e05020)',
@@ -632,6 +750,29 @@ const Vocabulary = () => {
           fontFamily: 'inherit',
         }}>+ 添加</button>
       </div>
+
+      {words.length > 0 && (
+        <div style={{
+          background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+          borderRadius: 18, padding: '16px 18px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+        }}>
+          <div>
+            <p style={{ fontSize: 15, fontWeight: 800, color: '#0f0e0c', marginBottom: 4 }}>🧩 词块搭配训练</p>
+            <p style={{ fontSize: 12, color: '#5c5850', lineHeight: 1.5 }}>
+              用 make progress、take responsibility 这类表达训练自然输出。
+            </p>
+          </div>
+          <button onClick={() => setCollocationMode(true)} style={{
+            background: collocationDrillCount > 0 ? 'linear-gradient(135deg, #7b5ea7, #4a7a9b)' : '#f5f3ef',
+            color: collocationDrillCount > 0 ? '#fff' : '#5c5850',
+            border: collocationDrillCount > 0 ? 'none' : '1px solid #e5e1d8',
+            borderRadius: 12, padding: '10px 14px', fontSize: 13, fontWeight: 800,
+            cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit',
+          }}>{collocationDrillCount || 0} 题 →</button>
+        </div>
+      )}
 
       {/* Tab */}
       <div style={{ display: 'flex', background: '#f0ede6', borderRadius: 14, padding: 4, marginBottom: 16 }}>

@@ -13,6 +13,7 @@ import { getDueVocabulary } from '../services/supabase'
 import { speak } from '../utils/tts'
 import { getTodayStudyMinutes } from '../utils/studyTime'
 import { getWeaknessSummary } from '../utils/weakness'
+import { getIeltsGoal, getIeltsGoalSummary } from '../utils/ieltsGoal'
 
 const routeMap = {
   phonics: '/course/phonics', intonation: '/course/intonation', mindset: '/course/mindset',
@@ -118,10 +119,10 @@ const weaknessPracticeMap = {
   communication: { to: '/course/scenes', icon: '💬', title: '补弱：沟通展开' },
 }
 
-const buildTodayPlan = ({ profile, nextLessonInfo, dueVocabCount, lowScoreLesson, topWeakness, isModuleUnlocked }) => {
-  const goal = profile?.goal || 'pronunciation'
+const buildTodayPlan = ({ profile, ieltsGoal, nextLessonInfo, dueVocabCount, lowScoreLesson, topWeakness, isModuleUnlocked }) => {
+  const goal = ieltsGoal ? 'ielts' : (profile?.goal || 'pronunciation')
   const level = profile?.level || 'starter'
-  const minutes = Number(profile?.minutes || 20)
+  const minutes = Number(ieltsGoal?.dailyMinutes || profile?.minutes || 20)
   const mainMinutes = minutes >= 40 ? 16 : minutes >= 20 ? 7 : 4
   const reviewMinutes = minutes >= 40 ? 8 : minutes >= 20 ? 5 : 2
   const outputMinutes = minutes >= 40 ? 10 : minutes >= 20 ? 5 : 3
@@ -241,6 +242,7 @@ const Dashboard = () => {
   const [wordOfDay, setWordOfDay] = useState(null)
   const [todayMinutes, setTodayMinutes] = useState(0)
   const [diagnostic, setDiagnostic] = useState(() => getStoredDiagnostic())
+  const [ieltsGoal, setIeltsGoal] = useState(() => getIeltsGoal())
   const [showDiagnostic, setShowDiagnostic] = useState(false)
   const [weaknessSummary, setWeaknessSummary] = useState(() => getWeaknessSummary())
 
@@ -254,6 +256,11 @@ const Dashboard = () => {
     refreshWeaknesses()
     window.addEventListener('focus', refreshWeaknesses)
     return () => window.removeEventListener('focus', refreshWeaknesses)
+  }, [])
+  useEffect(() => {
+    const refreshGoal = () => setIeltsGoal(getIeltsGoal())
+    window.addEventListener('focus', refreshGoal)
+    return () => window.removeEventListener('focus', refreshGoal)
   }, [])
 
   useEffect(() => {
@@ -359,12 +366,14 @@ const Dashboard = () => {
   const nextModPct = getModuleCompletion(nextLessonInfo.moduleId, modules.find(m => m.id === nextLessonInfo.moduleId)?.totalLessons || 10)
   const todayPlan = useMemo(() => buildTodayPlan({
     profile: diagnostic,
+    ieltsGoal,
     nextLessonInfo,
     dueVocabCount,
     lowScoreLesson,
     topWeakness: weaknessSummary[0],
     isModuleUnlocked,
-  }), [diagnostic, nextLessonInfo, dueVocabCount, lowScoreLesson, weaknessSummary, isModuleUnlocked])
+  }), [diagnostic, ieltsGoal, nextLessonInfo, dueVocabCount, lowScoreLesson, weaknessSummary, isModuleUnlocked])
+  const ieltsSummary = getIeltsGoalSummary(ieltsGoal)
 
   const handleSaveDiagnostic = (profile) => {
     localStorage.setItem(DIAGNOSTIC_KEY, JSON.stringify(profile))
@@ -514,12 +523,14 @@ const Dashboard = () => {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
             <div>
-              <p style={{ fontSize: 11, fontWeight: 800, color: '#e8672a', marginBottom: 5 }}>今日 {diagnostic?.minutes || 20} 分钟计划</p>
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#e8672a', marginBottom: 5 }}>今日 {ieltsGoal?.dailyMinutes || diagnostic?.minutes || 20} 分钟计划</p>
               <h2 className="font-title" style={{ fontSize: 19, color: '#0f0e0c', marginBottom: 4 }}>
-                {diagnostic ? getDiagnosticLabel(diagnostic) : '先诊断，再安排'}
+                {ieltsGoal ? `雅思 Band ${ieltsGoal.targetBand} 目标` : diagnostic ? getDiagnosticLabel(diagnostic) : '先诊断，再安排'}
               </h2>
               <p style={{ fontSize: 12.5, color: '#5c5850', lineHeight: 1.55 }}>
-                {diagnostic ? `按你每天 ${diagnostic.minutes || 20} 分钟的节奏安排，练完就算今天很扎实。` : '用 3 个问题判断起点，自动生成今天该练什么。'}
+                {ieltsGoal
+                  ? `当前 ${ieltsGoal.currentBand}，还差 ${ieltsSummary?.gap.toFixed(1)} 分，今天优先练评分维度。`
+                  : diagnostic ? `按你每天 ${diagnostic.minutes || 20} 分钟的节奏安排，练完就算今天很扎实。` : '用 3 个问题判断起点，自动生成今天该练什么。'}
               </p>
             </div>
             <button onClick={() => setShowDiagnostic(true)} style={{
@@ -560,6 +571,37 @@ const Dashboard = () => {
             ))}
           </div>
         </div>
+
+        {ieltsGoal && (
+          <div style={{
+            background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+            borderRadius: 18, padding: '15px 18px', marginBottom: 20,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+            display: 'flex', alignItems: 'center', gap: 13,
+          }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: 14, flexShrink: 0,
+              background: '#f3eeff', color: '#7b5ea7',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 20,
+            }}>🎓</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#7b5ea7', marginBottom: 3 }}>雅思冲刺目标</p>
+              <p style={{ fontSize: 14, fontWeight: 800, color: '#0f0e0c', marginBottom: 2 }}>
+                Band {ieltsGoal.currentBand} → {ieltsGoal.targetBand}
+              </p>
+              <p style={{ fontSize: 12, color: '#7a756c' }}>
+                {ieltsSummary?.daysLeft !== null ? `距离考试约 ${ieltsSummary.daysLeft} 天 · ` : ''}{ieltsSummary?.intensity}节奏
+              </p>
+            </div>
+            <button onClick={() => navigate('/profile')} style={{
+              fontSize: 12, fontWeight: 800, color: '#7b5ea7',
+              background: '#f8f5ff', border: '1px solid #d5c5f0',
+              borderRadius: 10, padding: '7px 11px', cursor: 'pointer',
+              fontFamily: 'inherit', flexShrink: 0,
+            }}>调整</button>
+          </div>
+        )}
 
         {/* ── Weakness Profile ── */}
         {weaknessSummary.length > 0 && (

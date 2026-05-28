@@ -8,6 +8,7 @@ import { modules } from '../data/phonics'
 import { getVocabulary, getAllRecordings, getLessonScoreHistory } from '../services/supabase'
 import { showToast } from '../utils/toast'
 import { getWeaknessSummary } from '../utils/weakness'
+import { DEFAULT_IELTS_GOAL, getIeltsGoal, getIeltsGoalSummary, saveIeltsGoal } from '../utils/ieltsGoal'
 
 /* ── 30天打卡热图 ── */
 const CheckInHeatmap = ({ history }) => {
@@ -135,7 +136,9 @@ const Profile = () => {
   const [grammarErrors, setGrammarErrors] = useState([])
   const [weaknessSummary, setWeaknessSummary] = useState([])
   const [dailyGoal, setDailyGoal] = useState(() => parseInt(localStorage.getItem('dailyGoal') || '2', 10))
+  const [ieltsGoal, setIeltsGoal] = useState(() => getIeltsGoal() || DEFAULT_IELTS_GOAL)
   const [savingGoal, setSavingGoal] = useState(false)
+  const [savingIeltsGoal, setSavingIeltsGoal] = useState(false)
   const [scoreHistory, setScoreHistory] = useState([])
   const [showShare, setShowShare] = useState(false)
 
@@ -196,6 +199,14 @@ const Profile = () => {
     showToast(`每日目标已设为 ${dailyGoal} 课`, 'success')
   }
 
+  const handleSaveIeltsGoal = () => {
+    const saved = saveIeltsGoal(ieltsGoal)
+    setIeltsGoal(saved)
+    setSavingIeltsGoal(true)
+    setTimeout(() => setSavingIeltsGoal(false), 1200)
+    showToast(`雅思目标已设为 Band ${saved.targetBand}`, 'success')
+  }
+
   const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
   const totalCompleted = progress.filter(p => p.status === 'completed').length
   const totalAttempted = progress.length
@@ -203,6 +214,7 @@ const Profile = () => {
     ? Math.round(progress.filter(p => p.score).reduce((sum, p) => sum + p.score, 0) / progress.filter(p => p.score).length)
     : 0
   const weekTotal = Object.values(weeklyLessonCounts).reduce((s, v) => s + v, 0)
+  const ieltsSummary = getIeltsGoalSummary(ieltsGoal)
 
   const trendScores = useMemo(() => {
     return scoreHistory.slice(-20).map(r => r.ai_score).filter(s => s != null)
@@ -357,6 +369,65 @@ const Profile = () => {
             {savingGoal ? '✓ 已保存' : '保存'}
           </button>
         </div>
+      </Card>
+
+      {/* ── IELTS Goal ── */}
+      <SectionTitle>雅思口语目标</SectionTitle>
+      <Card style={{ marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', marginBottom: 6, display: 'block' }}>目标 Band</label>
+            <select value={ieltsGoal.targetBand} onChange={e => setIeltsGoal({ ...ieltsGoal, targetBand: Number(e.target.value) })} style={{
+              width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+              borderRadius: 12, padding: '10px 12px', fontSize: 14, color: '#0f0e0c', fontFamily: 'inherit',
+            }}>
+              {[5.5, 6, 6.5, 7, 7.5, 8].map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', marginBottom: 6, display: 'block' }}>当前 Band</label>
+            <select value={ieltsGoal.currentBand} onChange={e => setIeltsGoal({ ...ieltsGoal, currentBand: Number(e.target.value) })} style={{
+              width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+              borderRadius: 12, padding: '10px 12px', fontSize: 14, color: '#0f0e0c', fontFamily: 'inherit',
+            }}>
+              {[4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5].map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', marginBottom: 6, display: 'block' }}>考试日期</label>
+            <input type="date" value={ieltsGoal.examDate} onChange={e => setIeltsGoal({ ...ieltsGoal, examDate: e.target.value })} style={{
+              width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+              borderRadius: 12, padding: '10px 12px', fontSize: 14, color: '#0f0e0c', fontFamily: 'inherit', boxSizing: 'border-box',
+            }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: '#9e998e', marginBottom: 6, display: 'block' }}>每日分钟</label>
+            <input type="number" min={10} max={120} value={ieltsGoal.dailyMinutes} onChange={e => setIeltsGoal({ ...ieltsGoal, dailyMinutes: Number(e.target.value) })} style={{
+              width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+              borderRadius: 12, padding: '10px 12px', fontSize: 14, color: '#0f0e0c', fontFamily: 'inherit', boxSizing: 'border-box',
+            }} />
+          </div>
+        </div>
+        <div style={{
+          background: '#fef2ea', border: '1px solid #f3c4a2',
+          borderRadius: 14, padding: '11px 13px', marginBottom: 12,
+        }}>
+          <p style={{ fontSize: 13, fontWeight: 800, color: '#e8672a', marginBottom: 4 }}>
+            {ieltsSummary?.intensity} · 还差 {ieltsSummary?.gap.toFixed(1)} 分
+          </p>
+          <p style={{ fontSize: 12, color: '#5c5850', lineHeight: 1.55 }}>
+            {ieltsSummary?.daysLeft !== null ? `距离考试约 ${ieltsSummary.daysLeft} 天，` : ''}
+            建议每天完成 1 次 Part 1、1 次 Cue Card，并复盘 3 个高频错误。
+          </p>
+        </div>
+        <button onClick={handleSaveIeltsGoal} style={{
+          width: '100%', padding: '11px', borderRadius: 12,
+          background: savingIeltsGoal ? '#3a9a5f' : 'linear-gradient(135deg, #f28040, #e05020)',
+          border: 'none', color: '#fff', fontSize: 13, fontWeight: 800,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          {savingIeltsGoal ? '✓ 已保存' : '保存雅思目标'}
+        </button>
       </Card>
 
       {/* ── Weekly Chart ── */}
