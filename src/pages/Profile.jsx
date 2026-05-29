@@ -3,13 +3,14 @@ import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
+import StateBlock, { LoadingBlock } from '../components/ui/StateBlock'
 import { useNavigate } from 'react-router-dom'
 import { modules } from '../data/phonics'
 import { getVocabulary, getAllRecordings, getLessonScoreHistory } from '../services/supabase'
 import { showToast } from '../utils/toast'
 import { getWeaknessSummary } from '../utils/weakness'
 import { DEFAULT_IELTS_GOAL, getIeltsAttempts, getIeltsGoal, getIeltsGoalSummary, saveIeltsGoal } from '../utils/ieltsGoal'
-import { LEARNING_STATE_SYNCED, notifyLearningStateChanged } from '../utils/learningStateSync'
+import { LEARNING_STATE_SYNCED, LEARNING_SYNC_STATUS_CHANGED, getLearningSyncStatus, notifyLearningStateChanged, syncLearningState } from '../utils/learningStateSync'
 
 /* ── 30天打卡热图 ── */
 const CheckInHeatmap = ({ history }) => {
@@ -104,6 +105,20 @@ const SectionTitle = ({ children }) => (
   </p>
 )
 
+const getSyncStatusMeta = (syncStatus) => {
+  const status = syncStatus?.status || 'pending'
+  const map = {
+    pending: { label: '待同步', color: '#d48a10', bg: '#fff8ea', desc: '有学习记录等待上传到云端' },
+    syncing: { label: '同步中', color: '#4a7a9b', bg: '#eef7fb', desc: '正在合并手机和电脑学习记录' },
+    synced: { label: '已同步', color: '#3a9a5f', bg: '#edf8f2', desc: '手机和电脑使用同一账号即可接续学习' },
+    error: { label: '需检查', color: '#d94040', bg: '#fdf0f0', desc: syncStatus?.message || '同步失败，请检查网络或 Supabase 表是否已创建' },
+  }
+  const lastTime = syncStatus?.updatedAt
+    ? new Date(syncStatus.updatedAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : '尚未同步'
+  return { ...(map[status] || map.pending), lastTime }
+}
+
 const weaknessRoutes = {
   pronunciation: '/practice/speaking',
   fluency: '/course/fluency',
@@ -143,6 +158,7 @@ const Profile = () => {
   const [savingIeltsGoal, setSavingIeltsGoal] = useState(false)
   const [scoreHistory, setScoreHistory] = useState([])
   const [showShare, setShowShare] = useState(false)
+  const [syncStatus, setSyncStatus] = useState(() => getLearningSyncStatus())
 
   useEffect(() => {
     if (!user) return
@@ -214,6 +230,15 @@ const Profile = () => {
     window.addEventListener(LEARNING_STATE_SYNCED, refreshCloudState)
     return () => window.removeEventListener(LEARNING_STATE_SYNCED, refreshCloudState)
   }, [])
+  useEffect(() => {
+    const refreshSyncStatus = () => setSyncStatus(getLearningSyncStatus())
+    window.addEventListener(LEARNING_SYNC_STATUS_CHANGED, refreshSyncStatus)
+    window.addEventListener(LEARNING_STATE_SYNCED, refreshSyncStatus)
+    return () => {
+      window.removeEventListener(LEARNING_SYNC_STATUS_CHANGED, refreshSyncStatus)
+      window.removeEventListener(LEARNING_STATE_SYNCED, refreshSyncStatus)
+    }
+  }, [])
 
   const handleSaveGoal = () => {
     localStorage.setItem('dailyGoal', String(dailyGoal))
@@ -240,6 +265,7 @@ const Profile = () => {
   const weekTotal = Object.values(weeklyLessonCounts).reduce((s, v) => s + v, 0)
   const ieltsSummary = getIeltsGoalSummary(ieltsGoal)
   const recentIeltsAttempts = ieltsAttempts.slice(-3).reverse()
+  const syncMeta = getSyncStatusMeta(syncStatus)
 
   const trendScores = useMemo(() => {
     return scoreHistory.slice(-20).map(r => r.ai_score).filter(s => s != null)
@@ -252,6 +278,11 @@ const Profile = () => {
   const handleLogout = async () => {
     await logout()
     navigate('/login')
+  }
+
+  const handleManualSync = () => {
+    if (!user?.id) return
+    syncLearningState(user.id).catch(() => {})
   }
 
   const downloadShareImage = () => {
@@ -303,7 +334,7 @@ const Profile = () => {
   }
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 20px' }}>
+    <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', padding: '24px clamp(14px, 4vw, 20px)', overflowX: 'hidden' }}>
 
       {/* ── Header ── */}
       <div style={{
@@ -363,11 +394,38 @@ const Profile = () => {
         ))}
       </div>
 
+      {/* ── Cross Device Sync ── */}
+      <SectionTitle>手机电脑同步</SectionTitle>
+      <Card style={{ marginBottom: 20, background: syncMeta.bg, borderColor: `${syncMeta.color}33` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap' }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 14, flexShrink: 0,
+            background: '#fff', color: syncMeta.color,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18, fontWeight: 900,
+          }}>●</div>
+          <div style={{ flex: '1 1 210px', minWidth: 0 }}>
+            <p style={{ fontSize: 14.5, fontWeight: 800, color: '#0f0e0c', marginBottom: 3 }}>
+              云同步 · {syncMeta.label}
+            </p>
+            <p style={{ fontSize: 12, color: '#5c5850', lineHeight: 1.55 }}>
+              {syncMeta.desc}。上次状态：{syncMeta.lastTime}
+            </p>
+          </div>
+          <button onClick={handleManualSync} style={{
+            fontSize: 12, fontWeight: 800, color: syncMeta.color,
+            background: '#fff', border: `1px solid ${syncMeta.color}44`,
+            borderRadius: 10, minHeight: 40, padding: '8px 11px', cursor: 'pointer',
+            fontFamily: 'inherit', flexShrink: 0,
+          }}>立即同步</button>
+        </div>
+      </Card>
+
       {/* ── Daily Goal ── */}
       <SectionTitle>每日学习目标</SectionTitle>
       <Card style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 210px', minWidth: 0 }}>
             <p style={{ fontSize: 13, color: '#5c5850', marginBottom: 10 }}>
               每天完成 <span style={{ fontWeight: 800, color: '#e8672a', fontSize: 22, letterSpacing: -0.02 }}>{dailyGoal}</span> 课
             </p>
@@ -386,7 +444,7 @@ const Profile = () => {
               ? '#3a9a5f'
               : 'linear-gradient(135deg, #f28040, #e05020)',
             color: '#fff', border: 'none', borderRadius: 12,
-            padding: '10px 16px', fontSize: 13, fontWeight: 700,
+            minHeight: 42, padding: '10px 16px', fontSize: 13, fontWeight: 700,
             cursor: 'pointer', flexShrink: 0,
             boxShadow: savingGoal ? '0 2px 8px rgba(58,154,95,0.3)' : '0 3px 10px rgba(232,103,42,0.3)',
             transition: 'all 0.3s',
@@ -557,9 +615,15 @@ const Profile = () => {
       <SectionTitle>综合弱点档案</SectionTitle>
       <Card style={{ marginBottom: 20 }}>
         {weaknessSummary.length === 0 ? (
-          <p style={{ fontSize: 13, color: '#9e998e', textAlign: 'center', lineHeight: 1.6 }}>
-            还没有形成稳定弱点档案。完成发音分析、语法纠错或对话复盘后，这里会自动汇总最近 21 天最该补的地方。
-          </p>
+          <StateBlock
+            compact
+            icon="◎"
+            tone="purple"
+            title="还没有形成稳定弱点档案"
+            description="完成发音分析、语法纠错或对话复盘后，这里会自动汇总最近 21 天最该补的地方。"
+            actionLabel="做一次语法纠错"
+            onAction={() => navigate('/practice/speaking?tab=grammar')}
+          />
         ) : (
           <>
             <p style={{ fontSize: 12, color: '#5c5850', marginBottom: 14, lineHeight: 1.5 }}>
@@ -615,11 +679,16 @@ const Profile = () => {
       <SectionTitle>发音弱点分析</SectionTitle>
       <Card style={{ marginBottom: 20 }}>
         {weaknesses === null ? (
-          <p style={{ fontSize: 13, color: '#9e998e', textAlign: 'center' }}>分析中…</p>
+          <LoadingBlock compact title="正在分析发音记录" description="稍等一下，系统在找最该复练的单词。" />
         ) : weaknesses.length === 0 ? (
-          <p style={{ fontSize: 13, color: '#9e998e', textAlign: 'center', lineHeight: 1.6 }}>
-            暂无录音数据，完成几课发音练习后这里会显示你的弱点单词
-          </p>
+          <StateBlock
+            compact
+            icon="🎙"
+            title="暂时没有发音弱点数据"
+            description="完成几次录音分析后，这里会显示你的高频发音问题和复练入口。"
+            actionLabel="去录一段"
+            onAction={() => navigate('/practice/speaking')}
+          />
         ) : (
           <>
             <p style={{ fontSize: 12, color: '#5c5850', marginBottom: 14, lineHeight: 1.5 }}>
@@ -671,9 +740,15 @@ const Profile = () => {
       <SectionTitle>语法错误分析</SectionTitle>
       <Card style={{ marginBottom: 20 }}>
         {grammarErrors.length === 0 ? (
-          <p style={{ fontSize: 13, color: '#9e998e', textAlign: 'center', lineHeight: 1.6 }}>
-            还没有语法练习记录。去「练习中心 → 语法纠错」练习后，这里会统计你的高频错误类型。
-          </p>
+          <StateBlock
+            compact
+            icon="Aa"
+            tone="warm"
+            title="还没有语法练习记录"
+            description="写 2-3 句今天真实想表达的话，系统会帮你沉淀高频错误类型。"
+            actionLabel="开始纠错"
+            onAction={() => navigate('/practice/speaking?tab=grammar')}
+          />
         ) : (
           <>
             <p style={{ fontSize: 12, color: '#5c5850', marginBottom: 14 }}>根据语法纠错记录，你的高频错误类型：</p>
@@ -732,7 +807,15 @@ const Profile = () => {
           <SectionTitle>词汇本</SectionTitle>
           <Card style={{ marginBottom: 20 }}>
             {vocabStats.total === 0 ? (
-              <p style={{ fontSize: 13, color: '#9e998e', textAlign: 'center' }}>还没有收藏词汇，去课程里点 + 存入吧</p>
+              <StateBlock
+                compact
+                icon="+"
+                tone="success"
+                title="还没有收藏词汇"
+                description="把今天想用的表达先存进词汇本，再通过复习和造句变成自己的口语。"
+                actionLabel="添加第一个词"
+                onAction={() => navigate('/vocabulary')}
+              />
             ) : (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 16 }}>

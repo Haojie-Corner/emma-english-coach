@@ -286,7 +286,7 @@ const Layout = () => {
       {isDesktop && <SidebarNav onLogout={handleLogout} />}
       <main style={{
         marginLeft: isDesktop ? SIDEBAR_W : 0,
-        paddingBottom: isDesktop ? 40 : 72,
+        paddingBottom: isDesktop ? 40 : 'calc(104px + env(safe-area-inset-bottom))',
         minHeight: '100vh',
       }}>
         <Outlet />

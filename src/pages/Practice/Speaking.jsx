@@ -942,19 +942,25 @@ const CueCardTab = () => {
 
           <IeltsDrillCard scores={result.dimension_scores} />
 
-          {result.voice_script && (
-            <div style={{ textAlign: 'right' }}>
-              <button onClick={() => speakMultilingual(result.voice_script)} style={{ fontSize: 13, color: '#7b5ea7', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {result.voice_script && (
+              <button onClick={() => speakMultilingual(result.voice_script)} style={{
+                flex: '1 1 150px', minHeight: 46, borderRadius: 14,
+                background: '#f0ede6', color: '#5c5850',
+                border: '1px solid #e5e1d8', fontSize: 13, fontWeight: 800,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
                 🔊 听考官点评
               </button>
-            </div>
-          )}
+            )}
 
-          <button onClick={reset} style={{
-            background: 'linear-gradient(135deg, #9b72d0, #7b5ea7)', color: '#fff',
-            border: 'none', borderRadius: 14, padding: '13px', fontSize: 14, fontWeight: 700,
-            cursor: 'pointer',
-          }}>换题再练 🔄</button>
+            <button onClick={reset} style={{
+              flex: '2 1 180px', minHeight: 46,
+              background: 'linear-gradient(135deg, #9b72d0, #7b5ea7)', color: '#fff',
+              border: 'none', borderRadius: 14, padding: '13px', fontSize: 14, fontWeight: 800,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>换题再练 🔄</button>
+          </div>
         </div>
       )}
     </div>
@@ -1388,16 +1394,16 @@ const Part1Tab = () => {
           <IeltsDrillCard scores={result.dimension_scores} />
 
           {/* 按钮 */}
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {result.voice_script && (
               <button onClick={() => speakMultilingual(result.voice_script)} style={{
-                flex: 1, padding: '12px', borderRadius: 12, background: '#f0ede6',
+                flex: '1 1 140px', minHeight: 46, padding: '12px', borderRadius: 12, background: '#f0ede6',
                 color: '#5c5850', border: 'none', fontSize: 13, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>🔊 听点评</button>
             )}
             <button onClick={handleNext} style={{
-              flex: 2, padding: '12px', borderRadius: 12,
+              flex: '2 1 170px', minHeight: 46, padding: '12px', borderRadius: 12,
               background: 'linear-gradient(135deg, #f28040, #e05020)',
               color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
               cursor: 'pointer', fontFamily: 'inherit',
@@ -1671,16 +1677,16 @@ const Part3Tab = () => {
 
           <IeltsDrillCard scores={result.dimension_scores} />
 
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {result.voice_script && (
               <button onClick={() => speakMultilingual(result.voice_script)} style={{
-                flex: 1, padding: '12px', borderRadius: 12, background: '#f0ede6',
+                flex: '1 1 140px', minHeight: 46, padding: '12px', borderRadius: 12, background: '#f0ede6',
                 color: '#5c5850', border: 'none', fontSize: 13, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>🔊 听点评</button>
             )}
             <button onClick={handleNext} style={{
-              flex: 2, padding: '12px', borderRadius: 12,
+              flex: '2 1 170px', minHeight: 46, padding: '12px', borderRadius: 12,
               background: 'linear-gradient(135deg, #5f95b5, #4a7a9b)',
               color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
               cursor: 'pointer', fontFamily: 'inherit',
@@ -1713,27 +1719,31 @@ const Speaking = () => {
   const [mode, setMode] = useState(initialTab)
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}>
+    <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', padding: '28px clamp(14px, 4vw, 20px)', overflowX: 'hidden' }}>
 
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>练习中心</h1>
-        <p style={{ fontSize: 13, color: '#9e998e' }}>口语录音 · 语法纠错 · 听写训练 · 雅思 Part 1/2 · 听力 · 编程 · 随拍</p>
+        <p style={{ fontSize: 13, color: '#9e998e', lineHeight: 1.55 }}>口语录音 · 语法纠错 · 听写训练 · 雅思 Part 1/2/3 · 听力 · 编程 · 随拍</p>
       </div>
 
       {/* Tab 切换 */}
-      <div style={{ display: 'flex', background: '#f0ede6', borderRadius: 14, padding: 4, marginBottom: 24, gap: 2, overflowX: 'auto', scrollbarWidth: 'none' }}>
+      <div style={{
+        display: 'flex', background: '#f0ede6', borderRadius: 14, padding: 4,
+        marginBottom: 24, gap: 3, overflowX: 'auto', scrollbarWidth: 'none',
+        WebkitOverflowScrolling: 'touch', scrollSnapType: 'x proximity',
+      }}>
         {TABS.map(([key, label]) => (
           <button
             key={key}
             onClick={() => setMode(key)}
             style={{
-              flex: '0 0 auto', minWidth: 68, padding: '8px 7px', borderRadius: 10, fontSize: 11, fontWeight: 700,
+              flex: '0 0 auto', minWidth: 76, minHeight: 40, padding: '8px 9px', borderRadius: 10, fontSize: 11, fontWeight: 700,
               border: 'none', cursor: 'pointer', transition: 'all 0.15s',
               background: mode === key ? '#fff' : 'transparent',
               color: mode === key ? '#0f0e0c' : '#9e998e',
               boxShadow: mode === key ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-              fontFamily: 'inherit',
+              fontFamily: 'inherit', whiteSpace: 'nowrap', scrollSnapAlign: 'start',
             }}
           >
             {label}

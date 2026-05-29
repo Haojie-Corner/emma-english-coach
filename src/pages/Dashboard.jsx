@@ -14,7 +14,8 @@ import { speak } from '../utils/tts'
 import { getTodayStudyMinutes } from '../utils/studyTime'
 import { getWeaknessSummary } from '../utils/weakness'
 import { getIeltsGoal, getIeltsGoalSummary } from '../utils/ieltsGoal'
-import { LEARNING_STATE_SYNCED, notifyLearningStateChanged } from '../utils/learningStateSync'
+import { LEARNING_STATE_SYNCED, LEARNING_SYNC_STATUS_CHANGED, getLearningSyncStatus, notifyLearningStateChanged, syncLearningState } from '../utils/learningStateSync'
+import InstallAppCard from '../components/ui/InstallAppCard'
 
 const routeMap = {
   phonics: '/course/phonics', intonation: '/course/intonation', mindset: '/course/mindset',
@@ -167,6 +168,30 @@ const buildTodayPlan = ({ profile, ieltsGoal, nextLessonInfo, dueVocabCount, low
   ]
 }
 
+const getSyncStatusMeta = (syncStatus) => {
+  const status = syncStatus?.status || 'pending'
+  const map = {
+    pending: { label: '待同步', color: '#d48a10', bg: '#fff8ea', dot: '●' },
+    syncing: { label: '同步中', color: '#4a7a9b', bg: '#eef7fb', dot: '●' },
+    synced: { label: '已同步', color: '#3a9a5f', bg: '#edf8f2', dot: '●' },
+    error: { label: '需检查', color: '#d94040', bg: '#fdf0f0', dot: '●' },
+  }
+  const lastTime = syncStatus?.updatedAt
+    ? new Date(syncStatus.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    : '刚刚'
+  return { ...(map[status] || map.pending), lastTime, message: syncStatus?.message || '登录后会自动同步学习记录' }
+}
+
+const buildLoopSteps = ({ checkedInToday, todayMinutes, todayCompleted, targetMinutes, weaknessSummary }) => {
+  const minimumStudyMinutes = Math.max(5, Math.round(targetMinutes * 0.35))
+  return [
+    { label: '签到', done: checkedInToday, hint: '先建立连续感' },
+    { label: '输入', done: todayMinutes >= minimumStudyMinutes, hint: `学满 ${minimumStudyMinutes} 分钟` },
+    { label: '输出', done: todayCompleted > 0, hint: '完成 1 课或 1 次练习' },
+    { label: '复盘', done: weaknessSummary.length > 0, hint: '留下一个弱点记录' },
+  ]
+}
+
 const DiagnosticModal = ({ initialProfile, onClose, onSave }) => {
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState(initialProfile || {})
@@ -248,6 +273,7 @@ const Dashboard = () => {
   const [ieltsGoal, setIeltsGoal] = useState(() => getIeltsGoal())
   const [showDiagnostic, setShowDiagnostic] = useState(false)
   const [weaknessSummary, setWeaknessSummary] = useState(() => getWeaknessSummary())
+  const [syncStatus, setSyncStatus] = useState(() => getLearningSyncStatus())
 
   useEffect(() => { if (user) fetchProgress(user.id) }, [user, fetchProgress])
   useEffect(() => { setTodayMinutes(getTodayStudyMinutes()) }, [])
@@ -274,6 +300,15 @@ const Dashboard = () => {
     }
     window.addEventListener(LEARNING_STATE_SYNCED, refreshCloudState)
     return () => window.removeEventListener(LEARNING_STATE_SYNCED, refreshCloudState)
+  }, [])
+  useEffect(() => {
+    const refreshSyncStatus = () => setSyncStatus(getLearningSyncStatus())
+    window.addEventListener(LEARNING_SYNC_STATUS_CHANGED, refreshSyncStatus)
+    window.addEventListener(LEARNING_STATE_SYNCED, refreshSyncStatus)
+    return () => {
+      window.removeEventListener(LEARNING_SYNC_STATUS_CHANGED, refreshSyncStatus)
+      window.removeEventListener(LEARNING_STATE_SYNCED, refreshSyncStatus)
+    }
   }, [])
 
   useEffect(() => {
@@ -387,6 +422,11 @@ const Dashboard = () => {
     isModuleUnlocked,
   }), [diagnostic, ieltsGoal, nextLessonInfo, dueVocabCount, lowScoreLesson, weaknessSummary, isModuleUnlocked])
   const ieltsSummary = getIeltsGoalSummary(ieltsGoal)
+  const targetMinutes = Number(ieltsGoal?.dailyMinutes || diagnostic?.minutes || 20)
+  const loopSteps = buildLoopSteps({ checkedInToday, todayMinutes, todayCompleted, targetMinutes, weaknessSummary })
+  const loopDoneCount = loopSteps.filter(step => step.done).length
+  const nextLoopStep = loopSteps.find(step => !step.done)
+  const syncMeta = getSyncStatusMeta(syncStatus)
 
   const handleSaveDiagnostic = (profile) => {
     localStorage.setItem(DIAGNOSTIC_KEY, JSON.stringify(profile))
@@ -395,8 +435,13 @@ const Dashboard = () => {
     setShowDiagnostic(false)
   }
 
+  const handleManualSync = () => {
+    if (!user?.id) return
+    syncLearningState(user.id).catch(() => {})
+  }
+
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto' }}>
+    <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', overflowX: 'hidden' }}>
 
       {milestone && <MilestoneModal milestoneKey={milestone} onClose={() => setMilestone(null)} />}
       {showDiagnostic && (
@@ -410,10 +455,10 @@ const Dashboard = () => {
       {/* ── Hero Header ── */}
       <div style={{
         background: 'linear-gradient(180deg, #fff5ee 0%, #fef9f5 60%, transparent 100%)',
-        padding: '28px 20px 20px',
+        padding: '28px clamp(14px, 4vw, 20px) 20px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 20 }}>
+          <div style={{ minWidth: 0 }}>
             <p style={{ fontSize: 12, color: '#e8672a', fontWeight: 600, letterSpacing: '0.04em', marginBottom: 5 }}>
               {getTimeGreeting()} · 欢迎回来
             </p>
@@ -451,7 +496,7 @@ const Dashboard = () => {
             style={{
               width: '100%', background: 'linear-gradient(135deg, #f28040, #e05020)',
               color: '#fff', border: 'none', borderRadius: 16,
-              padding: '14px', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              minHeight: 54, padding: '14px', fontSize: 15, fontWeight: 700, cursor: 'pointer',
               boxShadow: '0 4px 18px rgba(232,103,42,0.32)',
               transition: 'filter 0.15s',
             }}
@@ -492,7 +537,7 @@ const Dashboard = () => {
         )}
       </div>
 
-      <div style={{ padding: '0 20px' }}>
+      <div style={{ padding: '0 clamp(14px, 4vw, 20px)' }}>
 
         {/* ── New User Welcome ── */}
         {progress.length === 0 && !progressLoading && (
@@ -510,10 +555,10 @@ const Dashboard = () => {
               你的英语学习之旅从这里开始。先从「自然拼读」打好发音基础，
               后面的语调、对话、场景课会一路解锁。
             </p>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button onClick={() => setShowDiagnostic(true)} style={{
                 background: 'linear-gradient(135deg, #f28040, #e05020)', color: '#fff',
-                border: 'none', borderRadius: 12, padding: '10px 18px',
+                border: 'none', borderRadius: 12, minHeight: 44, padding: '10px 18px',
                 fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 boxShadow: '0 3px 12px rgba(232,103,42,0.3)',
               }}>
@@ -521,7 +566,7 @@ const Dashboard = () => {
               </button>
               <button onClick={() => navigate('/teacher')} style={{
                 background: '#fff', color: '#e8672a', border: '1.5px solid #f3c4a2',
-                borderRadius: 12, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                borderRadius: 12, minHeight: 44, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
               }}>
                 问 Emma 老师
               </button>
@@ -536,7 +581,7 @@ const Dashboard = () => {
           boxShadow: '0 3px 16px rgba(0,0,0,0.06)',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <p style={{ fontSize: 11, fontWeight: 800, color: '#e8672a', marginBottom: 5 }}>今日 {ieltsGoal?.dailyMinutes || diagnostic?.minutes || 20} 分钟计划</p>
               <h2 className="font-title" style={{ fontSize: 19, color: '#0f0e0c', marginBottom: 4 }}>
                 {ieltsGoal ? `雅思 Band ${ieltsGoal.targetBand} 目标` : diagnostic ? getDiagnosticLabel(diagnostic) : '先诊断，再安排'}
@@ -551,7 +596,7 @@ const Dashboard = () => {
               background: diagnostic ? '#f5f3ef' : 'linear-gradient(135deg, #f28040, #e05020)',
               color: diagnostic ? '#5c5850' : '#fff',
               border: diagnostic ? '1px solid #e5e1d8' : 'none',
-              borderRadius: 12, padding: '8px 12px', fontSize: 12, fontWeight: 800,
+              borderRadius: 12, minHeight: 40, padding: '8px 12px', fontSize: 12, fontWeight: 800,
               cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
             }}>
               {diagnostic ? '重测' : '开始诊断'}
@@ -563,7 +608,8 @@ const Dashboard = () => {
               <div key={`${item.tag}-${i}`} onClick={() => navigate(item.to)} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 border: '1px solid #eee9df', borderRadius: 15,
-                padding: '12px 13px', background: '#fffdfa', cursor: 'pointer',
+                minHeight: 66, padding: '12px 13px', background: '#fffdfa', cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
               }}>
                 <div style={{
                   width: 38, height: 38, borderRadius: 13, flexShrink: 0,
@@ -571,20 +617,94 @@ const Dashboard = () => {
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
                 }}>{item.icon}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f0e0c' }}>{item.title}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 7px', marginBottom: 3 }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f0e0c', lineHeight: 1.35, overflowWrap: 'anywhere' }}>{item.title}</span>
                     <span style={{
                       fontSize: 10.5, fontWeight: 800, color: item.color,
-                      background: `${item.color}12`, borderRadius: 20, padding: '2px 7px',
+                      background: `${item.color}12`, borderRadius: 20, padding: '2px 7px', flexShrink: 0,
                     }}>{item.tag}</span>
                   </div>
-                  <p style={{ fontSize: 12, color: '#7a756c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.sub}</p>
+                  <p style={{ fontSize: 12, color: '#7a756c', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.sub}</p>
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 800, color: item.color, flexShrink: 0 }}>{item.minutes} 分</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: item.color, flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{item.minutes} 分</span>
               </div>
             ))}
           </div>
         </div>
+
+        {/* ── Daily Loop / Sync ── */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr', gap: 10, marginBottom: 20,
+        }}>
+          <div style={{
+            background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+            borderRadius: 18, padding: '15px 16px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: 800, color: '#e8672a', marginBottom: 4 }}>今日学习闭环</p>
+                <p style={{ fontSize: 14.5, fontWeight: 800, color: '#0f0e0c' }}>
+                  {loopDoneCount}/4 步完成
+                </p>
+              </div>
+              <span style={{
+                fontSize: 11, fontWeight: 800, color: loopDoneCount === 4 ? '#3a9a5f' : '#d48a10',
+                background: loopDoneCount === 4 ? '#edf8f2' : '#fff8ea',
+                borderRadius: 20, padding: '4px 9px', whiteSpace: 'nowrap', flexShrink: 0,
+              }}>
+                {loopDoneCount === 4 ? '今天很完整' : `下一步：${nextLoopStep?.label}`}
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+              {loopSteps.map(step => (
+                <div key={step.label} style={{
+                  borderRadius: 12, padding: '9px 6px', textAlign: 'center',
+                  background: step.done ? '#edf8f2' : '#faf9f6',
+                  border: `1px solid ${step.done ? '#b5e0c8' : '#ede9e1'}`,
+                  minWidth: 0,
+                }}>
+                  <p style={{ fontSize: 15, lineHeight: 1, marginBottom: 4 }}>{step.done ? '✓' : '○'}</p>
+                  <p style={{ fontSize: 11.5, fontWeight: 800, color: step.done ? '#3a9a5f' : '#5c5850' }}>{step.label}</p>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: 12, color: '#7a756c', lineHeight: 1.55 }}>
+              {loopDoneCount === 4
+                ? '今天的学习从打卡、输入、输出到复盘都闭合了，明天系统会继续根据弱点安排。'
+                : nextLoopStep?.hint || '继续完成今天剩下的学习步骤。'}
+            </p>
+          </div>
+
+          <div style={{
+            background: syncMeta.bg, border: `1px solid ${syncMeta.color}33`,
+            borderRadius: 18, padding: '14px 16px',
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 12, flexShrink: 0,
+              background: '#fff', color: syncMeta.color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, fontWeight: 900,
+            }}>{syncMeta.dot}</div>
+            <div style={{ flex: '1 1 190px', minWidth: 0 }}>
+              <p style={{ fontSize: 13.5, fontWeight: 800, color: '#0f0e0c', marginBottom: 2 }}>
+                云同步 · {syncMeta.label}
+              </p>
+              <p style={{ fontSize: 11.5, color: '#5c5850', lineHeight: 1.45, overflowWrap: 'anywhere' }}>
+                {syncMeta.message} · {syncMeta.lastTime}
+              </p>
+            </div>
+            <button onClick={handleManualSync} style={{
+              fontSize: 11, fontWeight: 800, color: syncMeta.color,
+              background: '#fff', border: `1px solid ${syncMeta.color}44`,
+              borderRadius: 10, minHeight: 36, padding: '6px 10px', cursor: 'pointer',
+              fontFamily: 'inherit', flexShrink: 0,
+            }}>刷新</button>
+          </div>
+        </div>
+
+        <InstallAppCard />
 
         {ieltsGoal && (
           <div style={{

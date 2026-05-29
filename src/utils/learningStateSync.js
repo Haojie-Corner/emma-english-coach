@@ -2,6 +2,8 @@ import { getLearningStateItems, upsertLearningStateItems } from '../services/sup
 
 export const LEARNING_STATE_CHANGED = 'learning-state-changed'
 export const LEARNING_STATE_SYNCED = 'learning-state-synced'
+export const LEARNING_SYNC_STATUS_CHANGED = 'learning-sync-status-changed'
+export const LEARNING_SYNC_STATUS_KEY = 'learning_sync_status'
 
 const FIXED_KEYS = [
   'dailyGoal',
@@ -15,7 +17,39 @@ const FIXED_KEYS = [
 ]
 
 export const notifyLearningStateChanged = () => {
+  setLearningSyncStatus('pending', '有新的学习记录待同步')
   window.dispatchEvent(new Event(LEARNING_STATE_CHANGED))
+}
+
+export const getLearningSyncStatus = () => {
+  try {
+    return JSON.parse(localStorage.getItem(LEARNING_SYNC_STATUS_KEY) || 'null')
+  } catch {
+    return null
+  }
+}
+
+const setLearningSyncStatus = (status, message = '') => {
+  localStorage.setItem(LEARNING_SYNC_STATUS_KEY, JSON.stringify({
+    status,
+    message,
+    updatedAt: new Date().toISOString(),
+  }))
+  window.dispatchEvent(new Event(LEARNING_SYNC_STATUS_CHANGED))
+}
+
+const getSyncErrorMessage = (error) => {
+  const msg = `${error?.code || ''} ${error?.message || ''}`.toLowerCase()
+  if (msg.includes('learning_state') || msg.includes('42p01') || msg.includes('relation')) {
+    return '同步表还没创建，请先在 Supabase 运行最新 supabase-setup.sql'
+  }
+  if (msg.includes('permission') || msg.includes('policy') || msg.includes('rls')) {
+    return '同步权限被数据库拦截，请检查 learning_state 的 RLS 策略'
+  }
+  if (msg.includes('failed to fetch') || msg.includes('network')) {
+    return '网络连接不稳定，同步稍后会自动重试'
+  }
+  return '同步失败，请稍后重试'
 }
 
 const getSyncKeys = () => {
@@ -80,37 +114,52 @@ const collectLocalItems = () => getSyncKeys()
   .map(item => ({ key: item.key, value: item.value }))
 
 export const pushLearningState = async (userId) => {
-  const items = collectLocalItems()
-  if (items.length > 0) await upsertLearningStateItems(userId, items)
+  try {
+    const items = collectLocalItems()
+    if (items.length === 0) return
+    setLearningSyncStatus('syncing', '正在把本机学习记录同步到云端')
+    await upsertLearningStateItems(userId, items)
+    setLearningSyncStatus('synced', '学习记录已同步')
+  } catch (error) {
+    setLearningSyncStatus('error', getSyncErrorMessage(error))
+    throw error
+  }
 }
 
 export const syncLearningState = async (userId) => {
-  const remoteRows = await getLearningStateItems(userId)
-  const remoteMap = new Map(remoteRows.map(row => [row.state_key, row.value]))
-  const changed = []
+  try {
+    setLearningSyncStatus('syncing', '正在合并手机和电脑学习记录')
+    const remoteRows = await getLearningStateItems(userId)
+    const remoteMap = new Map(remoteRows.map(row => [row.state_key, row.value]))
+    const changed = []
 
-  getSyncKeys().forEach(key => {
-    const local = readLocalValue(key)
-    const hasRemote = remoteMap.has(key)
+    getSyncKeys().forEach(key => {
+      const local = readLocalValue(key)
+      const hasRemote = remoteMap.has(key)
 
-    if (!local.exists && hasRemote) {
-      writeLocalValue(key, remoteMap.get(key))
-      return
-    }
-    if (local.exists && !hasRemote) {
-      changed.push({ key, value: local.value })
-      return
-    }
-    if (local.exists && hasRemote) {
-      const merged = mergeValue(key, local.value, remoteMap.get(key))
-      const localJson = JSON.stringify(local.value)
-      const remoteJson = JSON.stringify(remoteMap.get(key))
-      const mergedJson = JSON.stringify(merged)
-      if (mergedJson !== localJson) writeLocalValue(key, merged)
-      if (mergedJson !== remoteJson) changed.push({ key, value: merged })
-    }
-  })
+      if (!local.exists && hasRemote) {
+        writeLocalValue(key, remoteMap.get(key))
+        return
+      }
+      if (local.exists && !hasRemote) {
+        changed.push({ key, value: local.value })
+        return
+      }
+      if (local.exists && hasRemote) {
+        const merged = mergeValue(key, local.value, remoteMap.get(key))
+        const localJson = JSON.stringify(local.value)
+        const remoteJson = JSON.stringify(remoteMap.get(key))
+        const mergedJson = JSON.stringify(merged)
+        if (mergedJson !== localJson) writeLocalValue(key, merged)
+        if (mergedJson !== remoteJson) changed.push({ key, value: merged })
+      }
+    })
 
-  if (changed.length > 0) await upsertLearningStateItems(userId, changed)
-  window.dispatchEvent(new Event(LEARNING_STATE_SYNCED))
+    if (changed.length > 0) await upsertLearningStateItems(userId, changed)
+    setLearningSyncStatus('synced', changed.length > 0 ? '学习记录已合并并同步' : '学习记录已是最新')
+    window.dispatchEvent(new Event(LEARNING_STATE_SYNCED))
+  } catch (error) {
+    setLearningSyncStatus('error', getSyncErrorMessage(error))
+    throw error
+  }
 }

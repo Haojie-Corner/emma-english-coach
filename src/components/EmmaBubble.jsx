@@ -282,9 +282,11 @@ const EmmaBubble = () => {
         onClick={toggle}
         style={{
           position: 'fixed',
-          right: isDesktop ? 24 : 16,
-          bottom: isDesktop ? 28 : 80,
-          width: 52, height: 52, borderRadius: '50%',
+          right: isDesktop ? 24 : 14,
+          bottom: isDesktop ? 28 : 'calc(88px + env(safe-area-inset-bottom))',
+          width: isDesktop ? 52 : 48,
+          height: isDesktop ? 52 : 48,
+          borderRadius: '50%',
           background: 'linear-gradient(135deg, #e07c58, #be5530)',
           border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -295,15 +297,17 @@ const EmmaBubble = () => {
           transition: 'transform 0.18s, box-shadow 0.18s, opacity 0.2s',
         }}
         onMouseEnter={e => {
+          if (!isDesktop) return
           e.currentTarget.style.transform = 'scale(1.1)'
           e.currentTarget.style.boxShadow = '0 6px 24px rgba(217,119,87,0.65)'
         }}
         onMouseLeave={e => {
+          if (!isDesktop) return
           e.currentTarget.style.transform = 'scale(1)'
           e.currentTarget.style.boxShadow = '0 4px 18px rgba(217,119,87,0.5)'
         }}
       >
-        <span style={{ color: '#fff', fontWeight: 800, fontSize: 20, letterSpacing: '-0.01em' }}>E</span>
+        <span style={{ color: '#fff', fontWeight: 800, fontSize: isDesktop ? 20 : 18, letterSpacing: '-0.01em' }}>E</span>
       </button>
 
       {/* 聊天面板 */}

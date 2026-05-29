@@ -7,6 +7,32 @@ export default defineConfig({
   server: {
     allowedHosts: ['.loca.lt', '.trycloudflare.com'],
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react-vendor',
+              test: /node_modules[\\/](react|react-dom|react-router-dom)[\\/]/,
+              priority: 30,
+            },
+            {
+              name: 'supabase-vendor',
+              test: /node_modules[\\/]@supabase[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'vendor',
+              test: /node_modules[\\/]/,
+              priority: 1,
+              minSize: 20000,
+            },
+          ],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

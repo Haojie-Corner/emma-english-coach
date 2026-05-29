@@ -86,8 +86,9 @@ const ScoreRing = ({ score }) => {
 
 const btnBase = {
   display: 'flex', alignItems: 'center', gap: 4,
-  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+  minHeight: 38, padding: '8px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
   border: '1.5px solid', cursor: 'pointer',
+  fontFamily: 'inherit',
 }
 
 /* ── 录音波形可视化 ── */
@@ -133,7 +134,7 @@ const Waveform = ({ analyserRef }) => {
 
 const TeacherAvatar = ({ speakState, hasPlayed, preloading, onPause, onResume, onReplay, onRestart }) => (
   <div style={{
-    display: 'flex', alignItems: 'center', gap: 14,
+    display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
     padding: '14px 18px', borderRadius: 14,
     background: '#fff', border: '1.5px solid #dedad0',
     marginBottom: 12,
@@ -148,7 +149,7 @@ const TeacherAvatar = ({ speakState, hasPlayed, preloading, onPause, onResume, o
       transition: 'box-shadow 0.3s',
     }}>👩‍🏫</div>
 
-    <div style={{ flex: 1 }}>
+    <div style={{ flex: '1 1 150px', minWidth: 0 }}>
       <p style={{ fontSize: 13, fontWeight: 700, color: '#1a1917', marginBottom: 1 }}>Emma 老师</p>
       <p style={{ fontSize: 11, color: speakState !== 'idle' ? '#d97757' : preloading ? '#c4a35a' : '#7a7870' }}>
         {speakState === 'playing' ? '🔴 正在讲解…'
@@ -158,7 +159,7 @@ const TeacherAvatar = ({ speakState, hasPlayed, preloading, onPause, onResume, o
       </p>
     </div>
 
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       {speakState === 'idle' && (
         <button onClick={preloading ? undefined : onReplay} style={{
           ...btnBase,
@@ -389,12 +390,12 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
       {/* 练习目标 */}
       <Card>
         <p style={{ fontSize: 11, color: '#7a7870', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>练习内容</p>
-        <p className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: '#1a1917', marginBottom: 4, letterSpacing: '0.05em' }}>{targetText}</p>
+        <p className="font-mono" style={{ fontSize: 22, fontWeight: 700, color: '#1a1917', marginBottom: 4, letterSpacing: '0.05em', overflowWrap: 'anywhere', lineHeight: 1.35 }}>{targetText}</p>
         {targetZh && <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 12 }}>{targetZh}</p>}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={handleTargetSpeak} style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+            minHeight: 40, padding: '8px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700,
             background: activeDemo === 'target' ? '#fdf0ea' : '#f5f3ee',
             border: `1.5px solid ${activeDemo === 'target' ? '#f5c4a8' : '#dedad0'}`,
             color: activeDemo === 'target' ? '#d97757' : '#1a1917',
@@ -406,7 +407,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
           </button>
           {activeDemo === 'target' && (
             <button onClick={() => { stopSpeaking(); setActiveDemo(null); setDemoPaused(false) }} style={{
-              padding: '7px 10px', borderRadius: 8, fontSize: 13,
+              minHeight: 40, padding: '7px 12px', borderRadius: 10, fontSize: 13,
               background: '#f5f3ee', border: '1.5px solid #dedad0', color: '#7a7870',
               cursor: 'pointer',
             }}>⏹</button>
@@ -422,12 +423,13 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
             disabled={status === 'processing' || !!analyzePhase}
             className={status === 'recording' ? 'recording-pulse' : ''}
             style={{
-              width: 72, height: 72, borderRadius: '50%', border: 'none',
+              width: 84, height: 84, borderRadius: '50%', border: 'none',
               fontSize: 26, cursor: status === 'processing' || !!analyzePhase ? 'not-allowed' : 'pointer',
               background: status === 'recording' ? '#dc3030' : '#d97757',
               color: '#fff', transition: 'background 0.2s, transform 0.1s',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               opacity: status === 'processing' || !!analyzePhase ? 0.6 : 1,
+              boxShadow: status === 'recording' ? '0 8px 28px rgba(220,48,48,0.32)' : '0 8px 28px rgba(217,119,87,0.28)',
             }}
           >
             {status === 'recording' ? '⏹' : '🎤'}
@@ -435,7 +437,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
 
           {status === 'recording' && <Waveform analyserRef={analyserRef} />}
 
-          <p style={{ fontSize: 13, color: '#7a7870' }}>
+          <p style={{ fontSize: 13, color: status === 'recording' ? '#dc3030' : '#7a7870', fontWeight: status === 'recording' ? 800 : 500 }}>
             {status === 'idle'       && '点击麦克风开始录音'}
             {status === 'recording'  && '🔴 录音中… 点击停止'}
             {status === 'processing' && '处理中…'}
@@ -449,15 +451,15 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
           {status === 'done' && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%' }}>
               <audio src={audioUrl} controls style={{ width: '100%', maxWidth: 320, borderRadius: 8 }} />
-              <div style={{ display: 'flex', gap: 10 }}>
-                <Button onClick={handleAnalyze} disabled={!!analyzePhase}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', width: '100%', justifyContent: 'center' }}>
+                <Button onClick={handleAnalyze} disabled={!!analyzePhase} style={{ minHeight: 46, flex: '1 1 160px' }}>
                   {analyzePhase === 'processing'
                     ? <><span className="spin" style={{ display: 'inline-block' }}>⟳</span> 处理录音…</>
                     : analyzePhase === 'analyzing'
                     ? <><span className="spin" style={{ display: 'inline-block' }}>⟳</span> AI 分析中…</>
                     : '🤖 AI 分析发音'}
                 </Button>
-                <Button variant="secondary" onClick={handleReset}>重新录音</Button>
+                <Button variant="secondary" onClick={handleReset} style={{ minHeight: 46, flex: '1 1 120px' }}>重新录音</Button>
               </div>
               {analyzeError && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#dc2626', width: '100%' }}>
@@ -486,9 +488,9 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
 
           {/* 总评分 + 4维度 */}
           <Card>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <ScoreRing score={result.overall_score} />
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                 <p style={{ fontSize: 11, color: '#7a7870', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase' }}>综合发音评分</p>
                 <p style={{ fontSize: 14, color: '#1a1917', lineHeight: 1.5 }}>{result.positive_feedback}</p>
               </div>
@@ -501,14 +503,14 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
             <div style={{ background: '#f5f3ef', border: '1px solid #e5e1d8', borderRadius: 14, padding: '14px 16px' }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: '#5c5850', marginBottom: 10 }}>🎧 对比听——你的录音 vs 示范发音</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 11, color: '#7a7870', width: 56, flexShrink: 0 }}>你的录音</span>
-                  <audio src={audioUrl} controls style={{ flex: 1, height: 32 }} />
+                  <audio src={audioUrl} controls style={{ flex: '1 1 190px', height: 32 }} />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 11, color: '#7a7870', width: 56, flexShrink: 0 }}>示范发音</span>
                   <button onClick={handleTargetSpeak} style={{
-                    flex: 1, padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    flex: 1, minHeight: 40, padding: '8px 12px', borderRadius: 10, fontSize: 12, fontWeight: 700,
                     background: activeDemo === 'target' ? '#fef0ea' : '#fff',
                     border: `1.5px solid ${activeDemo === 'target' ? '#f5c4a8' : '#dedad0'}`,
                     color: activeDemo === 'target' ? '#d97757' : '#5c5850',
@@ -528,16 +530,16 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {result.pronunciation_issues.map((issue, i) => (
                   <div key={i} style={{ borderLeft: '3px solid #d97757', paddingLeft: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                      <p className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: '#1a1917' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
+                      <p className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: '#1a1917', overflowWrap: 'anywhere' }}>
                         {issue.word} <span style={{ fontSize: 12, fontWeight: 400, color: '#7a7870' }}>{issue.correct_ipa}</span>
                       </p>
                       {issue.tip_demo && (
-                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                           <button
                             onClick={() => handleTipDemo(issue.word, issue.tip_demo)}
                             style={{
-                              padding: '2px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                              minHeight: 34, padding: '5px 10px', borderRadius: 9, fontSize: 11, fontWeight: 700,
                               background: activeDemo === issue.word ? '#fee9d8' : '#fdf0ea',
                               border: '1px solid #f5c4a8',
                               color: '#d97757', cursor: 'pointer',
@@ -551,7 +553,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
                             <button
                               onClick={() => { stopSpeaking(); setActiveDemo(null); setDemoPaused(false) }}
                               style={{
-                                padding: '2px 7px', borderRadius: 6, fontSize: 11,
+                                minHeight: 34, padding: '5px 9px', borderRadius: 9, fontSize: 11,
                                 background: '#f5f3ee', border: '1px solid #dedad0',
                                 color: '#7a7870', cursor: 'pointer',
                               }}
@@ -575,7 +577,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
             </div>
           )}
 
-          <Button onClick={handleReset} style={{ width: '100%', justifyContent: 'center' }}>
+          <Button onClick={handleReset} style={{ width: '100%', minHeight: 48, justifyContent: 'center' }}>
             再练一次
           </Button>
         </div>
