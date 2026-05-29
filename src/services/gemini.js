@@ -1,7 +1,9 @@
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
-// 主模型 + 备用模型（503 过载时自动切换）
-const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+// 快速稳定模型优先；繁忙、限流或超时时自动切换到更强备用模型
+const MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-pro', 'gemini-2.5-flash']
+const GEMINI_TIMEOUT_MS = 30000
+const GEMINI_RETRY_ROUNDS = 2
 
 const geminiUrl = (model) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`
@@ -25,34 +27,90 @@ const buildGeminiError = async (res) => {
   return new Error(`Gemini API error: ${res.status} — ${message}`)
 }
 
+const fetchGeminiWithTimeout = async (url, options) => {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      throw new Error('Gemini 分析超时，正在尝试备用模型', { cause: e })
+    }
+    throw e
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+const isRetryableGeminiError = (error) => {
+  const msg = `${error?.message || ''}`.toLowerCase()
+  return msg.includes('503')
+    || msg.includes('429')
+    || msg.includes('high demand')
+    || msg.includes('overload')
+    || msg.includes('timeout')
+    || msg.includes('超时')
+    || msg.includes('繁忙')
+}
+
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
 const callGemini = async (parts) => {
   let lastError
-  for (const model of MODELS) {
-    try {
-      const res = await fetch(geminiUrl(model), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts }] }),
-      })
-      if (res.status === 503 || res.status === 429) {
-        lastError = await buildGeminiError(res)
-        continue  // 换下一个模型重试
+  for (let round = 0; round < GEMINI_RETRY_ROUNDS; round += 1) {
+    for (const model of MODELS) {
+      try {
+        const res = await fetchGeminiWithTimeout(geminiUrl(model), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts }] }),
+        })
+        if (res.status === 503 || res.status === 429) {
+          lastError = await buildGeminiError(res)
+          continue  // 换下一个模型重试
+        }
+        if (!res.ok) {
+          throw await buildGeminiError(res)
+        }
+        const data = await res.json()
+        return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+      } catch (e) {
+        if (isRetryableGeminiError(e)) {
+          lastError = e
+          continue
+        }
+        throw e
       }
-      if (!res.ok) {
-        throw await buildGeminiError(res)
-      }
-      const data = await res.json()
-      return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-    } catch (e) {
-      if (e.message.includes('503') || e.message.includes('429')) {
-        lastError = e
-        continue
-      }
-      throw e
     }
+    if (round < GEMINI_RETRY_ROUNDS - 1) await wait(1200)
   }
-  throw lastError
+  throw new Error(lastError?.message?.includes('超时')
+    ? 'Gemini 分析超时，请检查网络后重试'
+    : 'Gemini 现在繁忙，请稍后重试')
 }
+
+const buildPronunciationFallback = (targetText) => ({
+  overall_score: 60,
+  dimension_scores: {
+    pronunciation: 60,
+    fluency: 60,
+    stress: 60,
+    intonation: 60,
+  },
+  pronunciation_issues: [
+    {
+      word: targetText?.split(/\s+/).find(Boolean) || 'English',
+      issue: '云端发音评分暂时繁忙，本次先给基础练习反馈。',
+      correct_ipa: '',
+      tip: '先确认录音声音清楚、语速不要太快，再重新分析一次会更准确。',
+      tip_demo: '这次云端评分有点忙，我们先做基础练习。请慢慢说一遍，注意每个单词之间留一点点空间。',
+    },
+  ],
+  positive_feedback: '录音已完成。云端评分暂时繁忙，所以先给你基础反馈，避免练习中断。',
+  next_focus: '请重新点击分析；如果仍繁忙，就先重录一句更短的英文。',
+  voice_script: '录音已经完成了，不过云端评分现在有点忙。这次先别卡住，建议你先把句子说慢一点、声音清楚一点，然后再点一次分析。短句会更容易成功。',
+  fallback: true,
+})
 
 export const analyzePronunciation = async (audioBase64, targetText, mimeType = 'audio/webm') => {
   const prompt = `你是一位专业的英语发音教练，专门辅导中文母语零基础学习者。
@@ -83,10 +141,16 @@ export const analyzePronunciation = async (audioBase64, targetText, mimeType = '
   "voice_script": "用中文写4到6句口语化的老师反馈。语言规则：全部用中文，只有在需要示范英文发音的时候才插入英文单词或短句，示范完立即回到中文继续说。严格按照这个格式输出，不要整句用英文。正确示例：'你这次练习得了78分，整体发音还不错！不过 the 这个词要注意，来听我说：the，the，对，舌头轻轻碰上下牙齿。还有 think 这个词：think，think，感受一下气流从齿间穿过。进步很明显，继续加油！' 错误示例（不要这样）：'Your pronunciation is good. The word the needs work.' 请根据本次实际分析结果生成，不要markdown，不要括号。"
 }`
 
-  const raw = await callGemini([
-    { text: prompt },
-    { inline_data: { mime_type: mimeType, data: audioBase64 } },
-  ])
+  let raw
+  try {
+    raw = await callGemini([
+      { text: prompt },
+      { inline_data: { mime_type: mimeType, data: audioBase64 } },
+    ])
+  } catch (e) {
+    if (isRetryableGeminiError(e)) return buildPronunciationFallback(targetText)
+    throw e
+  }
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('AI 返回格式异常，请重试')
   return JSON.parse(match[0])

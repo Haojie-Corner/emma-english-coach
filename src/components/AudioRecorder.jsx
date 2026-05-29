@@ -303,8 +303,10 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
       setAnalyzePhase('analyzing')
       const feedback = await analyzePronunciation(payload.base64, targetText, payload.mimeType)
       setResult(feedback)
-      recordPronunciationWeaknesses(feedback, targetZh || targetText || '发音练习')
-      if (userId && lessonId && audioBlob) {
+      if (!feedback.fallback) {
+        recordPronunciationWeaknesses(feedback, targetZh || targetText || '发音练习')
+      }
+      if (!feedback.fallback && userId && lessonId && audioBlob) {
         saveRecording(userId, lessonId, audioBlob, feedback.overall_score, feedback).catch(() => {})
       }
     } catch (e) {
@@ -462,6 +464,11 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
                 </Button>
                 <Button variant="secondary" onClick={handleReset} style={{ minHeight: 46, flex: '1 1 120px' }}>重新录音</Button>
               </div>
+              {analyzePhase === 'analyzing' && (
+                <p style={{ fontSize: 12, color: '#9e998e', textAlign: 'center' }}>
+                  通常 10-30 秒完成；如果模型繁忙，系统会自动切换备用模型。
+                </p>
+              )}
               {analyzeError && (
                 <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#dc2626', width: '100%' }}>
                   {analyzeError}
@@ -475,6 +482,28 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
       {/* AI 分析结果 */}
       {result && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} className="fade-in">
+          {result.fallback && (
+            <div style={{
+              background: '#fff8ea', border: '1px solid #f3d08b',
+              borderRadius: 12, padding: '10px 13px',
+              fontSize: 12.5, color: '#8a5b10', lineHeight: 1.55,
+            }}>
+              <p style={{ marginBottom: 10 }}>
+                Gemini 云端评分暂时繁忙，本次先显示基础反馈，不计入正式学习记录。
+              </p>
+              <button
+                onClick={handleAnalyze}
+                disabled={!!analyzePhase}
+                style={{
+                  minHeight: 34, borderRadius: 9, border: '1px solid #d6a84f',
+                  background: '#fff', color: '#8a5b10', cursor: analyzePhase ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit', fontSize: 12, fontWeight: 800, padding: '6px 10px',
+                }}
+              >
+                {analyzePhase ? '正在重新请求…' : '重新获取完整 AI 评分'}
+              </button>
+            </div>
+          )}
 
           {/* 老师头像 */}
           <TeacherAvatar

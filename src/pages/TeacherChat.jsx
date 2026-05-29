@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
-import { modules } from '../data/phonics'
+import { modules, phonicsLessons } from '../data/phonics'
 import { chatWithEmma } from '../services/deepseek'
 import { buildEmmaLearningContext } from '../utils/learningContext'
 
@@ -108,6 +108,97 @@ const QUICK_QUESTIONS = [
 ]
 
 const SIDEBAR_W = 220
+
+const getLessonNumber = (content) => {
+  const match = content.match(/Lesson\s*(\d+)|第\s*(\d+)\s*课/i)
+  const num = Number(match?.[1] || match?.[2])
+  return Number.isFinite(num) && num > 0 ? num : null
+}
+
+const addAction = (actions, action) => {
+  if (!actions.some(item => item.to === action.to && item.label === action.label)) actions.push(action)
+}
+
+const buildEmmaActions = (content) => {
+  const actions = []
+  const lessonNumber = getLessonNumber(content)
+  const phonicsLesson = lessonNumber ? phonicsLessons[lessonNumber - 1] : null
+
+  if (phonicsLesson) {
+    addAction(actions, {
+      label: `去 Lesson ${lessonNumber}`,
+      sub: phonicsLesson.title.replace(/^Lesson\s*\d+\s*[—-]\s*/, ''),
+      to: `/course/phonics/${phonicsLesson.id}`,
+      tone: '#e8672a',
+    })
+  }
+
+  if (/自然拼读|拼读|phonics|短元音|长元音|魔法e/i.test(content)) {
+    addAction(actions, { label: '打开自然拼读', sub: '从发音地基开始', to: '/course/phonics', tone: '#e8672a' })
+  }
+  if (/发音|朗读|录音|口音|pronunciation/i.test(content)) {
+    addAction(actions, { label: '去发音练习', sub: '录一句马上分析', to: '/practice/speaking', tone: '#4a7a9b' })
+  }
+  if (/词汇|单词|复习|vocab|word/i.test(content)) {
+    addAction(actions, { label: '打开词汇本', sub: '复习到期单词', to: '/vocabulary', tone: '#3a9a5f' })
+  }
+  if (/学习计划|计划|今天|每天|day\s*\d|7天/i.test(content)) {
+    addAction(actions, { label: '回到今日计划', sub: '按步骤开始', to: '/dashboard', tone: '#e8672a' })
+  }
+  if (/弱点|分析|进度|复盘/i.test(content)) {
+    addAction(actions, { label: '查看学习分析', sub: '看进度和弱点', to: '/profile', tone: '#7b5ea7' })
+  }
+  if (/语音语调|语调|intonation/i.test(content)) {
+    addAction(actions, { label: '打开语音语调', sub: '练自然节奏', to: '/course/intonation', tone: '#4a7a9b' })
+  }
+  if (/语法|纠错|grammar/i.test(content)) {
+    addAction(actions, { label: '去语法纠错', sub: '写一句马上改', to: '/practice/speaking?tab=grammar', tone: '#7b5ea7' })
+  }
+  if (/听写|dictation/i.test(content)) {
+    addAction(actions, { label: '去听写练习', sub: '听一句写一句', to: '/practice/speaking?tab=dictation', tone: '#3a9a5f' })
+  }
+  if (/听力|listening/i.test(content)) {
+    addAction(actions, { label: '去听力练习', sub: '练真实对话理解', to: '/practice/speaking?tab=listening', tone: '#4a7a9b' })
+  }
+  if (/part\s*1|雅思.*1/i.test(content)) {
+    addAction(actions, { label: '练 Part 1', sub: '短问短答', to: '/practice/speaking?tab=part1', tone: '#7b5ea7' })
+  }
+  if (/part\s*2|cue\s*card|雅思.*2/i.test(content)) {
+    addAction(actions, { label: '练 Part 2', sub: 'Cue Card 独白', to: '/practice/speaking?tab=cuecard', tone: '#7b5ea7' })
+  }
+  if (/part\s*3|雅思.*3/i.test(content)) {
+    addAction(actions, { label: '练 Part 3', sub: '深度讨论', to: '/practice/speaking?tab=part3', tone: '#7b5ea7' })
+  }
+  if (/场景|对话|conversation|实战/i.test(content)) {
+    addAction(actions, { label: '去场景实战', sub: '和 AI 角色对话', to: '/course/scenes', tone: '#e8672a' })
+  }
+
+  return actions.slice(0, 4)
+}
+
+const ActionButtons = ({ actions, onNavigate }) => {
+  if (actions.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+      {actions.map(action => (
+        <button
+          key={`${action.to}-${action.label}`}
+          onClick={() => onNavigate(action.to)}
+          style={{
+            minHeight: 38, borderRadius: 12, border: `1px solid ${action.tone}33`,
+            background: `${action.tone}10`, color: action.tone,
+            padding: '7px 10px', cursor: 'pointer', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 8,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <span style={{ fontSize: 12, fontWeight: 900, whiteSpace: 'nowrap' }}>{action.label}</span>
+          <span style={{ fontSize: 11, color: '#7a756c', whiteSpace: 'nowrap' }}>{action.sub}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 const TeacherChat = () => {
   const navigate = useNavigate()
@@ -227,33 +318,41 @@ const TeacherChat = () => {
 
       {/* ── 消息区 ── */}
       <div style={{ padding: '20px 20px 8px' }}>
-        {messages.map((msg, i) => (
-          <div key={i} style={{
-            display: 'flex',
-            justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-            alignItems: 'flex-start',
-            gap: 10, marginBottom: 16,
-          }}>
-            {msg.role === 'emma' && <EmmaAvatar size={34} />}
-            <div style={{
-              maxWidth: '78%',
-              background: msg.role === 'user'
-                ? 'linear-gradient(135deg, #f28040, #e05020)'
-                : '#fff',
-              color: msg.role === 'user' ? '#fff' : '#0f0e0c',
-              borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-              padding: '12px 16px',
-              fontSize: 14, lineHeight: 1.6,
-              border: msg.role === 'emma' ? '1px solid rgba(0,0,0,0.07)' : 'none',
-              whiteSpace: 'pre-wrap',
-              boxShadow: msg.role === 'emma'
-                ? '0 1px 4px rgba(0,0,0,0.06)'
-                : '0 2px 10px rgba(232,103,42,0.28)',
+        {messages.map((msg, i) => {
+          const actions = msg.role === 'emma' ? buildEmmaActions(msg.content) : []
+          return (
+            <div key={i} style={{
+              display: 'flex',
+              justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+              alignItems: 'flex-start',
+              gap: 10, marginBottom: 16,
             }}>
-              {msg.content}
+              {msg.role === 'emma' && <EmmaAvatar size={34} />}
+              <div style={{ maxWidth: msg.role === 'user' ? '78%' : '82%', minWidth: 0 }}>
+                <div style={{
+                  background: msg.role === 'user'
+                    ? 'linear-gradient(135deg, #f28040, #e05020)'
+                    : '#fff',
+                  color: msg.role === 'user' ? '#fff' : '#0f0e0c',
+                  borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                  padding: '12px 16px',
+                  fontSize: 14, lineHeight: 1.6,
+                  border: msg.role === 'emma' ? '1px solid rgba(0,0,0,0.07)' : 'none',
+                  whiteSpace: 'pre-wrap',
+                  overflowWrap: 'anywhere',
+                  boxShadow: msg.role === 'emma'
+                    ? '0 1px 4px rgba(0,0,0,0.06)'
+                    : '0 2px 10px rgba(232,103,42,0.28)',
+                }}>
+                  {msg.content}
+                </div>
+                {msg.role === 'emma' && (
+                  <ActionButtons actions={actions} onNavigate={navigate} />
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {loading && (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 16 }}>

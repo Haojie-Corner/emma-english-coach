@@ -32,9 +32,24 @@ const checks = [
     patterns: ['setSearchParams', 'aria-selected', 'scrollIntoView'],
   },
   {
+    name: 'Emma 回复可直接跳转',
+    file: 'src/pages/TeacherChat.jsx',
+    patterns: ['buildEmmaActions', '去 Lesson', '打开自然拼读'],
+  },
+  {
     name: '手机录音格式兼容',
     file: 'src/utils/audio.js',
     patterns: ['getSupportedAudioMimeType', 'audio/mp4', 'blobToBase64WithMime'],
+  },
+  {
+    name: 'Gemini 分析有超时保护',
+    file: 'src/services/gemini.js',
+    patterns: ['GEMINI_TIMEOUT_MS', 'fetchGeminiWithTimeout', 'Gemini 分析超时'],
+  },
+  {
+    name: '发音分析有兜底重试',
+    file: 'src/components/AudioRecorder.jsx',
+    patterns: ['重新获取完整 AI 评分', '不计入正式学习记录'],
   },
   {
     name: '网络恢复后自动同步',
