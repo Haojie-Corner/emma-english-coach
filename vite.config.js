@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   server: {
-    allowedHosts: ['.loca.lt'],
+    allowedHosts: ['.loca.lt', '.trycloudflare.com'],
   },
   plugins: [
     react(),
