@@ -267,11 +267,13 @@ const Layout = () => {
     syncNow()
     window.addEventListener(LEARNING_STATE_CHANGED, pushSoon)
     window.addEventListener('focus', syncNow)
+    window.addEventListener('online', syncNow)
     document.addEventListener('visibilitychange', handleVisibility)
     return () => {
       clearTimeout(timer)
       window.removeEventListener(LEARNING_STATE_CHANGED, pushSoon)
       window.removeEventListener('focus', syncNow)
+      window.removeEventListener('online', syncNow)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [user?.id])

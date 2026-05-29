@@ -1,10 +1,29 @@
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
 // 主模型 + 备用模型（503 过载时自动切换）
-const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash-lite']
+const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
 
 const geminiUrl = (model) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`
+
+const buildGeminiError = async (res) => {
+  const errBody = await res.text()
+  let message = errBody.slice(0, 200)
+  try {
+    const parsed = JSON.parse(errBody)
+    message = parsed?.error?.message || message
+  } catch { /* keep raw body */ }
+  if (message.includes('User location is not supported')) {
+    return new Error('Gemini 当前网络地区不支持使用，请切换可用网络或改用后端代理')
+  }
+  if (res.status === 400 && message.includes('API key not valid')) {
+    return new Error('Gemini API Key 无效，请检查配置')
+  }
+  if (res.status === 403) {
+    return new Error('Gemini API 权限不足或项目未启用，请检查配置')
+  }
+  return new Error(`Gemini API error: ${res.status} — ${message}`)
+}
 
 const callGemini = async (parts) => {
   let lastError
@@ -16,13 +35,11 @@ const callGemini = async (parts) => {
         body: JSON.stringify({ contents: [{ parts }] }),
       })
       if (res.status === 503 || res.status === 429) {
-        const errBody = await res.text()
-        lastError = new Error(`Gemini API error: ${res.status} — ${errBody.slice(0, 200)}`)
+        lastError = await buildGeminiError(res)
         continue  // 换下一个模型重试
       }
       if (!res.ok) {
-        const errBody = await res.text()
-        throw new Error(`Gemini API error: ${res.status} — ${errBody.slice(0, 200)}`)
+        throw await buildGeminiError(res)
       }
       const data = await res.json()
       return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
@@ -37,7 +54,7 @@ const callGemini = async (parts) => {
   throw lastError
 }
 
-export const analyzePronunciation = async (audioBase64, targetText) => {
+export const analyzePronunciation = async (audioBase64, targetText, mimeType = 'audio/webm') => {
   const prompt = `你是一位专业的英语发音教练，专门辅导中文母语零基础学习者。
 
 当前练习内容：${targetText}
@@ -68,14 +85,14 @@ export const analyzePronunciation = async (audioBase64, targetText) => {
 
   const raw = await callGemini([
     { text: prompt },
-    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+    { inline_data: { mime_type: mimeType, data: audioBase64 } },
   ])
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('AI 返回格式异常，请重试')
   return JSON.parse(match[0])
 }
 
-export const scoreSpeechSimilarity = async (audioBase64, targetText, targetZh) => {
+export const scoreSpeechSimilarity = async (audioBase64, targetText, targetZh, mimeType = 'audio/webm') => {
   const prompt = `你是一位专业英语语音教练。学生正在练习模仿跟读，请对比学生录音与目标文本，评估相似度和质量。
 
 目标句子（英文）：${targetText}
@@ -95,7 +112,7 @@ export const scoreSpeechSimilarity = async (audioBase64, targetText, targetZh) =
 
   const raw = await callGemini([
     { text: prompt },
-    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+    { inline_data: { mime_type: mimeType, data: audioBase64 } },
   ])
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('AI 返回格式异常，请重试')
@@ -177,7 +194,7 @@ export const generateListeningExercise = async () => {
   return JSON.parse(match[0])
 }
 
-export const analyzeIeltsPart2 = async (audioBase64, topic, bulletPoints) => {
+export const analyzeIeltsPart2 = async (audioBase64, topic, bulletPoints, mimeType = 'audio/webm') => {
   const prompt = `你是一位经验丰富的雅思口语考官，现在正在评估一位中文母语学习者的雅思口语 Part 2 作答。
 
 题卡话题：${topic}
@@ -206,18 +223,18 @@ export const analyzeIeltsPart2 = async (audioBase64, topic, bulletPoints) => {
 }`
   const raw = await callGemini([
     { text: prompt },
-    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+    { inline_data: { mime_type: mimeType, data: audioBase64 } },
   ])
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('AI 返回格式异常，请重试')
   return JSON.parse(match[0])
 }
 
-export const transcribeSpeech = async (audioBase64) => {
+export const transcribeSpeech = async (audioBase64, mimeType = 'audio/webm') => {
   const prompt = `请将这段英文语音准确转写为文字。只输出转写的英文文本，不要加任何解释、标点符号说明或额外内容。如果识别不到任何语音，返回空字符串。`
   const raw = await callGemini([
     { text: prompt },
-    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+    { inline_data: { mime_type: mimeType, data: audioBase64 } },
   ])
   return raw.trim()
 }
@@ -238,7 +255,7 @@ export const expandVocabulary = async (word, context = '') => {
   return JSON.parse(match[0])
 }
 
-export const analyzeIeltsPart1 = async (audioBase64, question) => {
+export const analyzeIeltsPart1 = async (audioBase64, question, mimeType = 'audio/webm') => {
   const prompt = `你是一位专业雅思口语考官，正在评估考生回答 Part 1 问题的表现。
 
 问题：${question}
@@ -272,14 +289,14 @@ export const analyzeIeltsPart1 = async (audioBase64, question) => {
 }`
   const raw = await callGemini([
     { text: prompt },
-    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+    { inline_data: { mime_type: mimeType, data: audioBase64 } },
   ])
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('AI 返回格式异常')
   return JSON.parse(match[0])
 }
 
-export const analyzeIeltsPart3 = async (audioBase64, topic, question) => {
+export const analyzeIeltsPart3 = async (audioBase64, topic, question, mimeType = 'audio/webm') => {
   const prompt = `你是一位专业雅思口语考官，正在评估考生回答 Part 3 深度讨论题的表现。
 
 话题：${topic}
@@ -311,7 +328,7 @@ Part 3 重点考察抽象观点、原因结果、对比、让步和例证。请�
 }`
   const raw = await callGemini([
     { text: prompt },
-    { inline_data: { mime_type: 'audio/webm', data: audioBase64 } },
+    { inline_data: { mime_type: mimeType, data: audioBase64 } },
   ])
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('AI 返回格式异常')

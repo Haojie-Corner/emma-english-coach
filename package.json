@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "qa": "node scripts/qa-smoke.mjs",
+    "voice:check": "node scripts/voice-health.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

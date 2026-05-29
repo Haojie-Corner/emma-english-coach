@@ -194,7 +194,7 @@ const TeacherAvatar = ({ speakState, hasPlayed, preloading, onPause, onResume, o
 )
 
 const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
-  const { status, audioBlob, audioUrl, error, startRecording, stopRecording, reset, getBase64, analyserRef } = useAudioRecorder()
+  const { status, audioBlob, audioUrl, error, startRecording, stopRecording, reset, getBase64WithMime, analyserRef } = useAudioRecorder()
   const [analyzePhase, setAnalyzePhase] = useState(null)  // null | 'processing' | 'analyzing'
   const [result, setResult] = useState(null)
   const [analyzeError, setAnalyzeError] = useState(null)
@@ -298,9 +298,10 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
     setAnalyzePhase('processing')
     setAnalyzeError(null)
     try {
-      const base64 = await getBase64()
+      const payload = await getBase64WithMime()
+      if (!payload?.base64) throw new Error('录音为空，请重新录一次')
       setAnalyzePhase('analyzing')
-      const feedback = await analyzePronunciation(base64, targetText)
+      const feedback = await analyzePronunciation(payload.base64, targetText, payload.mimeType)
       setResult(feedback)
       recordPronunciationWeaknesses(feedback, targetZh || targetText || '发音练习')
       if (userId && lessonId && audioBlob) {

@@ -87,7 +87,13 @@ const elevenLabsFetch = async (text, modelId, rate, onEnd) => {
   const audio = new Audio(url)
   audio.playbackRate = rate
   currentAudio = audio
-  audio.play()
+  try {
+    await audio.play()
+  } catch (e) {
+    URL.revokeObjectURL(url)
+    if (currentAudio === audio) currentAudio = null
+    throw new Error(`Audio playback failed: ${e.message}`, { cause: e })
+  }
   audio.onended = () => {
     URL.revokeObjectURL(url)
     if (currentAudio === audio) currentAudio = null
@@ -102,8 +108,12 @@ const MODEL_FAST = 'eleven_turbo_v2_5'                 // commentary / feedback 
 
 const handleTtsError = (e) => {
   if (e.name === 'AbortError') return
-  if (e.message.includes('402')) toastTts('ElevenLabs 语音积分已用完，充值后即可恢复 🔋')
-  else if (e.message.includes('401') || e.message.includes('403')) toastTts('语音服务 API Key 无效，请检查配置')
+  const msg = e.message.toLowerCase()
+  if (msg.includes('quota') || msg.includes('credit') || msg.includes('character_limit') || msg.includes('402')) {
+    toastTts('ElevenLabs 语音额度已用完，充值或更换 Key 后即可恢复')
+  } else if (msg.includes('invalid') || msg.includes('api key') || msg.includes('unauthorized') || msg.includes('401') || msg.includes('403')) {
+    toastTts('语音服务 API Key 无效，请检查配置')
+  }
   else toastTts('语音服务暂时不可用，请稍后重试')
   console.warn('[TTS] ElevenLabs error:', e.message)
 }
@@ -116,6 +126,7 @@ export const speak = async (text, rate = 0.78, onEnd = null) => {
     await elevenLabsFetch(text, MODEL_QUALITY, rate, onEnd)
   } catch (e) {
     handleTtsError(e)
+    if (e.name !== 'AbortError') onEnd?.()
   }
 }
 
@@ -127,6 +138,7 @@ export const speakMultilingual = async (text, onEnd = null) => {
     await elevenLabsFetch(text, MODEL_FAST, 1.0, onEnd)
   } catch (e) {
     handleTtsError(e)
+    if (e.name !== 'AbortError') onEnd?.()
   }
 }
 

@@ -53,10 +53,11 @@ export const getProgress = async (userId) => {
 }
 
 export const saveRecording = async (userId, lessonId, audioBlob, aiScore, aiFeedback) => {
-  const fileName = `${userId}/${lessonId}/${Date.now()}.webm`
+  const extension = audioBlob?.type?.includes('mp4') ? 'mp4' : 'webm'
+  const fileName = `${userId}/${lessonId}/${Date.now()}.${extension}`
   const { error: uploadError } = await supabase.storage
     .from('recordings')
-    .upload(fileName, audioBlob, { contentType: 'audio/webm' })
+    .upload(fileName, audioBlob, { contentType: audioBlob?.type || 'audio/webm' })
   if (uploadError) throw uploadError
 
   const { data: { publicUrl } } = supabase.storage.from('recordings').getPublicUrl(fileName)

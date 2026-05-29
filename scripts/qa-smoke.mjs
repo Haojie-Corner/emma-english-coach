@@ -32,6 +32,16 @@ const checks = [
     patterns: ['setSearchParams', 'aria-selected', 'scrollIntoView'],
   },
   {
+    name: '手机录音格式兼容',
+    file: 'src/utils/audio.js',
+    patterns: ['getSupportedAudioMimeType', 'audio/mp4', 'blobToBase64WithMime'],
+  },
+  {
+    name: '网络恢复后自动同步',
+    file: 'src/components/Layout.jsx',
+    patterns: ["addEventListener('online'", "removeEventListener('online'"],
+  },
+  {
     name: '正式上线前安全提醒仍保留',
     file: 'README.md',
     patterns: ['迁移到后端代理', '避免浏览器暴露 API Key'],

@@ -12,6 +12,7 @@ import { addVocabularyWord } from '../../services/supabase'
 import { recordGrammarWeaknesses } from '../../utils/weakness'
 import { recordIeltsAttempt } from '../../utils/ieltsGoal'
 import { notifyLearningStateChanged } from '../../utils/learningStateSync'
+import { blobToBase64WithMime, buildAudioBlob, createAudioRecorder } from '../../utils/audio'
 
 const IELTS_DIM_META = {
   fluency_coherence: {
@@ -753,7 +754,7 @@ const CueCardTab = () => {
     chunksRef.current = []
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      const recorder = createAudioRecorder(stream)
       mediaRef.current = recorder
       recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.start()
@@ -761,6 +762,7 @@ const CueCardTab = () => {
         setSpeakingTime(t => t + 1)
       }, 1000)
     } catch {
+      setAnalyzeError('无法访问麦克风，请检查权限')
       setPhase('ready')
     }
   }
@@ -769,30 +771,26 @@ const CueCardTab = () => {
     clearTimer()
     if (mediaRef.current) {
       mediaRef.current.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        const reader = new FileReader()
-        reader.readAsDataURL(blob)
-        reader.onloadend = async () => {
-          const base64 = reader.result.split(',')[1]
-          setAnalyzing(true)
-          try {
-            const r = await analyzeIeltsPart2(base64, card.topic, card.bullets)
-            recordIeltsAttempt({
-              part: 'Part 2',
-              band: r.overall_band,
-              topic: card.topic,
-              question: card.bullets.join(' | '),
-              dimensionScores: r.dimension_scores,
-              improvements: r.improvements,
-            })
-            setResult(r)
-            setPhase('done')
-          } catch (e) {
-            setAnalyzeError('AI 分析失败：' + e.message)
-            setPhase('done')
-          } finally {
-            setAnalyzing(false)
-          }
+        const blob = buildAudioBlob(chunksRef.current, mediaRef.current?.mimeType)
+        setAnalyzing(true)
+        try {
+          const { base64, mimeType } = await blobToBase64WithMime(blob)
+          const r = await analyzeIeltsPart2(base64, card.topic, card.bullets, mimeType)
+          recordIeltsAttempt({
+            part: 'Part 2',
+            band: r.overall_band,
+            topic: card.topic,
+            question: card.bullets.join(' | '),
+            dimensionScores: r.dimension_scores,
+            improvements: r.improvements,
+          })
+          setResult(r)
+          setPhase('done')
+        } catch (e) {
+          setAnalyzeError('AI 分析失败：' + e.message)
+          setPhase('done')
+        } finally {
+          setAnalyzing(false)
         }
       }
       mediaRef.current.stop()
@@ -1209,21 +1207,16 @@ const Part1Tab = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       mediaRef.current = stream
-      const recorder = new MediaRecorder(stream)
+      const recorder = createAudioRecorder(stream)
       recorderRef.current = recorder
       recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
         setPhase('analyzing')
         try {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-          const base64 = await new Promise((res, rej) => {
-            const reader = new FileReader()
-            reader.onload = () => res(reader.result.split(',')[1])
-            reader.onerror = rej
-            reader.readAsDataURL(blob)
-          })
-          const data = await analyzeIeltsPart1(base64, question)
+          const blob = buildAudioBlob(chunksRef.current, recorder.mimeType)
+          const { base64, mimeType } = await blobToBase64WithMime(blob)
+          const data = await analyzeIeltsPart1(base64, question, mimeType)
           recordIeltsAttempt({
             part: 'Part 1',
             band: data.overall_band,
@@ -1499,21 +1492,16 @@ const Part3Tab = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       mediaRef.current = stream
-      const recorder = new MediaRecorder(stream)
+      const recorder = createAudioRecorder(stream)
       recorderRef.current = recorder
       recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
         setPhase('analyzing')
         try {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-          const base64 = await new Promise((res, rej) => {
-            const reader = new FileReader()
-            reader.onload = () => res(reader.result.split(',')[1])
-            reader.onerror = rej
-            reader.readAsDataURL(blob)
-          })
-          const data = await analyzeIeltsPart3(base64, topic.category, question)
+          const blob = buildAudioBlob(chunksRef.current, recorder.mimeType)
+          const { base64, mimeType } = await blobToBase64WithMime(blob)
+          const data = await analyzeIeltsPart3(base64, topic.category, question, mimeType)
           recordIeltsAttempt({
             part: 'Part 3',
             band: data.overall_band,

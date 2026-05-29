@@ -1,13 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { transcribeSpeech } from '../../services/gemini'
-
-const toBase64 = (blob) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result.split(',')[1])
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
-  })
+import { blobToBase64WithMime, buildAudioBlob, createAudioRecorder } from '../../utils/audio'
+import { showToast } from '../../utils/toast'
 
 // Inline voice recorder → Gemini transcription → calls onResult(text)
 const VoiceInputButton = ({ onResult, disabled }) => {
@@ -20,19 +14,19 @@ const VoiceInputButton = ({ onResult, disabled }) => {
     chunksRef.current = []
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      const recorder = createAudioRecorder(stream)
       mediaRef.current = recorder
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
         setPhase('transcribing')
         try {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-          const base64 = await toBase64(blob)
-          const text = await transcribeSpeech(base64)
+          const blob = buildAudioBlob(chunksRef.current, recorder.mimeType)
+          const { base64, mimeType } = await blobToBase64WithMime(blob)
+          const text = await transcribeSpeech(base64, mimeType)
           if (text) onResult(text)
-        } catch {
-          // silently fail — user can retry
+        } catch (e) {
+          showToast(`语音转文字失败：${e.message || '请稍后重试'}`, 'warning')
         } finally {
           setPhase('idle')
         }
@@ -40,6 +34,7 @@ const VoiceInputButton = ({ onResult, disabled }) => {
       recorder.start()
       setPhase('recording')
     } catch {
+      showToast('无法访问麦克风，请检查浏览器权限', 'warning')
       setPhase('idle')
     }
   }, [phase, onResult])

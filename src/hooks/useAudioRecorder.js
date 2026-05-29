@@ -1,17 +1,11 @@
 import { useState, useRef, useCallback } from 'react'
-
-const toBase64 = (blob) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result.split(',')[1])
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
-  })
+import { blobToBase64WithMime, buildAudioBlob, createAudioRecorder } from '../utils/audio'
 
 const useAudioRecorder = () => {
   const [status, setStatus] = useState('idle') // idle | recording | processing | done | error
   const [audioBlob, setAudioBlob] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
+  const [audioMimeType, setAudioMimeType] = useState('audio/webm')
   const [error, setError] = useState(null)
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
@@ -25,8 +19,10 @@ const useAudioRecorder = () => {
     chunksRef.current = []
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+      const recorder = createAudioRecorder(stream)
+      const mimeType = recorder.mimeType || 'audio/webm'
       mediaRecorderRef.current = recorder
+      setAudioMimeType(mimeType)
 
       // Set up Web Audio analyser for waveform
       const ctx = new (window.AudioContext || window.webkitAudioContext)()
@@ -42,7 +38,7 @@ const useAudioRecorder = () => {
       }
 
       recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const blob = buildAudioBlob(chunksRef.current, recorder.mimeType || mimeType)
         const url = URL.createObjectURL(blob)
         setAudioBlob(blob)
         setAudioUrl(url)
@@ -73,15 +69,22 @@ const useAudioRecorder = () => {
     setStatus('idle')
     setAudioBlob(null)
     setAudioUrl(null)
+    setAudioMimeType('audio/webm')
     setError(null)
   }, [audioUrl])
 
   const getBase64 = useCallback(async () => {
     if (!audioBlob) return null
-    return toBase64(audioBlob)
+    const payload = await blobToBase64WithMime(audioBlob)
+    return payload.base64
   }, [audioBlob])
 
-  return { status, audioBlob, audioUrl, error, startRecording, stopRecording, reset, getBase64, analyserRef }
+  const getBase64WithMime = useCallback(async () => {
+    if (!audioBlob) return null
+    return blobToBase64WithMime(audioBlob)
+  }, [audioBlob])
+
+  return { status, audioBlob, audioUrl, audioMimeType, error, startRecording, stopRecording, reset, getBase64, getBase64WithMime, analyserRef }
 }
 
 export default useAudioRecorder

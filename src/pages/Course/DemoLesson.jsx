@@ -60,7 +60,7 @@ const DemoLesson = () => {
     finally { setSavingVocab(null) }
   }
 
-  const { status: recStatus, audioBlob, startRecording, stopRecording, getBase64, reset: resetRec } = useAudioRecorder()
+  const { status: recStatus, audioBlob, startRecording, stopRecording, getBase64WithMime, reset: resetRec } = useAudioRecorder()
   const isRecording = recStatus === 'recording'
 
   useEffect(() => {
@@ -68,10 +68,10 @@ const DemoLesson = () => {
       setAnalyzing(true)
       setError('')
       setResult(null)
-      getBase64().then(async (base64) => {
-        if (!base64) { setAnalyzing(false); return }
+      getBase64WithMime().then(async (payload) => {
+        if (!payload?.base64) { setAnalyzing(false); return }
         try {
-          const data = await scoreSpeechSimilarity(base64, lesson.practiceTarget, lesson.practiceZh)
+          const data = await scoreSpeechSimilarity(payload.base64, lesson.practiceTarget, lesson.practiceZh, payload.mimeType)
           setResult(data)
           // 保存学生录音 blob URL 用于对比回放
           if (audioBlob) {
