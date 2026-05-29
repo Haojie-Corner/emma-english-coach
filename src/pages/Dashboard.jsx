@@ -16,6 +16,7 @@ import { getWeaknessSummary } from '../utils/weakness'
 import { getIeltsGoal, getIeltsGoalSummary } from '../utils/ieltsGoal'
 import { LEARNING_STATE_SYNCED, LEARNING_SYNC_STATUS_CHANGED, getLearningSyncStatus, notifyLearningStateChanged, syncLearningState } from '../utils/learningStateSync'
 import InstallAppCard from '../components/ui/InstallAppCard'
+import { buildTodayLearningReview, saveDailyLearningReview } from '../utils/learningReview'
 
 const routeMap = {
   phonics: '/course/phonics', intonation: '/course/intonation', mindset: '/course/mindset',
@@ -427,6 +428,24 @@ const Dashboard = () => {
   const loopDoneCount = loopSteps.filter(step => step.done).length
   const nextLoopStep = loopSteps.find(step => !step.done)
   const syncMeta = getSyncStatusMeta(syncStatus)
+  const todayReview = useMemo(() => buildTodayLearningReview({
+    todayMinutes,
+    targetMinutes,
+    todayCompleted,
+    dueVocabCount,
+    weaknessSummary,
+    ieltsGoal,
+    nextLessonInfo,
+  }), [todayMinutes, targetMinutes, todayCompleted, dueVocabCount, weaknessSummary, ieltsGoal, nextLessonInfo])
+  const reviewActionTo = todayReview.topWeaknessType
+    ? (weaknessPracticeMap[todayReview.topWeaknessType]?.to || '/practice/speaking')
+    : dueVocabCount > 0
+      ? '/vocabulary?tab=due'
+      : nextLessonInfo.getPath(nextLessonInfo.lesson.id)
+
+  useEffect(() => {
+    saveDailyLearningReview(todayReview)
+  }, [todayReview])
 
   const handleSaveDiagnostic = (profile) => {
     localStorage.setItem(DIAGNOSTIC_KEY, JSON.stringify(profile))
@@ -701,6 +720,51 @@ const Dashboard = () => {
               borderRadius: 10, minHeight: 36, padding: '6px 10px', cursor: 'pointer',
               fontFamily: 'inherit', flexShrink: 0,
             }}>刷新</button>
+          </div>
+        </div>
+
+        {/* ── Daily Review ── */}
+        <div style={{
+          background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+          borderRadius: 18, padding: '16px 18px', marginBottom: 20,
+          boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 11, fontWeight: 800, color: '#7b5ea7', marginBottom: 4 }}>今日复盘闭环</p>
+              <p style={{ fontSize: 15.5, fontWeight: 800, color: '#0f0e0c', lineHeight: 1.35 }}>
+                {todayReview.summary}
+              </p>
+            </div>
+            <span style={{
+              fontSize: 11, fontWeight: 800, color: todayReview.level === 'closed' ? '#3a9a5f' : '#d48a10',
+              background: todayReview.level === 'closed' ? '#edf8f2' : '#fff8ea',
+              borderRadius: 20, padding: '4px 9px', whiteSpace: 'nowrap', flexShrink: 0,
+            }}>
+              {todayReview.level === 'closed' ? '已闭环' : '待补齐'}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+            {todayReview.wins.map(item => (
+              <div key={item} style={{
+                background: '#faf9f6', border: '1px solid #ede9e1',
+                borderRadius: 12, padding: '9px 8px', minWidth: 0,
+              }}>
+                <p style={{ fontSize: 11.5, fontWeight: 700, color: '#5c5850', lineHeight: 1.45, overflowWrap: 'anywhere' }}>{item}</p>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 12.5, color: '#5c5850', lineHeight: 1.6, marginBottom: 8 }}>
+            <strong style={{ color: '#0f0e0c' }}>下一次只盯一个点：</strong>{todayReview.focus}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <p style={{ fontSize: 12, color: '#7a756c', lineHeight: 1.5, flex: '1 1 220px' }}>{todayReview.tomorrowAction}</p>
+            <button onClick={() => navigate(reviewActionTo)} style={{
+              fontSize: 12, fontWeight: 800, color: '#7b5ea7',
+              background: '#f3eeff', border: '1px solid #d5c5f0',
+              borderRadius: 11, minHeight: 38, padding: '8px 12px', cursor: 'pointer',
+              fontFamily: 'inherit', flexShrink: 0,
+            }}>马上补齐</button>
           </div>
         </div>
 

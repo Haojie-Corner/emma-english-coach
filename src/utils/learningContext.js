@@ -1,5 +1,6 @@
 import { getWeaknessSummary } from './weakness'
 import { getIeltsGoal, getIeltsGoalSummary, getIeltsAttemptSummary } from './ieltsGoal'
+import { getLatestLearningReview } from './learningReview'
 
 const formatDate = (value) => {
   if (!value) return ''
@@ -12,6 +13,7 @@ export const buildEmmaLearningContext = () => {
   const goalSummary = getIeltsGoalSummary(ieltsGoal)
   const attemptSummary = getIeltsAttemptSummary()
   const weaknesses = getWeaknessSummary().slice(0, 3)
+  const latestReview = getLatestLearningReview()
 
   if (ieltsGoal) {
     lines.push(`雅思目标：当前 Band ${ieltsGoal.currentBand}，目标 Band ${ieltsGoal.targetBand}，每天 ${ieltsGoal.dailyMinutes} 分钟。`)
@@ -26,7 +28,11 @@ export const buildEmmaLearningContext = () => {
     lines.push(`近期高频弱点：${weaknesses.map(w => `${w.label}${w.count ? `(${w.count}次)` : ''}`).join('、')}。`)
   }
 
-  const updatedAt = attemptSummary?.latest?.createdAt || ieltsGoal?.updatedAt
+  if (latestReview) {
+    lines.push(`最近学习复盘：${latestReview.summary} 下一步：${latestReview.tomorrowAction}`)
+  }
+
+  const updatedAt = latestReview?.updatedAt || attemptSummary?.latest?.createdAt || ieltsGoal?.updatedAt
   if (updatedAt) lines.push(`学习档案更新时间：${formatDate(updatedAt)}。`)
 
   return lines.join('\n')

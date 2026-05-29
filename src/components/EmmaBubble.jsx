@@ -14,6 +14,7 @@ import { addVocabularyWord } from '../services/supabase'
 import VocabChip from './ui/VocabChip'
 import { buildEmmaLearningContext } from '../utils/learningContext'
 import { LEARNING_STATE_SYNCED, notifyLearningStateChanged } from '../utils/learningStateSync'
+import { dismissEmmaCoachNudge, getEmmaCoachNudge } from '../utils/learningReview'
 
 const parseVocabFromMessage = (content) => {
   const match = content.match(/💡\s*(?:新词汇|学到了)[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
@@ -124,6 +125,15 @@ const TypingDots = () => (
 
 const BREAKPOINT = 1024
 
+const getVisualViewportState = () => {
+  const vv = window.visualViewport
+  return {
+    height: vv?.height || window.innerHeight,
+    offsetTop: vv?.offsetTop || 0,
+    width: vv?.width || window.innerWidth,
+  }
+}
+
 /* ── 主组件 ── */
 const EmmaBubble = () => {
   const { isOpen, close, toggle } = useEmmaStore()
@@ -141,9 +151,17 @@ const EmmaBubble = () => {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= BREAKPOINT)
+  const [viewport, setViewport] = useState(() => getVisualViewportState())
   const [savedVocabs, setSavedVocabs] = useState(new Set())
   const [savingVocab, setSavingVocab] = useState(null)
+  const [coachNudge, setCoachNudge] = useState(() => getEmmaCoachNudge())
   const bottomRef = useRef(null)
+
+  const keyboardInset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+  const isKeyboardOpen = !isDesktop && keyboardInset > 90
+  const mobilePanelHeight = isKeyboardOpen
+    ? Math.max(330, Math.min(viewport.height - 8, window.innerHeight - keyboardInset - 8))
+    : null
 
   const handleSaveVocab = async (en, zh) => {
     if (!user || savedVocabs.has(en)) return
@@ -179,6 +197,20 @@ const EmmaBubble = () => {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
+  useEffect(() => {
+    const updateViewport = () => setViewport(getVisualViewportState())
+    const vv = window.visualViewport
+    updateViewport()
+    window.addEventListener('resize', updateViewport)
+    vv?.addEventListener('resize', updateViewport)
+    vv?.addEventListener('scroll', updateViewport)
+    return () => {
+      window.removeEventListener('resize', updateViewport)
+      vv?.removeEventListener('resize', updateViewport)
+      vv?.removeEventListener('scroll', updateViewport)
+    }
+  }, [])
+
   /* 每次打开时根据当前情境生成开场白 */
   useEffect(() => {
     if (isOpen && messages.length === 0) {
@@ -202,14 +234,21 @@ const EmmaBubble = () => {
         const saved = JSON.parse(localStorage.getItem('emma_recent_messages') || '[]')
         if (saved.length > 0) setMessages(saved)
       } catch { /* ignore stale cloud state */ }
+      setCoachNudge(getEmmaCoachNudge())
     }
     window.addEventListener(LEARNING_STATE_SYNCED, refreshMessages)
     return () => window.removeEventListener(LEARNING_STATE_SYNCED, refreshMessages)
   }, [])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+    const refreshNudge = () => setCoachNudge(getEmmaCoachNudge())
+    window.addEventListener('focus', refreshNudge)
+    return () => window.removeEventListener('focus', refreshNudge)
+  }, [])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: isKeyboardOpen ? 'auto' : 'smooth', block: 'end' })
+  }, [messages, loading, isKeyboardOpen, viewport.height])
 
   const handleClose = () => {
     close()
@@ -237,6 +276,16 @@ const EmmaBubble = () => {
     }
   }
 
+  const handleDismissNudge = () => {
+    dismissEmmaCoachNudge()
+    setCoachNudge(null)
+  }
+
+  const handleNudgePractice = () => {
+    if (!coachNudge?.prompt) return
+    sendMessage(coachNudge.prompt)
+  }
+
   /* 在 /teacher 全屏页隐藏气泡 */
   if (location.pathname === '/teacher') return null
 
@@ -249,10 +298,12 @@ const EmmaBubble = () => {
     transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
     transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
   } : {
-    position: 'fixed', left: 0, right: 0, bottom: 0,
-    height: '75vh',
+    position: 'fixed', left: 0, right: 0,
+    bottom: isKeyboardOpen ? keyboardInset : 0,
+    height: isKeyboardOpen ? mobilePanelHeight : 'min(82dvh, 640px)',
+    maxHeight: isKeyboardOpen ? mobilePanelHeight : 'calc(100dvh - 18px)',
     background: '#fff',
-    borderRadius: '20px 20px 0 0',
+    borderRadius: isKeyboardOpen ? '18px 18px 0 0' : '22px 22px 0 0',
     boxShadow: '0 -8px 40px rgba(0,0,0,0.15)',
     zIndex: 200,
     display: 'flex', flexDirection: 'column',
@@ -308,13 +359,20 @@ const EmmaBubble = () => {
         }}
       >
         <span style={{ color: '#fff', fontWeight: 800, fontSize: isDesktop ? 20 : 18, letterSpacing: '-0.01em' }}>E</span>
+        {coachNudge && !isOpen && (
+          <span style={{
+            position: 'absolute', right: 2, top: 2,
+            width: 10, height: 10, borderRadius: '50%',
+            background: '#3a9a5f', border: '2px solid #fff',
+          }} />
+        )}
       </button>
 
       {/* 聊天面板 */}
       <div style={panelStyle}>
 
         {/* 移动端拖拽手柄 */}
-        {!isDesktop && (
+        {!isDesktop && !isKeyboardOpen && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px', flexShrink: 0 }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: '#dedad0' }} />
           </div>
@@ -323,9 +381,10 @@ const EmmaBubble = () => {
         {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
-          padding: `${isDesktop ? 14 : 10}px 16px`,
+          padding: `${isDesktop ? 14 : isKeyboardOpen ? 9 : 10}px 16px`,
           borderBottom: '1px solid #e8e4dc',
           flexShrink: 0,
+          background: '#fff',
         }}>
           <EmmaAvatar size={34} />
           <div style={{ flex: 1 }}>
@@ -352,7 +411,51 @@ const EmmaBubble = () => {
         </div>
 
         {/* 消息区 */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 8px' }}>
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          minHeight: 0,
+          padding: isKeyboardOpen ? '10px 12px 8px' : '14px 14px 8px',
+          background: '#fbfaf7',
+          WebkitOverflowScrolling: 'touch',
+        }}>
+          {coachNudge && (
+            <div style={{
+              background: '#fff8ea', border: '1px solid #f1dca3',
+              borderRadius: 14, padding: '12px 12px', marginBottom: 12,
+            }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: 11, flexShrink: 0,
+                  background: '#fff', color: '#d48a10',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 15, fontWeight: 900,
+                }}>!</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12.5, fontWeight: 800, color: '#0f0e0c', lineHeight: 1.45, marginBottom: 4 }}>
+                    {coachNudge.title}
+                  </p>
+                  <p style={{ fontSize: 11.5, color: '#5c5850', lineHeight: 1.55 }}>
+                    {coachNudge.message}
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                    <button onClick={handleNudgePractice} style={{
+                      fontSize: 11, fontWeight: 800, color: '#fff',
+                      background: '#d48a10', border: 'none',
+                      borderRadius: 9, minHeight: 32, padding: '6px 10px',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}>让 Emma 带我练</button>
+                    <button onClick={handleDismissNudge} style={{
+                      fontSize: 11, fontWeight: 700, color: '#8a6b1d',
+                      background: '#fff', border: '1px solid #ecd28e',
+                      borderRadius: 9, minHeight: 32, padding: '6px 10px',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}>今天先不提醒</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {messages.map((msg, i) => {
             const vocabs = msg.role === 'emma' ? parseVocabFromMessage(msg.content) : []
             const displayContent = msg.role === 'emma'
@@ -375,6 +478,8 @@ const EmmaBubble = () => {
                     padding: '9px 12px',
                     fontSize: 13.5, lineHeight: 1.6,
                     whiteSpace: 'pre-wrap',
+                    overflowWrap: 'anywhere',
+                    boxShadow: msg.role === 'user' ? '0 2px 8px rgba(217,119,87,0.18)' : '0 1px 4px rgba(0,0,0,0.04)',
                   }}>
                     {displayContent}
                   </div>
@@ -404,7 +509,7 @@ const EmmaBubble = () => {
         </div>
 
         {/* 快捷问题（仅初始状态）*/}
-        {messages.length <= 1 && !loading && routeCtx.quickQ?.length > 0 && (
+        {messages.length <= 1 && !loading && !isKeyboardOpen && routeCtx.quickQ?.length > 0 && (
           <div style={{ padding: '0 14px 10px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {routeCtx.quickQ.map(q => (
               <button
@@ -427,10 +532,12 @@ const EmmaBubble = () => {
 
         {/* 输入框 */}
         <div style={{
-          padding: '10px 12px',
+          padding: isDesktop ? '10px 12px' : '10px 12px calc(10px + env(safe-area-inset-bottom))',
           borderTop: '1px solid #e8e4dc',
           display: 'flex', gap: 8, alignItems: 'flex-end',
           flexShrink: 0,
+          background: 'rgba(255,255,255,0.96)',
+          boxShadow: '0 -4px 18px rgba(0,0,0,0.04)',
         }}>
           <textarea
             value={input}
@@ -441,12 +548,13 @@ const EmmaBubble = () => {
             placeholder="问 Emma 任何问题…"
             rows={1}
             style={{
-              flex: 1, border: '1.5px solid #e8e4dc', borderRadius: 10,
-              padding: '8px 12px', fontSize: 13.5, resize: 'none',
+              flex: 1, border: '1.5px solid #e8e4dc', borderRadius: 16,
+              minHeight: 42, padding: '10px 13px', fontSize: 15, resize: 'none',
               fontFamily: 'inherit', lineHeight: 1.5,
               background: '#f5f3ee', outline: 'none',
               maxHeight: 96, overflowY: 'auto',
               transition: 'border-color 0.15s',
+              boxSizing: 'border-box',
             }}
             onFocus={e => e.target.style.borderColor = '#d97757'}
             onBlur={e => e.target.style.borderColor = '#e8e4dc'}
@@ -455,7 +563,7 @@ const EmmaBubble = () => {
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || loading}
             style={{
-              width: 36, height: 36, borderRadius: 10, border: 'none',
+              width: 42, height: 42, borderRadius: 15, border: 'none',
               background: input.trim() && !loading ? '#d97757' : '#e8e4dc',
               cursor: input.trim() && !loading ? 'pointer' : 'default',
               display: 'flex', alignItems: 'center', justifyContent: 'center',

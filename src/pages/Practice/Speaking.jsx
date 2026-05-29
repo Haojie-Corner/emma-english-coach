@@ -1700,53 +1700,95 @@ const Part3Tab = () => {
 }
 
 const TABS = [
-  ['free', '🎤 录音'],
-  ['grammar', '📝 语法'],
-  ['dictation', '✍️ 听写'],
-  ['listening', '🎧 听力'],
-  ['tech', '💻 编程'],
-  ['snap', '📸 随拍'],
-  ['part1', '🗣️ Part 1'],
-  ['cuecard', '🎓 Part 2'],
-  ['part3', '🎯 Part 3'],
+  { key: 'free', label: '录音', icon: '🎤', group: '口语', desc: '自由开口，AI 会分析发音、流利度、重音和语调。' },
+  { key: 'grammar', label: '语法', icon: '📝', group: '表达', desc: '输入英文句子，马上看到错误、改法和可积累的新词。' },
+  { key: 'dictation', label: '听写', icon: '✍️', group: '输入', desc: '听一句、写一句，训练耳朵和拼写的连接。' },
+  { key: 'listening', label: '听力', icon: '🎧', group: '输入', desc: '生成分级对话和理解题，练真实场景里的抓重点能力。' },
+  { key: 'part1', label: 'Part 1', icon: '🗣️', group: '雅思', desc: '短问短答，先把日常话题说稳、说自然。' },
+  { key: 'cuecard', label: 'Part 2', icon: '🎓', group: '雅思', desc: 'Cue Card 独白训练，重点练结构、展开和时间控制。' },
+  { key: 'part3', label: 'Part 3', icon: '🎯', group: '雅思', desc: '深度讨论训练，重点练观点、原因、对比和让步。' },
+  { key: 'snap', label: '随拍', icon: '📸', group: '工具', desc: '拍照识物学英语，把身边东西变成可用表达。' },
+  { key: 'tech', label: '编程', icon: '💻', group: '工具', desc: '看懂英文报错、命令和技术文档里的关键表达。' },
 ]
 
+const getTabMeta = (key) => TABS.find(tab => tab.key === key) || TABS[0]
+
 const Speaking = () => {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const drillWord = searchParams.get('drill') || ''
   const queryTab = searchParams.get('tab')
-  const initialTab = TABS.some(([key]) => key === queryTab) ? queryTab : 'free'
+  const initialTab = TABS.some(tab => tab.key === queryTab) ? queryTab : 'free'
   const [mode, setMode] = useState(initialTab)
+  const tabRefs = useRef({})
+  const activeTab = getTabMeta(mode)
+
+  useEffect(() => {
+    if (!queryTab || !TABS.some(tab => tab.key === queryTab) || queryTab === mode) return
+    setMode(queryTab)
+  }, [queryTab, mode])
+
+  useEffect(() => {
+    tabRefs.current[mode]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }, [mode])
+
+  const changeMode = (key) => {
+    setMode(key)
+    const next = new URLSearchParams(searchParams)
+    if (key === 'free') next.delete('tab')
+    else next.set('tab', key)
+    setSearchParams(next, { replace: true })
+  }
 
   return (
     <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', padding: '28px clamp(14px, 4vw, 20px)', overflowX: 'hidden' }}>
 
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
-        <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>练习中心</h1>
-        <p style={{ fontSize: 13, color: '#9e998e', lineHeight: 1.55 }}>口语录音 · 语法纠错 · 听写训练 · 雅思 Part 1/2/3 · 听力 · 编程 · 随拍</p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+          <div style={{ minWidth: 0 }}>
+            <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>练习中心</h1>
+            <p style={{ fontSize: 13, color: '#9e998e', lineHeight: 1.55 }}>{activeTab.desc}</p>
+          </div>
+          <span style={{
+            fontSize: 11, fontWeight: 800, color: '#e8672a',
+            background: '#fff3ee', border: '1px solid #f5c4a8',
+            borderRadius: 999, padding: '5px 9px', whiteSpace: 'nowrap', flexShrink: 0,
+          }}>{activeTab.group}</span>
+        </div>
       </div>
 
       {/* Tab 切换 */}
       <div style={{
-        display: 'flex', background: '#f0ede6', borderRadius: 14, padding: 4,
-        marginBottom: 24, gap: 3, overflowX: 'auto', scrollbarWidth: 'none',
+        position: 'sticky', top: 0, zIndex: 20,
+        display: 'flex', background: 'rgba(240,237,230,0.92)', borderRadius: 16, padding: 5,
+        marginBottom: 22, gap: 4, overflowX: 'auto', scrollbarWidth: 'none',
         WebkitOverflowScrolling: 'touch', scrollSnapType: 'x proximity',
-      }}>
-        {TABS.map(([key, label]) => (
+        backdropFilter: 'blur(16px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+        boxShadow: '0 4px 18px rgba(0,0,0,0.06)',
+      }} role="tablist" aria-label="练习模式">
+        {TABS.map(({ key, label, icon, group }) => (
           <button
             key={key}
-            onClick={() => setMode(key)}
+            ref={el => { tabRefs.current[key] = el }}
+            onClick={() => changeMode(key)}
+            role="tab"
+            aria-selected={mode === key}
             style={{
-              flex: '0 0 auto', minWidth: 76, minHeight: 40, padding: '8px 9px', borderRadius: 10, fontSize: 11, fontWeight: 700,
+              flex: '0 0 auto', minWidth: 78, minHeight: 46, padding: '8px 10px', borderRadius: 12, fontSize: 11, fontWeight: 800,
               border: 'none', cursor: 'pointer', transition: 'all 0.15s',
               background: mode === key ? '#fff' : 'transparent',
               color: mode === key ? '#0f0e0c' : '#9e998e',
               boxShadow: mode === key ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
               fontFamily: 'inherit', whiteSpace: 'nowrap', scrollSnapAlign: 'start',
+              WebkitTapHighlightColor: 'transparent',
             }}
           >
-            {label}
+            <span style={{ display: 'block', fontSize: 15, lineHeight: 1.05, marginBottom: 3 }}>{icon}</span>
+            <span>{label}</span>
+            {mode === key && (
+              <span style={{ display: 'block', fontSize: 9.5, color: '#e8672a', marginTop: 1, lineHeight: 1.1 }}>{group}</span>
+            )}
           </button>
         ))}
       </div>
