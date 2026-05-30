@@ -649,6 +649,51 @@ const Profile = () => {
           <span style={{ fontSize: 14, fontWeight: 700, color: '#e8672a' }}>{weekTotal} 节</span>
         </div>
         <WeeklyBarChart counts={weeklyLessonCounts} />
+        {/* 每日学习分钟数 */}
+        {(() => {
+          const days = []
+          const today = new Date()
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date(today)
+            d.setDate(d.getDate() - i)
+            const key = `studyMinutes_${d.toISOString().split('T')[0]}`
+            const raw = localStorage.getItem(key)
+            const seconds = raw ? (isNaN(Number(raw)) ? 0 : Number(raw)) : 0
+            days.push({ day: d, minutes: Math.round(seconds / 60) })
+          }
+          const totalMins = days.reduce((s, d) => s + d.minutes, 0)
+          if (totalMins === 0) return null
+          const maxMins = Math.max(...days.map(d => d.minutes), 1)
+          const weekShort = ['日', '一', '二', '三', '四', '五', '六']
+          const todayStr = today.toISOString().split('T')[0]
+          return (
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontSize: 12, color: '#5c5850' }}>每日学习时长</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#4a7a9b' }}>{totalMins} 分钟/周</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 64 }}>
+                {days.map((d, i) => {
+                  const h = Math.round((d.minutes / maxMins) * 52)
+                  const isToday = d.day.toISOString().split('T')[0] === todayStr
+                  return (
+                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                      {d.minutes > 0 && <span style={{ fontSize: 9, color: '#4a7a9b', fontWeight: 700 }}>{d.minutes}</span>}
+                      <div style={{
+                        width: '100%', height: Math.max(h, 3), borderRadius: '4px 4px 2px 2px',
+                        background: d.minutes > 0 ? (isToday ? '#2a5a7b' : '#4a7a9b') : '#edeae3',
+                        transition: 'height 0.5s ease-out',
+                      }} />
+                      <span style={{ fontSize: 9.5, color: isToday ? '#4a7a9b' : '#9e998e', fontWeight: isToday ? 700 : 400 }}>
+                        {weekShort[d.day.getDay()]}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
       </Card>
 
       {/* ── Module Score Breakdown ── */}
