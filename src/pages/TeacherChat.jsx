@@ -5,6 +5,7 @@ import useProgressStore from '../store/progressStore'
 import { modules, phonicsLessons } from '../data/phonics'
 import { chatWithEmma } from '../services/deepseek'
 import { buildEmmaLearningContext } from '../utils/learningContext'
+import { saveEmmaSession, getEmmaMemoryPrompt, getLastSessionHint } from '../utils/emmaMemory'
 
 /* ── Emma 头像 ── */
 const EmmaAvatar = ({ size = 40 }) => (
@@ -98,6 +99,21 @@ const getOpeningMessage = (name, streak, totalCompleted, moduleProgress) => {
   }
 
   return `嗨，${name}！我是你的学习顾问 Emma 👩‍🏫\n\n你已完成 ${totalCompleted} 节课，进步稳定！有什么关于学习方法、发音规则、语法疑惑，或者想要我帮你制定学习计划的，都可以说 😊`
+}
+
+const TAG_LABELS = { pronunciation: '发音', grammar: '语法', fluency: '流利度', vocabulary: '词汇', ielts: '雅思', intonation: '语调' }
+
+const getPersonalizedOpening = (name, streak, totalCompleted, moduleProgress) => {
+  const base = getOpeningMessage(name, streak, totalCompleted, moduleProgress)
+  const last = getLastSessionHint()
+  if (!last) return base
+  const daysSince = Math.round((Date.now() - new Date(last.date)) / 86400000)
+  const when = daysSince === 0 ? '今天早些时候' : daysSince === 1 ? '昨天' : `${daysSince}天前`
+  if (last.tags?.length) {
+    const tagStr = last.tags.slice(0, 2).map(t => TAG_LABELS[t] || t).join('、')
+    return `嗨，${name}！${when}你专门来问过${tagStr}的问题 😊\n\n${base}`
+  }
+  return `嗨，${name}！${when}我们聊过，欢迎回来继续练！\n\n${base}`
 }
 
 const QUICK_QUESTIONS = [
@@ -228,7 +244,7 @@ const TeacherChat = () => {
   const progressSummary = { name, streak, totalCompleted, moduleProgress, dueVocabCount }
 
   const [messages, setMessages] = useState([
-    { role: 'emma', content: getOpeningMessage(name, streak, totalCompleted, moduleProgress) }
+    { role: 'emma', content: getPersonalizedOpening(name, streak, totalCompleted, moduleProgress) }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -252,8 +268,11 @@ const TeacherChat = () => {
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content,
       }))
-      const reply = await chatWithEmma(apiMessages, progressSummary, '', buildEmmaLearningContext())
-      setMessages(prev => [...prev, { role: 'emma', content: reply }])
+      const memoryContext = getEmmaMemoryPrompt()
+      const reply = await chatWithEmma(apiMessages, progressSummary, 'Emma 老师全屏模式', buildEmmaLearningContext(), memoryContext)
+      const updatedMsgs = [...newMsgs, { role: 'emma', content: reply }]
+      setMessages(updatedMsgs)
+      saveEmmaSession(updatedMsgs, 'Emma 老师', progressSummary)
     } catch {
       setMessages(prev => [...prev, { role: 'emma', content: '抱歉，连接出了点问题，请稍后再试 😅' }])
     } finally {
