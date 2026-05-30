@@ -280,6 +280,33 @@ const MindsetLesson = () => {
             </Card>
           )}
 
+          {/* 完成提示 */}
+          {quizHistory.length >= 3 && quizHistory.filter(h => h.isCorrect).length >= 2 && (
+            <div style={{
+              background: 'linear-gradient(135deg, #f3eeff, #ede8f8)',
+              border: '1.5px solid #d5c5f0', borderRadius: 14,
+              padding: '18px 20px', textAlign: 'center', marginBottom: 12,
+            }} className="fade-in">
+              <p style={{ fontSize: 22, marginBottom: 8 }}>🧠</p>
+              <p className="font-title" style={{ fontSize: 15, color: '#7b5ea7', marginBottom: 6 }}>
+                认知重塑完成 — 答对 {quizHistory.filter(h => h.isCorrect).length}/{quizHistory.length} 题
+              </p>
+              <p style={{ fontSize: 12, color: '#5c5850', marginBottom: 14 }}>
+                {nextLesson ? '思维已经在悄悄改变，继续下一课！' : '🏆 认知重塑全部完成，恭喜！'}
+              </p>
+              {nextLesson && (
+                <button onClick={() => navigate(`/course/mindset/${nextLesson.id}`)} style={{
+                  background: 'linear-gradient(135deg, #9b72d0, #7b5ea7)', color: '#fff',
+                  border: 'none', borderRadius: 12, minHeight: 42, padding: '10px 18px',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                  boxShadow: '0 3px 12px rgba(123,94,167,0.3)',
+                }}>
+                  下一课 → {nextLesson.title.split(' — ').slice(1).join(' — ') || nextLesson.title}
+                </button>
+              )}
+            </div>
+          )}
+
           {/* 本次答题记录 */}
           {quizHistory.length > 0 && (
             <div style={{ background: '#faf9f5', border: '1px solid #ece9e0', borderRadius: 12, padding: '12px 14px', marginTop: 4 }}>

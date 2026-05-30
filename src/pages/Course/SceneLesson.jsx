@@ -475,9 +475,16 @@ const SceneLesson = () => {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-            <Button onClick={() => navigate('/course/scenes')}>查看全部场景</Button>
-            <Button variant="secondary" onClick={() => navigate('/dashboard')}>返回首页</Button>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {nextScene && (
+              <Button
+                onClick={() => navigate(`/course/scenes/${nextScene.id}`)}
+                style={{ background: 'linear-gradient(135deg, #f28040, #e05020)', color: '#fff', border: 'none' }}
+              >
+                下一个场景 →
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => navigate('/course/scenes')}>场景列表</Button>
           </div>
         </div>
       )}

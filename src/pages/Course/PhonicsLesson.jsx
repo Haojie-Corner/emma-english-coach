@@ -168,13 +168,22 @@ const PhonicsLesson = () => {
           )}
 
           {allDone && (
-            <div style={{ background: '#fdf0ea', border: '1px solid #f5c4a8', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }} className="fade-in">
+            <div style={{ background: 'linear-gradient(135deg, #fdf0ea, #fff5ee)', border: '1px solid #f5c4a8', borderRadius: 14, padding: '20px 24px', textAlign: 'center' }} className="fade-in">
               <p style={{ fontSize: 28, marginBottom: 8 }}>🎉</p>
               <p className="font-title" style={{ fontSize: 16, color: '#d97757', marginBottom: 6 }}>{lesson.title.split(' — ')[0]} 完成！</p>
-              <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 16 }}>继续下一课，离流利英语更近一步！</p>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                <Button onClick={() => navigate('/course/phonics')}>查看全部课程</Button>
-                <Button variant="secondary" onClick={() => navigate('/dashboard')}>返回首页</Button>
+              <p style={{ fontSize: 13, color: '#7a7870', marginBottom: 16 }}>
+                {nextLesson ? '继续下一课，离流利英语更近一步！' : '🏆 自然拼读全部完成，太棒了！'}
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {nextLesson && (
+                  <Button
+                    onClick={() => navigate(`/course/phonics/${nextLesson.id}`)}
+                    style={{ background: 'linear-gradient(135deg, #f28040, #e05020)', color: '#fff', border: 'none' }}
+                  >
+                    下一课 → {nextLesson.title.split(' — ')[0]}
+                  </Button>
+                )}
+                <Button variant="secondary" onClick={() => navigate('/course/phonics')}>课程列表</Button>
               </div>
             </div>
           )}
