@@ -304,6 +304,7 @@ const SessionSummary = ({ attempts, onReset }) => {
 const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
   const { status, audioBlob, audioUrl, error, startRecording, stopRecording, reset, getBase64WithMime, analyserRef } = useAudioRecorder()
   const [analyzePhase, setAnalyzePhase] = useState(null)  // null | 'processing' | 'analyzing'
+  const [analyzeElapsed, setAnalyzeElapsed] = useState(0)
   const [result, setResult] = useState(null)
   const [analyzeError, setAnalyzeError] = useState(null)
   const [speakState, setSpeakState] = useState('idle')
@@ -403,6 +404,13 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [status, result, analyzePhase, startRecording, stopRecording])
+
+  useEffect(() => {
+    if (analyzePhase !== 'analyzing') { setAnalyzeElapsed(0); return }
+    const start = Date.now()
+    const timer = setInterval(() => setAnalyzeElapsed(Math.floor((Date.now() - start) / 1000)), 1000)
+    return () => clearInterval(timer)
+  }, [analyzePhase])
 
   const handleAnalyze = async () => {
     setAnalyzePhase('processing')
@@ -587,7 +595,11 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
               </div>
               {analyzePhase === 'analyzing' && (
                 <p style={{ fontSize: 12, color: '#9e998e', textAlign: 'center' }}>
-                  通常 10-30 秒完成；如果模型繁忙，系统会自动切换备用模型。
+                  {analyzeElapsed < 5
+                    ? 'AI 正在分析你的发音…'
+                    : analyzeElapsed < 14
+                    ? `服务启动中，请稍候…（${analyzeElapsed}s）`
+                    : `模型较忙，正在切换备用…（${analyzeElapsed}s）`}
                 </p>
               )}
               {analyzeError && (
