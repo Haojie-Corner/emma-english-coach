@@ -232,6 +232,39 @@ export const getRecentConversations = async (userId, limit = 5) => {
   return data || []
 }
 
+/* ── Emma 跨设备记忆 ── */
+const EMMA_MEMORY_SCENE = '__emma_memory__'
+
+export const saveEmmaMemoryCloud = async (userId, sessionData) => {
+  if (!userId || !sessionData) return
+  try {
+    await supabase.from('conversations').insert({
+      user_id: userId,
+      scene_id: EMMA_MEMORY_SCENE,
+      messages: [sessionData],
+      summary: sessionData.firstQuestion || '',
+      message_count: sessionData.messageCount || 0,
+      created_at: sessionData.date || new Date().toISOString(),
+    })
+  } catch { /* silently fail — cloud memory is optional */ }
+}
+
+export const getEmmaMemoryCloud = async (userId, limit = 5) => {
+  if (!userId) return []
+  try {
+    const { data } = await supabase
+      .from('conversations')
+      .select('messages, created_at')
+      .eq('user_id', userId)
+      .eq('scene_id', EMMA_MEMORY_SCENE)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    return (data || []).map(row => row.messages?.[0]).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 export const getAllRecordings = async (userId, limit = 60) => {
   const { data } = await supabase
     .from('recordings')

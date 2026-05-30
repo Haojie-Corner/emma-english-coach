@@ -1,10 +1,8 @@
+import { saveEmmaMemoryCloud, getEmmaMemoryCloud } from '../services/supabase'
+
 const MEMORY_KEY = 'emma_long_memory'
 const MAX_SESSIONS = 5
 
-/**
- * 从对话内容里提取关键词标签（话题、弱点等）
- * 不调用 AI，用简单的关键词匹配，避免增加 API 成本
- */
 const extractTags = (messages) => {
   const allText = messages.map(m => m.content).join(' ')
   const tagMap = {
@@ -20,10 +18,7 @@ const extractTags = (messages) => {
     .map(([tag]) => tag)
 }
 
-/**
- * 关闭 Emma 面板时调用，保存本次会话摘要
- */
-export const saveEmmaSession = (messages, pageLabel, progressSummary) => {
+export const saveEmmaSession = (messages, pageLabel, progressSummary, userId) => {
   if (!messages || messages.length < 2) return
   const userMessages = messages.filter(m => m.role === 'user')
   if (userMessages.length === 0) return
@@ -43,12 +38,28 @@ export const saveEmmaSession = (messages, pageLabel, progressSummary) => {
     const updated = [session, ...existing].slice(0, MAX_SESSIONS)
     localStorage.setItem(MEMORY_KEY, JSON.stringify(updated))
   } catch { /* storage full or parse error */ }
+
+  if (userId) {
+    saveEmmaMemoryCloud(userId, session).catch(() => {})
+  }
 }
 
-/**
- * 返回注入 system prompt 的记忆上下文字符串
- * 最多描述最近 2 次会话，避免 prompt 过长
- */
+export const mergeEmmaMemoryFromCloud = async (userId) => {
+  if (!userId) return
+  try {
+    const cloudSessions = await getEmmaMemoryCloud(userId)
+    if (!cloudSessions.length) return
+    const localSessions = JSON.parse(localStorage.getItem(MEMORY_KEY) || '[]')
+    const localDates = new Set(localSessions.map(s => s.date))
+    const newSessions = cloudSessions.filter(s => s?.date && !localDates.has(s.date))
+    if (!newSessions.length) return
+    const merged = [...localSessions, ...newSessions]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, MAX_SESSIONS)
+    localStorage.setItem(MEMORY_KEY, JSON.stringify(merged))
+  } catch { /* silently ignore cloud merge errors */ }
+}
+
 export const getEmmaMemoryPrompt = () => {
   try {
     const sessions = JSON.parse(localStorage.getItem(MEMORY_KEY) || '[]')
@@ -57,7 +68,7 @@ export const getEmmaMemoryPrompt = () => {
     const lines = sessions.slice(0, 2).map((s, i) => {
       const daysSince = Math.round((Date.now() - new Date(s.date)) / 86400000)
       const when = daysSince === 0 ? '今天' : daysSince === 1 ? '昨天' : `${daysSince}天前`
-      const tagStr = s.tags.length ? `，关注方向：${s.tags.join('/')}` : ''
+      const tagStr = s.tags?.length ? `，关注方向：${s.tags.join('/')}` : ''
       const pageStr = s.page ? `（在${s.page}）` : ''
       return `• ${i === 0 ? '上次' : '更早前'}${when}${pageStr}曾问过「${s.firstQuestion}」${tagStr}，当时已完成${s.totalCompleted}课`
     })
@@ -68,9 +79,6 @@ export const getEmmaMemoryPrompt = () => {
   }
 }
 
-/**
- * 返回最近一次会话的简要上下文，用于个性化开场白
- */
 export const getLastSessionHint = () => {
   try {
     const sessions = JSON.parse(localStorage.getItem(MEMORY_KEY) || '[]')

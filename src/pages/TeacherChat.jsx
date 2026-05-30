@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import NavBlocker from '../components/ui/NavBlocker'
 import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
 import { modules, phonicsLessons } from '../data/phonics'
@@ -283,7 +284,7 @@ const TeacherChat = () => {
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', paddingBottom: 80 }}>
-
+      <NavBlocker when={messages.length > 2} title="离开 Emma 老师？" body="对话记录将不会保存，确定要离开吗？" />
       {/* ── 顶部 Header ── */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 10,

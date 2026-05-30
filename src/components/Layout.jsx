@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import useUserStore from '../store/userStore'
 import EmmaBubble from './EmmaBubble'
 import Toast from './ui/Toast'
+import OfflineBanner from './ui/OfflineBanner'
 import { LEARNING_STATE_CHANGED, pushLearningState, syncLearningState } from '../utils/learningStateSync'
 
 /* ── SVG Nav Icons ── */
@@ -294,6 +295,7 @@ const Layout = () => {
         <Outlet />
       </main>
       {!isDesktop && <BottomNav />}
+      <OfflineBanner />
       <EmmaBubble />
       <Toast />
     </div>

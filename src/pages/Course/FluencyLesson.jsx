@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import NavBlocker from '../../components/ui/NavBlocker'
 import { getFluencyLesson, fluencyLessons } from '../../data/fluency'
 import { chatWithFluency, generateConvoReview } from '../../services/deepseek'
 import { saveConversation, getConversations, addVocabularyWord } from '../../services/supabase'
@@ -201,7 +202,7 @@ const FluencyLesson = () => {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px', display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 80px)' }}>
-
+      <NavBlocker when={started && messages.length > 1 && !showReview} />
       {/* 顶部导航 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
         <button onClick={() => { stopSpeaking(); navigate('/course/fluency') }} style={{

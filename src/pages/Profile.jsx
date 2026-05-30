@@ -642,6 +642,57 @@ const Profile = () => {
         <WeeklyBarChart counts={weeklyLessonCounts} />
       </Card>
 
+      {/* ── Module Score Breakdown ── */}
+      {(() => {
+        const moduleScores = modules
+          .map(mod => {
+            const modProgress = progress.filter(p => p.module_id === mod.id && p.score != null && p.status === 'completed')
+            if (modProgress.length === 0) return null
+            const avg = Math.round(modProgress.reduce((s, p) => s + p.score, 0) / modProgress.length)
+            const completedCount = progress.filter(p => p.module_id === mod.id && p.status === 'completed').length
+            return { ...mod, avg, completedCount }
+          })
+          .filter(Boolean)
+        if (moduleScores.length < 2) return null
+        return (
+          <>
+            <SectionTitle>模块成绩</SectionTitle>
+            <Card style={{ marginBottom: 20 }}>
+              <p style={{ fontSize: 12, color: '#5c5850', marginBottom: 14 }}>各模块已完成课程的平均得分</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {moduleScores.map(mod => (
+                  <div key={mod.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{
+                      width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+                      background: `${mod.color}18`, border: `1.5px solid ${mod.color}30`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+                    }}>{mod.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#0f0e0c' }}>{mod.name}</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: mod.avg >= 80 ? '#3a9a5f' : mod.avg >= 60 ? '#e8672a' : '#d94040' }}>
+                          {mod.avg} 分
+                        </span>
+                      </div>
+                      <div style={{ height: 6, background: '#f0ede6', borderRadius: 6, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 6, transition: 'width 0.8s ease-out',
+                          width: `${mod.avg}%`,
+                          background: mod.avg >= 80 ? '#3a9a5f' : mod.avg >= 60 ? '#e8672a' : '#d94040',
+                        }} />
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, color: '#9e998e', flexShrink: 0, minWidth: 40, textAlign: 'right' }}>
+                      {mod.completedCount} 课
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </>
+        )
+      })()}
+
       {/* ── Score Trend ── */}
       {trendScores.length >= 2 && (
         <>
@@ -847,23 +898,45 @@ const Profile = () => {
                 const colors = ['#e8672a', '#7b5ea7', '#3a9a5f', '#4a7a9b', '#d48a10', '#9e998e']
                 const color = colors[i] || '#9e998e'
                 return (
-                  <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 12, color: '#5c5850', width: 96, flexShrink: 0 }}>{cat}</span>
-                    <div style={{ flex: 1, height: 10, background: '#f0ede6', borderRadius: 6, overflow: 'hidden' }}>
+                  <div key={cat}
+                    onClick={() => navigate('/practice/speaking?tab=grammar')}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      cursor: 'pointer', borderRadius: 12, padding: '7px 10px',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f5f3ef'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <span style={{
+                      width: 24, height: 24, borderRadius: 8, flexShrink: 0,
+                      background: `${color}14`, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: 11, fontWeight: 800, color,
+                    }}>{i + 1}</span>
+                    <span style={{ fontSize: 12.5, color: '#0f0e0c', width: 80, flexShrink: 0, fontWeight: 600 }}>{cat}</span>
+                    <div style={{ flex: 1, height: 8, background: '#f0ede6', borderRadius: 6, overflow: 'hidden' }}>
                       <div style={{
                         height: '100%', width: `${(count / max) * 100}%`,
                         background: color, borderRadius: 6,
                         transition: 'width 0.8s ease-out',
                       }} />
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color, width: 28, textAlign: 'right', flexShrink: 0 }}>{count}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color, width: 36, textAlign: 'right', flexShrink: 0 }}>{count}次</span>
                   </div>
                 )
               })}
             </div>
-            <p style={{ fontSize: 11, color: '#9e998e', marginTop: 12 }}>
-              数值为出现次数。点「练习中心 → 语法纠错」继续练习，帮助减少高频错误。
-            </p>
+            <button
+              onClick={() => navigate('/practice/speaking?tab=grammar')}
+              style={{
+                width: '100%', marginTop: 14, padding: '10px', borderRadius: 12,
+                background: '#fff', border: '1.5px solid #e8672a30',
+                color: '#e8672a', fontSize: 12, fontWeight: 800,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              去语法纠错练习，减少这些错误 →
+            </button>
           </>
         )}
       </Card>

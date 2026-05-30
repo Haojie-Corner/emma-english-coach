@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import NavBlocker from '../../components/ui/NavBlocker'
 import { getScene, getAllScenes } from '../../data/scenes'
 import { chatWithScene, generateConvoReview } from '../../services/deepseek'
 import { saveConversation, getConversations, addVocabularyWord } from '../../services/supabase'
@@ -209,6 +210,7 @@ const SceneLesson = () => {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
+      <NavBlocker when={started && messages.length > 1 && !completed} />
       {/* 顶部导航 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <button onClick={() => { stopSpeaking(); navigate('/course/scenes') }} style={{

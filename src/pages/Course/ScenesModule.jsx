@@ -3,14 +3,20 @@ import { useNavigate } from 'react-router-dom'
 import { sceneCategories } from '../../data/scenes'
 import Card from '../../components/ui/Card'
 import ModuleLockGate from '../../components/ui/ModuleLockGate'
+import useProgressStore from '../../store/progressStore'
 
 const difficultyColor = { '入门': '#5a8c4a', '初级': '#e8672a', '中级': '#7b5ea7', '进阶': '#d94040' }
 const difficultyBg = { '入门': '#eaf5ef', '初级': '#fff3ee', '中级': '#f3eeff', '进阶': '#fdf0f0' }
 
 const ScenesModule = () => {
   const navigate = useNavigate()
+  const { progress } = useProgressStore()
   const [openCategory, setOpenCategory] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+
+  const isSceneCompleted = (sceneId) => {
+    return progress.some(p => p.lesson_id === sceneId && p.status === 'completed')
+  }
 
   const filteredScenes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -79,28 +85,39 @@ const ScenesModule = () => {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {filteredScenes.map(scene => (
-                  <Card key={scene.id} onClick={() => navigate(`/course/scenes/${scene.id}`)} style={{ padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                          <p style={{ fontWeight: 700, fontSize: 14, color: '#0f0e0c' }}>{scene.title}</p>
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                            color: difficultyColor[scene.difficulty] || '#9e998e',
-                            background: difficultyBg[scene.difficulty] || '#f5f3ef',
-                          }}>{scene.difficulty}</span>
+                {filteredScenes.map(scene => {
+                  const completed = isSceneCompleted(scene.id)
+                  return (
+                    <Card key={scene.id} onClick={() => navigate(`/course/scenes/${scene.id}`)} style={{ padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {completed && (
+                          <div style={{
+                            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                            background: '#edf8f2', border: '1.5px solid #b5e0c8',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 12, fontWeight: 800, color: '#3a9a5f',
+                          }}>✓</div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                            <p style={{ fontWeight: 700, fontSize: 14, color: '#0f0e0c' }}>{scene.title}</p>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                              color: difficultyColor[scene.difficulty] || '#9e998e',
+                              background: difficultyBg[scene.difficulty] || '#f5f3ef',
+                            }}>{scene.difficulty}</span>
+                          </div>
+                          <p style={{ fontSize: 12, color: '#5c5850' }}>{scene.subtitle}</p>
+                          <p style={{ fontSize: 11, color: '#9e998e', marginTop: 3 }}>
+                            <span style={{ color: scene.categoryColor, fontWeight: 700 }}>{scene.categoryName}</span>
+                            {' · '}👤 {scene.role} · ⏱ {scene.duration}
+                          </p>
                         </div>
-                        <p style={{ fontSize: 12, color: '#5c5850' }}>{scene.subtitle}</p>
-                        <p style={{ fontSize: 11, color: '#9e998e', marginTop: 3 }}>
-                          <span style={{ color: scene.categoryColor, fontWeight: 700 }}>{scene.categoryName}</span>
-                          {' · '}👤 {scene.role} · ⏱ {scene.duration}
-                        </p>
+                        <span style={{ color: '#c0bdb8', fontSize: 18, flexShrink: 0 }}>›</span>
                       </div>
-                      <span style={{ color: '#c0bdb8', fontSize: 18, flexShrink: 0 }}>›</span>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -111,6 +128,8 @@ const ScenesModule = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {sceneCategories.map(category => {
               const isOpen = openCategory === category.id
+              const completedCount = category.scenes.filter(s => isSceneCompleted(s.id)).length
+              const pct = Math.round((completedCount / category.scenes.length) * 100)
               return (
                 <div key={category.id}>
                   <div
@@ -126,22 +145,29 @@ const ScenesModule = () => {
                     onMouseLeave={e => { if (!isOpen) { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.07)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)' } }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: 1 }}>
                         <div style={{
                           width: 44, height: 44, borderRadius: 14, flexShrink: 0,
                           background: `${category.color}14`,
                           border: `1.5px solid ${category.color}30`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
                         }}>{category.icon}</div>
-                        <div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <p className="font-title" style={{ fontWeight: 700, fontSize: 15, color: '#0f0e0c' }}>{category.name}</p>
-                          <p style={{ fontSize: 12, color: '#5c5850', marginTop: 2 }}>{category.description}</p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                            <div style={{ flex: 1, height: 4, background: '#f0ede6', borderRadius: 4, overflow: 'hidden', maxWidth: 100 }}>
+                              <div style={{ height: '100%', width: `${pct}%`, background: category.color, borderRadius: 4, transition: 'width 0.6s' }} />
+                            </div>
+                            <span style={{ fontSize: 11, color: '#9e998e', whiteSpace: 'nowrap' }}>
+                              {completedCount}/{category.scenes.length}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                        <span style={{ fontSize: 12, color: '#9e998e', background: '#f5f3ef', padding: '3px 10px', borderRadius: 20 }}>
-                          {category.scenes.length} 个
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 12 }}>
+                        {completedCount === category.scenes.length && (
+                          <span style={{ fontSize: 10, fontWeight: 800, color: '#3a9a5f', background: '#edf8f2', borderRadius: 20, padding: '2px 8px' }}>全完成</span>
+                        )}
                         <span style={{ color: '#9e998e', fontSize: 18, transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>›</span>
                       </div>
                     </div>
@@ -149,29 +175,42 @@ const ScenesModule = () => {
 
                   {isOpen && (
                     <div style={{ paddingLeft: 12, paddingRight: 4, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }} className="fade-in">
-                      {category.scenes.map(scene => (
-                        <Card
-                          key={scene.id}
-                          onClick={() => navigate(`/course/scenes/${scene.id}`)}
-                          style={{ padding: '14px 16px' }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                                <p style={{ fontWeight: 700, fontSize: 14, color: '#0f0e0c' }}>{scene.title}</p>
-                                <span style={{
-                                  fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                                  color: difficultyColor[scene.difficulty] || '#9e998e',
-                                  background: difficultyBg[scene.difficulty] || '#f5f3ef',
-                                }}>{scene.difficulty}</span>
+                      {category.scenes.map(scene => {
+                        const completed = isSceneCompleted(scene.id)
+                        return (
+                          <Card
+                            key={scene.id}
+                            onClick={() => navigate(`/course/scenes/${scene.id}`)}
+                            style={{ padding: '14px 16px', background: completed ? '#fcfffe' : '#fff' }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              <div style={{
+                                width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                                background: completed ? '#edf8f2' : `${category.color}14`,
+                                border: `1.5px solid ${completed ? '#b5e0c8' : `${category.color}30`}`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 13, fontWeight: 800,
+                                color: completed ? '#3a9a5f' : category.color,
+                              }}>
+                                {completed ? '✓' : '▶'}
                               </div>
-                              <p style={{ fontSize: 12, color: '#5c5850' }}>{scene.subtitle}</p>
-                              <p style={{ fontSize: 11, color: '#9e998e', marginTop: 4 }}>👤 你的角色：{scene.role} · ⏱ {scene.duration}</p>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                                  <p style={{ fontWeight: 700, fontSize: 14, color: '#0f0e0c' }}>{scene.title}</p>
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                                    color: difficultyColor[scene.difficulty] || '#9e998e',
+                                    background: difficultyBg[scene.difficulty] || '#f5f3ef',
+                                  }}>{scene.difficulty}</span>
+                                </div>
+                                <p style={{ fontSize: 12, color: '#5c5850' }}>{scene.subtitle}</p>
+                                <p style={{ fontSize: 11, color: '#9e998e', marginTop: 4 }}>👤 你的角色：{scene.role} · ⏱ {scene.duration}</p>
+                              </div>
+                              <span style={{ color: '#c0bdb8', fontSize: 18, flexShrink: 0 }}>›</span>
                             </div>
-                            <span style={{ color: '#c0bdb8', fontSize: 18, flexShrink: 0 }}>›</span>
-                          </div>
-                        </Card>
-                      ))}
+                          </Card>
+                        )
+                      })}
                     </div>
                   )}
                 </div>

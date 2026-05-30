@@ -23,6 +23,11 @@ const DemoModule = () => {
     return p?.status || 'locked'
   }
 
+  const getLessonScore = (lessonId) => {
+    const p = progress.find(p => p.lesson_id === lessonId)
+    return p?.score ?? null
+  }
+
   return (
     <ModuleLockGate moduleId="demo">
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}>
@@ -95,6 +100,13 @@ const DemoModule = () => {
                             </div>
                             <p style={{ fontSize: 12, color: '#9e998e' }}>{lesson.subtitle} · {lesson.duration}</p>
                           </div>
+                          {status === 'completed' && getLessonScore(lesson.id) !== null && (
+                            <span style={{
+                              fontSize: 11, fontWeight: 800, flexShrink: 0, borderRadius: 20, padding: '2px 8px',
+                              color: getLessonScore(lesson.id) >= 80 ? '#3a9a5f' : '#e8672a',
+                              background: getLessonScore(lesson.id) >= 80 ? '#edf8f2' : '#fff3ee',
+                            }}>{getLessonScore(lesson.id)}</span>
+                          )}
                           {!locked && <span style={{ color: '#c0bdb8', fontSize: 18, flexShrink: 0 }}>›</span>}
                         </div>
                       </Card>

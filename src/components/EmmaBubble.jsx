@@ -15,7 +15,7 @@ import VocabChip from './ui/VocabChip'
 import { buildEmmaLearningContext } from '../utils/learningContext'
 import { LEARNING_STATE_SYNCED, notifyLearningStateChanged } from '../utils/learningStateSync'
 import { dismissEmmaCoachNudge, getEmmaCoachNudge } from '../utils/learningReview'
-import { saveEmmaSession, getEmmaMemoryPrompt, getLastSessionHint } from '../utils/emmaMemory'
+import { saveEmmaSession, getEmmaMemoryPrompt, getLastSessionHint, mergeEmmaMemoryFromCloud } from '../utils/emmaMemory'
 
 const parseVocabFromMessage = (content) => {
   const match = content.match(/💡\s*(?:新词汇|学到了)[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
@@ -212,6 +212,13 @@ const EmmaBubble = () => {
     }
   }, [])
 
+  /* 首次打开时，从云端同步 Emma 记忆（静默，不阻塞 UI） */
+  useEffect(() => {
+    if (isOpen && user?.id) {
+      mergeEmmaMemoryFromCloud(user.id).catch(() => {})
+    }
+  }, [isOpen, user?.id])
+
   /* 每次打开时根据当前情境 + 记忆生成开场白 */
   useEffect(() => {
     if (isOpen && messages.length === 0) {
@@ -265,9 +272,8 @@ const EmmaBubble = () => {
   }, [messages, loading, isKeyboardOpen, viewport.height])
 
   const handleClose = () => {
-    // 关闭时保存本次会话记忆（有意义的对话才存）
     if (messages.length >= 2) {
-      saveEmmaSession(messages, routeCtx.label, progressSummary)
+      saveEmmaSession(messages, routeCtx.label, progressSummary, user?.id)
     }
     close()
     setInput('')

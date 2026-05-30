@@ -753,6 +753,33 @@ const Vocabulary = () => {
         }}>+ 添加</button>
       </div>
 
+      {/* Vocab stats strip */}
+      {words.length > 0 && !loading && (() => {
+        const mastered = words.filter(w => w.familiarity >= 3).length
+        const learning = words.filter(w => w.familiarity > 0 && w.familiarity < 3).length
+        const masteredPct = Math.round((mastered / words.length) * 100)
+        return (
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16,
+          }}>
+            {[
+              { label: '总词数', value: words.length, color: '#4a7a9b', bg: '#eef4fb', icon: '📖' },
+              { label: '掌握中', value: learning, color: '#e8672a', bg: '#fff3ee', icon: '🔄' },
+              { label: '已掌握', value: mastered, color: '#3a9a5f', bg: '#edf8f2', icon: '✓', extra: `${masteredPct}%` },
+            ].map(s => (
+              <div key={s.label} style={{
+                background: s.bg, borderRadius: 14,
+                padding: '12px 10px', textAlign: 'center',
+              }}>
+                <p style={{ fontSize: 20, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</p>
+                {s.extra && <p style={{ fontSize: 10, color: s.color, fontWeight: 700 }}>{s.extra}</p>}
+                <p style={{ fontSize: 11, color: '#5c5850', marginTop: 4 }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
       {words.length > 0 && (
         <div style={{
           background: '#fff', border: '1px solid rgba(0,0,0,0.07)',

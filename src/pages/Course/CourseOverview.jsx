@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { modules } from '../../data/phonics'
 import useProgressStore from '../../store/progressStore'
+import { useMemo } from 'react'
 
 const routeMap = {
   phonics: '/course/phonics', intonation: '/course/intonation', scenes: '/course/scenes',
@@ -9,13 +10,24 @@ const routeMap = {
 
 const CourseOverview = () => {
   const navigate = useNavigate()
-  const { getModuleCompletion, isModuleUnlocked } = useProgressStore()
+  const { getModuleCompletion, isModuleUnlocked, progress } = useProgressStore()
+
+  const overallStats = useMemo(() => {
+    const totalLessons = modules.reduce((s, m) => s + m.totalLessons, 0)
+    const completedLessons = progress.filter(p => p.status === 'completed').length
+    const unlockedModules = modules.filter(m => isModuleUnlocked(m.id)).length
+    const avgScore = (() => {
+      const scored = progress.filter(p => p.score != null && p.status === 'completed')
+      return scored.length > 0 ? Math.round(scored.reduce((s, p) => s + p.score, 0) / scored.length) : null
+    })()
+    return { totalLessons, completedLessons, unlockedModules, avgScore }
+  }, [progress, isModuleUnlocked])
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '28px 20px' }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 20 }}>
         <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 6 }}>
           课程中心
         </h1>
@@ -23,6 +35,24 @@ const CourseOverview = () => {
           按顺序解锁 · 完成前置课程后自动开放下一关
         </p>
       </div>
+
+      {/* Overall stats */}
+      {overallStats.completedLessons > 0 && (
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 24,
+        }}>
+          {[
+            { label: '已解锁模块', value: `${overallStats.unlockedModules}/${modules.length}`, color: '#e8672a', bg: '#fff3ee' },
+            { label: '完成课程', value: `${overallStats.completedLessons}`, color: '#3a9a5f', bg: '#edf8f2' },
+            { label: '平均得分', value: overallStats.avgScore != null ? `${overallStats.avgScore}` : '--', color: '#7b5ea7', bg: '#f3eeff' },
+          ].map(s => (
+            <div key={s.label} style={{ background: s.bg, borderRadius: 14, padding: '12px 10px', textAlign: 'center' }}>
+              <p style={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</p>
+              <p style={{ fontSize: 11, color: '#5c5850', marginTop: 4 }}>{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Path list */}
       <div>

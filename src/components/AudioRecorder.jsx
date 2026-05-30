@@ -8,18 +8,41 @@ import Card from './ui/Card'
 import { recordPronunciationWeaknesses } from '../utils/weakness'
 
 const MiniScoreChart = ({ history }) => {
-  if (history.length < 2) return null
-  const scores = [...history].reverse().slice(-8).map(h => h.ai_score)
-  const W = 140, H = 40
+  if (history.length < 1) return null
+  const allScores = [...history].reverse().map(h => h.ai_score).filter(s => s != null)
+  if (allScores.length === 0) return null
+  const scores = allScores.slice(-8)
+  const best = Math.max(...allScores)
   const latest = scores[scores.length - 1]
   const color = latest >= 80 ? '#788c5d' : latest >= 60 ? '#d97757' : '#c45c5c'
+  const bestColor = best >= 80 ? '#788c5d' : best >= 60 ? '#d97757' : '#c45c5c'
+
+  if (scores.length < 2) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '8px 0' }}>
+        <div>
+          <p style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{latest}</p>
+          <p style={{ fontSize: 10, color: '#b0aea5', marginTop: 1 }}>上次得分</p>
+        </div>
+        {best === latest && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 11, color: bestColor, fontWeight: 700, background: `${bestColor}14`, borderRadius: 20, padding: '2px 8px' }}>
+              🏆 最高 {best}
+            </span>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const W = 130, H = 40
   const pts = scores.map((s, i) => {
     const x = (i / (scores.length - 1)) * W
     const y = H - (s / 100) * H
     return `${x},${y}`
   }).join(' ')
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', flexWrap: 'wrap' }}>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', flexShrink: 0 }}>
         <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
         {scores.map((s, i) => (
@@ -28,9 +51,17 @@ const MiniScoreChart = ({ history }) => {
             opacity={i === scores.length - 1 ? 1 : 0.55} />
         ))}
       </svg>
-      <div>
-        <p style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{latest}</p>
-        <p style={{ fontSize: 10, color: '#b0aea5', marginTop: 1 }}>最近得分</p>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div>
+          <p style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{latest}</p>
+          <p style={{ fontSize: 10, color: '#b0aea5', marginTop: 1 }}>上次得分</p>
+        </div>
+        {best !== latest && (
+          <div>
+            <p style={{ fontSize: 20, fontWeight: 800, color: bestColor, lineHeight: 1 }}>🏆 {best}</p>
+            <p style={{ fontSize: 10, color: '#b0aea5', marginTop: 1 }}>历史最高</p>
+          </div>
+        )}
       </div>
     </div>
   )

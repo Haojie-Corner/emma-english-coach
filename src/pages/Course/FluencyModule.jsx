@@ -8,7 +8,8 @@ const groups = [
   { name: '基础表达', ids: fluencyLessons.slice(0, 5).map(l => l.id), icon: '🌱', desc: '开口第一步' },
   { name: '日常沟通', ids: fluencyLessons.slice(5, 9).map(l => l.id), icon: '💬', desc: '流利交流' },
   { name: '进阶表达', ids: fluencyLessons.slice(9, 13).map(l => l.id), icon: '🎯', desc: '深度沟通' },
-  { name: '综合演练', ids: fluencyLessons.slice(13).map(l => l.id), icon: '🚀', desc: '自如应对' },
+  { name: '综合演练', ids: fluencyLessons.slice(13, 18).map(l => l.id), icon: '🚀', desc: '自如应对' },
+  { name: '高阶技巧', ids: fluencyLessons.slice(18).map(l => l.id), icon: '⚡', desc: 'Discourse · 修复 · 模糊策略' },
 ]
 
 const FluencyModule = () => {
@@ -18,6 +19,11 @@ const FluencyModule = () => {
   const getLessonStatus = (lessonId) => {
     const p = progress.find(p => p.lesson_id === lessonId)
     return p?.status || 'locked'
+  }
+
+  const getLessonScore = (lessonId) => {
+    const p = progress.find(p => p.lesson_id === lessonId)
+    return p?.score ?? null
   }
 
   const totalCompleted = fluencyLessons.filter(l => getLessonStatus(l.id) === 'completed').length
@@ -130,6 +136,13 @@ const FluencyModule = () => {
                             </p>
                             <p style={{ fontSize: 12, color: '#9e998e', marginTop: 2 }}>{lesson.subtitle}</p>
                           </div>
+                          {status === 'completed' && getLessonScore(lesson.id) !== null && (
+                            <span style={{
+                              fontSize: 11, fontWeight: 800, flexShrink: 0, borderRadius: 20, padding: '2px 8px',
+                              color: getLessonScore(lesson.id) >= 80 ? '#3a9a5f' : '#e8672a',
+                              background: getLessonScore(lesson.id) >= 80 ? '#edf8f2' : '#fff3ee',
+                            }}>{getLessonScore(lesson.id)}</span>
+                          )}
                           {!locked && <span style={{ color: '#c0bdb8', fontSize: 18, flexShrink: 0 }}>›</span>}
                         </div>
                       </Card>

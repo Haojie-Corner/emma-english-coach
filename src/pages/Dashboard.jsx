@@ -399,20 +399,34 @@ const Dashboard = () => {
 
         {/* Check-in / Goal bar */}
         {!checkedInToday ? (
-          <button
-            onClick={() => doCheckIn(user.id)}
-            style={{
-              width: '100%', background: 'linear-gradient(135deg, #f28040, #e05020)',
-              color: '#fff', border: 'none', borderRadius: 16,
-              minHeight: 54, padding: '14px', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-              boxShadow: '0 4px 18px rgba(232,103,42,0.32)',
-              transition: 'filter 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.07)'}
-            onMouseLeave={e => e.currentTarget.style.filter = ''}
-          >
-            📅 今日打卡，连续 {streak + 1} 天
-          </button>
+          <div>
+            {streak > 0 && new Date().getHours() >= 20 && (
+              <div style={{
+                background: '#fff5ea', border: '1px solid #f5c4a8',
+                borderRadius: 12, padding: '8px 14px', marginBottom: 8,
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span style={{ fontSize: 16 }}>⚠️</span>
+                <p style={{ fontSize: 12, color: '#c45c1a', fontWeight: 600, lineHeight: 1.45 }}>
+                  今天还没打卡！{streak} 天连续记录今晚就会中断，快来签到！
+                </p>
+              </div>
+            )}
+            <button
+              onClick={() => doCheckIn(user.id)}
+              style={{
+                width: '100%', background: 'linear-gradient(135deg, #f28040, #e05020)',
+                color: '#fff', border: 'none', borderRadius: 16,
+                minHeight: 54, padding: '14px', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                boxShadow: '0 4px 18px rgba(232,103,42,0.32)',
+                transition: 'filter 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.07)'}
+              onMouseLeave={e => e.currentTarget.style.filter = ''}
+            >
+              📅 今日打卡，连续 {streak + 1} 天
+            </button>
+          </div>
         ) : dailyGoal > 0 ? (
           <div style={{
             background: '#fff', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 14,
@@ -770,9 +784,35 @@ const Dashboard = () => {
 
         {/* ── Stats Row ── */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          {/* Today's study time ring */}
+          {(() => {
+            const target = targetMinutes
+            const pct = Math.min(todayMinutes / target, 1)
+            const r = 22, circ = 2 * Math.PI * r
+            const offset = circ - pct * circ
+            const color = pct >= 1 ? '#3a9a5f' : pct >= 0.5 ? '#e8672a' : '#4a7a9b'
+            return (
+              <div style={{
+                flex: 1, background: pct >= 1 ? '#edf8f2' : '#fff', borderRadius: 18,
+                border: `1px solid ${pct >= 1 ? '#b5e0c8' : 'rgba(0,0,0,0.07)'}`,
+                boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+                padding: '14px 10px', textAlign: 'center',
+              }}>
+                <svg width={50} height={50} viewBox="0 0 50 50" style={{ display: 'block', margin: '0 auto 4px' }}>
+                  <circle cx="25" cy="25" r={r} fill="none" stroke="#f0ede6" strokeWidth="5" />
+                  <circle cx="25" cy="25" r={r} fill="none" stroke={color} strokeWidth="5"
+                    strokeDasharray={circ} strokeDashoffset={offset}
+                    strokeLinecap="round" transform="rotate(-90 25 25)"
+                    style={{ transition: 'stroke-dashoffset 1s ease-out' }} />
+                  <text x="25" y="29" textAnchor="middle" fontSize="11" fontWeight="800"
+                    fill={color} fontFamily="-apple-system,Arial,sans-serif">{todayMinutes}</text>
+                </svg>
+                <p style={{ fontSize: 11, color: '#9e998e' }}>今日分钟</p>
+              </div>
+            )
+          })()}
           {[
             { icon: '✅', value: totalCompleted, label: '已完成课' },
-            { icon: '📚', value: dueVocabCount > 0 ? dueVocabCount : weekTotal || '--', label: dueVocabCount > 0 ? '待复习词' : '本周课程' },
             { icon: '⭐', value: avgScore !== null ? avgScore : '--', label: '平均得分' },
           ].map(stat => (
             <div key={stat.label} style={{
