@@ -4,11 +4,15 @@ import { RouterProvider } from 'react-router-dom'
 import './index.css'
 import { router } from './router'
 import useUserStore from './store/userStore'
+import { checkAndFireReminder } from './utils/notifications'
 
 const App = () => {
   const { init, loading } = useUserStore()
 
-  useEffect(() => { init() }, [init])
+  useEffect(() => {
+    init()
+    checkAndFireReminder()
+  }, [init])
 
   if (loading) {
     return (

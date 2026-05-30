@@ -11,6 +11,8 @@ import { showToast } from '../utils/toast'
 import { getWeaknessSummary } from '../utils/weakness'
 import { DEFAULT_IELTS_GOAL, getIeltsAttempts, getIeltsGoal, getIeltsGoalSummary, saveIeltsGoal } from '../utils/ieltsGoal'
 import { LEARNING_STATE_SYNCED, LEARNING_SYNC_STATUS_CHANGED, getLearningSyncStatus, notifyLearningStateChanged, syncLearningState } from '../utils/learningStateSync'
+import DiagnosticModal, { DIAGNOSTIC_KEY, getStoredDiagnostic, getDiagnosticSummary } from '../components/DiagnosticModal'
+import { getNotifPrefs, saveNotifPrefs, isNotifSupported, requestPermission } from '../utils/notifications'
 
 /* ── 30天打卡热图 ── */
 const CheckInHeatmap = ({ history }) => {
@@ -151,6 +153,10 @@ const Profile = () => {
   const [weaknesses, setWeaknesses] = useState(null)
   const [grammarErrors, setGrammarErrors] = useState([])
   const [weaknessSummary, setWeaknessSummary] = useState([])
+  const [diagnostic, setDiagnostic] = useState(() => getStoredDiagnostic())
+  const [showDiagnostic, setShowDiagnostic] = useState(false)
+  const [notifPrefs, setNotifPrefs] = useState(() => getNotifPrefs() || { enabled: false, time: '20:00' })
+  const [notifPermission, setNotifPermission] = useState(() => isNotifSupported() ? Notification.permission : 'unsupported')
   const [dailyGoal, setDailyGoal] = useState(() => parseInt(localStorage.getItem('dailyGoal') || '2', 10))
   const [ieltsGoal, setIeltsGoal] = useState(() => getIeltsGoal() || DEFAULT_IELTS_GOAL)
   const [ieltsAttempts, setIeltsAttempts] = useState(() => getIeltsAttempts())
@@ -239,6 +245,42 @@ const Profile = () => {
       window.removeEventListener(LEARNING_STATE_SYNCED, refreshSyncStatus)
     }
   }, [])
+
+  const handleToggleReminder = async () => {
+    if (notifPrefs.enabled) {
+      const updated = { ...notifPrefs, enabled: false }
+      saveNotifPrefs(updated)
+      setNotifPrefs(updated)
+      showToast('每日提醒已关闭', 'info')
+      return
+    }
+    const perm = await requestPermission()
+    setNotifPermission(perm)
+    if (perm === 'granted') {
+      const updated = { ...notifPrefs, enabled: true }
+      saveNotifPrefs(updated)
+      setNotifPrefs(updated)
+      showToast('每日提醒已开启，会在设定时间提醒你打卡', 'success')
+    } else if (perm === 'denied') {
+      showToast('通知权限被拒绝，请在浏览器设置中允许通知', 'error')
+    } else {
+      showToast('当前环境不支持通知', 'info')
+    }
+  }
+
+  const handleNotifTimeChange = (time) => {
+    const updated = { ...notifPrefs, time }
+    saveNotifPrefs(updated)
+    setNotifPrefs(updated)
+  }
+
+  const handleSaveDiagnostic = (profile) => {
+    localStorage.setItem(DIAGNOSTIC_KEY, JSON.stringify(profile))
+    notifyLearningStateChanged()
+    setDiagnostic(profile)
+    setShowDiagnostic(false)
+    showToast('诊断档案已更新', 'success')
+  }
 
   const handleSaveGoal = () => {
     localStorage.setItem('dailyGoal', String(dailyGoal))
@@ -419,6 +461,53 @@ const Profile = () => {
             fontFamily: 'inherit', flexShrink: 0,
           }}>立即同步</button>
         </div>
+      </Card>
+
+      {/* ── Diagnostic Profile ── */}
+      <SectionTitle>学习档案</SectionTitle>
+      <Card style={{ marginBottom: 20 }}>
+        {diagnostic ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: 14, flexShrink: 0, background: '#fef2ea',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+            }}>🎯</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 14.5, fontWeight: 800, color: '#0f0e0c', marginBottom: 3 }}>
+                {getDiagnosticSummary(diagnostic)}
+              </p>
+              <p style={{ fontSize: 12, color: '#9e998e' }}>
+                上次更新：{diagnostic.updatedAt
+                  ? new Date(diagnostic.updatedAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
+                  : '未知'}
+              </p>
+            </div>
+            <button onClick={() => setShowDiagnostic(true)} style={{
+              fontSize: 12, fontWeight: 800, color: '#e8672a',
+              background: '#fff', border: '1px solid #f3c4a2',
+              borderRadius: 10, minHeight: 40, padding: '8px 11px', cursor: 'pointer',
+              fontFamily: 'inherit', flexShrink: 0,
+            }}>重新诊断</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: 14, flexShrink: 0, background: '#f0ede6',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+            }}>❓</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 14.5, fontWeight: 800, color: '#0f0e0c', marginBottom: 3 }}>还没有学习档案</p>
+              <p style={{ fontSize: 12, color: '#9e998e' }}>3 个问题帮 AI 了解你的学习目标</p>
+            </div>
+            <button onClick={() => setShowDiagnostic(true)} style={{
+              fontSize: 12, fontWeight: 800, color: '#fff',
+              background: 'linear-gradient(135deg, #f28040, #e05020)', border: 'none',
+              borderRadius: 10, minHeight: 40, padding: '8px 11px', cursor: 'pointer',
+              fontFamily: 'inherit', flexShrink: 0,
+              boxShadow: '0 3px 10px rgba(232,103,42,0.3)',
+            }}>开始诊断</button>
+          </div>
+        )}
       </Card>
 
       {/* ── Daily Goal ── */}
@@ -851,6 +940,59 @@ const Profile = () => {
         </>
       )}
 
+      {/* ── Daily Reminder ── */}
+      {isNotifSupported() && (
+        <>
+          <SectionTitle>每日学习提醒</SectionTitle>
+          <Card style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{
+                width: 42, height: 42, borderRadius: 14, flexShrink: 0,
+                background: notifPrefs.enabled ? '#edf8f2' : '#f0ede6',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+              }}>🔔</div>
+              <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+                <p style={{ fontSize: 14.5, fontWeight: 800, color: '#0f0e0c', marginBottom: 3 }}>
+                  {notifPrefs.enabled ? '提醒已开启' : '开启每日提醒'}
+                </p>
+                <p style={{ fontSize: 12, color: '#9e998e', lineHeight: 1.5 }}>
+                  {notifPermission === 'denied'
+                    ? '通知权限被拒绝，请在浏览器设置中允许'
+                    : notifPrefs.enabled
+                      ? `每天 ${notifPrefs.time} 提醒你打卡`
+                      : '每天到点提醒，帮你保持连续打卡'}
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                {notifPrefs.enabled && (
+                  <input
+                    type="time" value={notifPrefs.time}
+                    onChange={e => handleNotifTimeChange(e.target.value)}
+                    style={{
+                      background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+                      borderRadius: 10, padding: '8px 10px', fontSize: 13,
+                      color: '#0f0e0c', fontFamily: 'inherit',
+                    }}
+                  />
+                )}
+                <button
+                  onClick={handleToggleReminder}
+                  disabled={notifPermission === 'denied'}
+                  style={{
+                    minHeight: 40, padding: '8px 14px',
+                    borderRadius: 10, fontSize: 12, fontWeight: 800, cursor: notifPermission === 'denied' ? 'default' : 'pointer',
+                    border: 'none', fontFamily: 'inherit', transition: 'all 0.2s',
+                    background: notifPrefs.enabled ? '#fdf0f0' : 'linear-gradient(135deg, #f28040, #e05020)',
+                    color: notifPrefs.enabled ? '#d94040' : '#fff',
+                    boxShadow: notifPrefs.enabled ? 'none' : '0 3px 10px rgba(232,103,42,0.3)',
+                  }}
+                >{notifPrefs.enabled ? '关闭' : '开启'}</button>
+              </div>
+            </div>
+          </Card>
+        </>
+      )}
+
       {/* ── Share + Logout ── */}
       <button onClick={() => setShowShare(true)} style={{
         width: '100%', padding: '13px', borderRadius: 14, marginBottom: 12,
@@ -870,6 +1012,14 @@ const Profile = () => {
       <Button variant="secondary" onClick={handleLogout} style={{ width: '100%', justifyContent: 'center' }}>
         退出登录
       </Button>
+
+      {showDiagnostic && (
+        <DiagnosticModal
+          initialProfile={diagnostic}
+          onClose={() => setShowDiagnostic(false)}
+          onSave={handleSaveDiagnostic}
+        />
+      )}
 
       {/* ── Share Modal ── */}
       {showShare && (

@@ -1701,6 +1701,22 @@ const TABS = [
 
 const getTabMeta = (key) => TABS.find(tab => tab.key === key) || TABS[0]
 
+const GOAL_RECOMMENDED_TAB = {
+  pronunciation: 'free',
+  conversation: 'free',
+  grammar: 'grammar',
+  ielts: 'part1',
+}
+
+const getRecommendedTab = () => {
+  try {
+    const profile = JSON.parse(localStorage.getItem('english_diagnostic_profile') || 'null')
+    return profile?.goal ? (GOAL_RECOMMENDED_TAB[profile.goal] || null) : null
+  } catch {
+    return null
+  }
+}
+
 const Speaking = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const drillWord = searchParams.get('drill') || ''
@@ -1709,6 +1725,7 @@ const Speaking = () => {
   const [mode, setMode] = useState(initialTab)
   const tabRefs = useRef({})
   const activeTab = getTabMeta(mode)
+  const recommendedTab = getRecommendedTab()
 
   useEffect(() => {
     if (!queryTab || !TABS.some(tab => tab.key === queryTab) || queryTab === mode) return
@@ -1755,30 +1772,41 @@ const Speaking = () => {
         WebkitBackdropFilter: 'blur(16px) saturate(160%)',
         boxShadow: '0 4px 18px rgba(0,0,0,0.06)',
       }} role="tablist" aria-label="练习模式">
-        {TABS.map(({ key, label, icon, group }) => (
-          <button
-            key={key}
-            ref={el => { tabRefs.current[key] = el }}
-            onClick={() => changeMode(key)}
-            role="tab"
-            aria-selected={mode === key}
-            style={{
-              flex: '0 0 auto', minWidth: 78, minHeight: 46, padding: '8px 10px', borderRadius: 12, fontSize: 11, fontWeight: 800,
-              border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-              background: mode === key ? '#fff' : 'transparent',
-              color: mode === key ? '#0f0e0c' : '#9e998e',
-              boxShadow: mode === key ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-              fontFamily: 'inherit', whiteSpace: 'nowrap', scrollSnapAlign: 'start',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            <span style={{ display: 'block', fontSize: 15, lineHeight: 1.05, marginBottom: 3 }}>{icon}</span>
-            <span>{label}</span>
-            {mode === key && (
-              <span style={{ display: 'block', fontSize: 9.5, color: '#e8672a', marginTop: 1, lineHeight: 1.1 }}>{group}</span>
-            )}
-          </button>
-        ))}
+        {TABS.map(({ key, label, icon, group }) => {
+          const isRecommended = key === recommendedTab && mode !== key
+          return (
+            <button
+              key={key}
+              ref={el => { tabRefs.current[key] = el }}
+              onClick={() => changeMode(key)}
+              role="tab"
+              aria-selected={mode === key}
+              style={{
+                flex: '0 0 auto', minWidth: 78, minHeight: 46, padding: '8px 10px', borderRadius: 12, fontSize: 11, fontWeight: 800,
+                border: isRecommended ? '1.5px solid #f3c4a2' : 'none',
+                cursor: 'pointer', transition: 'all 0.15s',
+                background: mode === key ? '#fff' : isRecommended ? '#fff8f4' : 'transparent',
+                color: mode === key ? '#0f0e0c' : '#9e998e',
+                boxShadow: mode === key ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                fontFamily: 'inherit', whiteSpace: 'nowrap', scrollSnapAlign: 'start',
+                WebkitTapHighlightColor: 'transparent', position: 'relative',
+              }}
+            >
+              <span style={{ display: 'block', fontSize: 15, lineHeight: 1.05, marginBottom: 3 }}>{icon}</span>
+              <span>{label}</span>
+              {mode === key && (
+                <span style={{ display: 'block', fontSize: 9.5, color: '#e8672a', marginTop: 1, lineHeight: 1.1 }}>{group}</span>
+              )}
+              {isRecommended && (
+                <span style={{
+                  position: 'absolute', top: -1, right: -1, fontSize: 8, fontWeight: 900,
+                  background: '#e8672a', color: '#fff', borderRadius: '0 12px 0 8px',
+                  padding: '2px 5px', lineHeight: 1.2,
+                }}>推荐</span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {mode === 'free' && (
