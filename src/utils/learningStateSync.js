@@ -13,6 +13,7 @@ const FIXED_KEYS = [
   'ielts_speaking_attempts',
   'english_diagnostic_profile',
   'emma_recent_messages',
+  'emma_long_memory',
   'daily_learning_reviews',
   'emma_coach_nudge_dismissed',
   'milestones_seen',

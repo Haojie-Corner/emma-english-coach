@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase, signIn, signUp, signOut } from '../services/supabase'
+import { syncLearningState } from '../utils/learningStateSync'
 
 const useUserStore = create((set) => ({
   user: null,
@@ -9,8 +10,14 @@ const useUserStore = create((set) => ({
   init: async () => {
     const { data: { session } } = await supabase.auth.getSession()
     set({ session, user: session?.user ?? null, loading: false })
+    if (session?.user) {
+      syncLearningState(session.user.id).catch(() => {})
+    }
     supabase.auth.onAuthStateChange((_event, session) => {
       set({ session, user: session?.user ?? null })
+      if (_event === 'SIGNED_IN' && session?.user) {
+        syncLearningState(session.user.id).catch(() => {})
+      }
     })
   },
 
