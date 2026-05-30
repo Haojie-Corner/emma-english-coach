@@ -1,5 +1,8 @@
-const ELEVENLABS_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY
 import { showToast } from './toast'
+import { supabase } from '../services/supabase'
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // Debounce TTS error toasts — don't spam if multiple calls fail at once
 let _lastTtsToastAt = 0
@@ -10,14 +13,10 @@ const toastTts = (msg) => {
   showToast(msg, 'warning')
 }
 
-// Sarah — young, clear, professional American female voice
-const VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'
-
 let currentAudio = null
-let currentAbort = null  // cancels any in-flight ElevenLabs fetch
+let currentAbort = null  // cancels any in-flight TTS fetch
 
 export const stopSpeaking = () => {
-  // Cancel in-flight request so it never plays
   if (currentAbort) { currentAbort.abort(); currentAbort = null }
   window.speechSynthesis.cancel()
   if (currentAudio) {
@@ -37,27 +36,36 @@ export const resumeSpeaking = () => {
   else if (window.speechSynthesis.paused) window.speechSynthesis.resume()
 }
 
-// ---- ElevenLabs fetch (shared by both speak & speakMultilingual) ----
-const elevenLabsFetch = async (text, modelId, rate, onEnd) => {
-  // Cancel any previous in-flight request before starting a new one
+// 获取当前用户的 JWT token（用于 edge function 授权）
+const getAuthToken = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ?? null
+}
+
+// ---- 通过 Supabase Edge Function 调用 ElevenLabs（API Key 在服务端）----
+const elevenLabsFetch = async (text, modelId, rate, onEnd, signal = null) => {
   if (currentAbort) currentAbort.abort()
   const abort = new AbortController()
   currentAbort = abort
 
+  // 合并外部 signal（prefetch 用）
+  const effectiveSignal = signal || abort.signal
+
   let res
   try {
-    res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-      signal: abort.signal,
+    const token = await getAuthToken()
+    res = await fetch(`${SUPABASE_URL}/functions/v1/tts-proxy`, {
+      signal: effectiveSignal,
       method: 'POST',
       headers: {
-        'Accept': 'audio/mpeg',
         'Content-Type': 'application/json',
-        'xi-api-key': ELEVENLABS_KEY,
+        'Authorization': `Bearer ${token}`,
+        'apikey': SUPABASE_ANON_KEY,
       },
       body: JSON.stringify({
         text,
-        model_id: modelId,
-        voice_settings: {
+        modelId,
+        voiceSettings: {
           stability: 0.32,
           similarity_boost: 0.70,
           style: 0.45,
@@ -66,22 +74,20 @@ const elevenLabsFetch = async (text, modelId, rate, onEnd) => {
       }),
     })
   } catch (e) {
-    if (e.name === 'AbortError') return  // Cancelled — do nothing, newer request takes over
+    if (e.name === 'AbortError') return
     throw e
   }
 
-  // If another request was started while we were fetching, discard this result
-  if (currentAbort !== abort) return
-  currentAbort = null
+  if (currentAbort !== abort && !signal) return
+  if (!signal) currentAbort = null
 
   if (!res.ok) {
     const msg = await res.text()
-    throw new Error(`ElevenLabs ${res.status}: ${msg.slice(0, 160)}`)
+    throw new Error(`TTS ${res.status}: ${msg.slice(0, 160)}`)
   }
 
   const blob = await res.blob()
-  // Double-check: still the latest request?
-  if (currentAbort !== null) return
+  if (currentAbort !== null && !signal) return
 
   const url = URL.createObjectURL(blob)
   const audio = new Audio(url)
@@ -111,17 +117,17 @@ const handleTtsError = (e) => {
   const msg = e.message.toLowerCase()
   if (msg.includes('quota') || msg.includes('credit') || msg.includes('character_limit') || msg.includes('402')) {
     toastTts('ElevenLabs 语音额度已用完，充值或更换 Key 后即可恢复')
-  } else if (msg.includes('invalid') || msg.includes('api key') || msg.includes('unauthorized') || msg.includes('401') || msg.includes('403')) {
-    toastTts('语音服务 API Key 无效，请检查配置')
+  } else if (msg.includes('401') || msg.includes('403') || msg.includes('unauthorized')) {
+    toastTts('语音服务授权失败，请重新登录后重试')
+  } else {
+    toastTts('语音服务暂时不可用，请稍后重试')
   }
-  else toastTts('语音服务暂时不可用，请稍后重试')
-  console.warn('[TTS] ElevenLabs error:', e.message)
+  console.warn('[TTS] error:', e.message)
 }
 
-/** English TTS (ElevenLabs Sarah). Each call cancels any in-progress audio. */
+/** English TTS (ElevenLabs Sarah via edge function). Each call cancels any in-progress audio. */
 export const speak = async (text, rate = 0.78, onEnd = null) => {
   stopSpeaking()
-  if (!ELEVENLABS_KEY) { toastTts('未配置语音服务，无法播放'); return }
   try {
     await elevenLabsFetch(text, MODEL_QUALITY, rate, onEnd)
   } catch (e) {
@@ -133,7 +139,6 @@ export const speak = async (text, rate = 0.78, onEnd = null) => {
 /** Bilingual mixed Chinese+English. Uses turbo model for faster response. */
 export const speakMultilingual = async (text, onEnd = null) => {
   stopSpeaking()
-  if (!ELEVENLABS_KEY) { toastTts('未配置语音服务，无法播放'); return }
   try {
     await elevenLabsFetch(text, MODEL_FAST, 1.0, onEnd)
   } catch (e) {
@@ -147,20 +152,20 @@ export const speakMultilingual = async (text, onEnd = null) => {
  * Returns a blob URL (call URL.revokeObjectURL when done), or null on error.
  */
 export const prefetchAudio = async (text, modelId = MODEL_FAST, signal = null) => {
-  if (!ELEVENLABS_KEY) return null
   try {
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+    const token = await getAuthToken()
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/tts-proxy`, {
       method: 'POST',
       signal,
       headers: {
-        'Accept': 'audio/mpeg',
         'Content-Type': 'application/json',
-        'xi-api-key': ELEVENLABS_KEY,
+        'Authorization': `Bearer ${token}`,
+        'apikey': SUPABASE_ANON_KEY,
       },
       body: JSON.stringify({
         text,
-        model_id: modelId,
-        voice_settings: { stability: 0.32, similarity_boost: 0.70, style: 0.45, use_speaker_boost: true },
+        modelId,
+        voiceSettings: { stability: 0.32, similarity_boost: 0.70, style: 0.45, use_speaker_boost: true },
       }),
     })
     if (!res.ok) return null

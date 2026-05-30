@@ -1,92 +1,21 @@
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+import { supabase } from './supabase'
 
-// 快速稳定模型优先；繁忙、限流或超时时自动切换到更强备用模型
-const MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-pro', 'gemini-2.5-flash']
-const GEMINI_TIMEOUT_MS = 30000
-const GEMINI_RETRY_ROUNDS = 2
-
-const geminiUrl = (model) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`
-
-const buildGeminiError = async (res) => {
-  const errBody = await res.text()
-  let message = errBody.slice(0, 200)
-  try {
-    const parsed = JSON.parse(errBody)
-    message = parsed?.error?.message || message
-  } catch { /* keep raw body */ }
-  if (message.includes('User location is not supported')) {
-    return new Error('Gemini 当前网络地区不支持使用，请切换可用网络或改用后端代理')
+// 通过 Supabase Edge Function 代理，API Key 不暴露给浏览器
+const callGemini = async (parts) => {
+  const { data, error } = await supabase.functions.invoke('gemini-proxy', {
+    body: { parts },
+  })
+  if (error) {
+    const msg = error.message || String(error)
+    throw new Error(msg)
   }
-  if (res.status === 400 && message.includes('API key not valid')) {
-    return new Error('Gemini API Key 无效，请检查配置')
-  }
-  if (res.status === 403) {
-    return new Error('Gemini API 权限不足或项目未启用，请检查配置')
-  }
-  return new Error(`Gemini API error: ${res.status} — ${message}`)
-}
-
-const fetchGeminiWithTimeout = async (url, options) => {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
-  try {
-    return await fetch(url, { ...options, signal: controller.signal })
-  } catch (e) {
-    if (e.name === 'AbortError') {
-      throw new Error('Gemini 分析超时，正在尝试备用模型', { cause: e })
-    }
-    throw e
-  } finally {
-    clearTimeout(timeout)
-  }
+  if (data?.error) throw new Error(data.error)
+  return data?.text ?? ''
 }
 
 const isRetryableGeminiError = (error) => {
   const msg = `${error?.message || ''}`.toLowerCase()
-  return msg.includes('503')
-    || msg.includes('429')
-    || msg.includes('high demand')
-    || msg.includes('overload')
-    || msg.includes('timeout')
-    || msg.includes('超时')
-    || msg.includes('繁忙')
-}
-
-const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms))
-
-const callGemini = async (parts) => {
-  let lastError
-  for (let round = 0; round < GEMINI_RETRY_ROUNDS; round += 1) {
-    for (const model of MODELS) {
-      try {
-        const res = await fetchGeminiWithTimeout(geminiUrl(model), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts }] }),
-        })
-        if (res.status === 503 || res.status === 429) {
-          lastError = await buildGeminiError(res)
-          continue  // 换下一个模型重试
-        }
-        if (!res.ok) {
-          throw await buildGeminiError(res)
-        }
-        const data = await res.json()
-        return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-      } catch (e) {
-        if (isRetryableGeminiError(e)) {
-          lastError = e
-          continue
-        }
-        throw e
-      }
-    }
-    if (round < GEMINI_RETRY_ROUNDS - 1) await wait(1200)
-  }
-  throw new Error(lastError?.message?.includes('超时')
-    ? 'Gemini 分析超时，请检查网络后重试'
-    : 'Gemini 现在繁忙，请稍后重试')
+  return msg.includes('503') || msg.includes('429') || msg.includes('繁忙') || msg.includes('超时')
 }
 
 const buildPronunciationFallback = (targetText) => ({

@@ -193,6 +193,114 @@ const TeacherAvatar = ({ speakState, hasPlayed, preloading, onPause, onResume, o
   </div>
 )
 
+const PASS_SCORE = 75
+const MAX_SESSION_ATTEMPTS = 5
+
+const DIM_META = {
+  pronunciation: { label: '发音准确', tip: '放慢语速，一个音一个音咬清楚' },
+  fluency:       { label: '流利连贯', tip: '不要停顿太久，哪怕速度慢也要一口气说完' },
+  stress:        { label: '重音节奏', tip: '找到每个单词的重音音节，着重加重那一拍' },
+  intonation:    { label: '语调自然', tip: '句末根据意思升调或降调，避免单调平读' },
+}
+
+const getWeakestDimension = (dimScores) => {
+  if (!dimScores) return null
+  return Object.entries(dimScores).reduce((min, [k, v]) => (!min || v < min[1] ? [k, v] : min), null)
+}
+
+const RetryNudge = ({ result, attemptNum, prevScore }) => {
+  const weak = getWeakestDimension(result?.dimension_scores)
+  const meta = weak ? DIM_META[weak[0]] : null
+  const delta = attemptNum > 1 && prevScore != null ? result.overall_score - prevScore : null
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #fff8f4, #fffaf7)',
+      border: '1.5px solid #f3c4a2',
+      borderRadius: 14, padding: '14px 16px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <span style={{ fontSize: 20 }}>🎯</span>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 800, color: '#0f0e0c' }}>
+            {delta != null
+              ? delta > 0
+                ? `比上次高了 +${delta} 分，继续！`
+                : delta < 0
+                  ? `这次低了 ${Math.abs(delta)} 分，别急，再来`
+                  : '和上次持平，专注最弱维度再来一次'
+              : `差 ${PASS_SCORE - result.overall_score} 分达标，来加把劲`}
+          </p>
+          {meta && (
+            <p style={{ fontSize: 12, color: '#d97757', marginTop: 2 }}>
+              最弱：{meta.label} — {meta.tip}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const PassBanner = ({ score, attemptNum }) => (
+  <div style={{
+    background: 'linear-gradient(135deg, #edf8f2, #d8f0e8)',
+    border: '1.5px solid #7fc9a0',
+    borderRadius: 14, padding: '16px 18px',
+    textAlign: 'center',
+  }}>
+    <p style={{ fontSize: 28, marginBottom: 6 }}>🎉</p>
+    <p style={{ fontSize: 16, fontWeight: 800, color: '#1f6b40' }}>
+      达标！第 {attemptNum} 次拿到了 {score} 分
+    </p>
+    <p style={{ fontSize: 12, color: '#3a7a50', marginTop: 4 }}>
+      超过 {PASS_SCORE} 分的基准线，发音相当不错了！
+    </p>
+  </div>
+)
+
+const SessionSummary = ({ attempts, onReset }) => {
+  const best = Math.max(...attempts.map(a => a.score))
+  const last = attempts[attempts.length - 1]?.score
+  const trend = attempts.length >= 2
+    ? last > attempts[0].score ? '稳步上升' : last === attempts[0].score ? '持平' : '有波动'
+    : '首次完成'
+  return (
+    <div style={{
+      background: '#fff', border: '1px solid #e5e1d8',
+      borderRadius: 16, padding: '18px',
+    }}>
+      <p style={{ fontSize: 13, fontWeight: 800, color: '#0f0e0c', marginBottom: 12 }}>📊 本轮练习总结（{attempts.length} 次）</p>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+        <div style={{ flex: 1, background: '#f5f3ef', borderRadius: 12, padding: '10px', textAlign: 'center' }}>
+          <p style={{ fontSize: 22, fontWeight: 800, color: '#e8672a' }}>{best}</p>
+          <p style={{ fontSize: 11, color: '#9e998e', marginTop: 2 }}>最高分</p>
+        </div>
+        <div style={{ flex: 1, background: '#f5f3ef', borderRadius: 12, padding: '10px', textAlign: 'center' }}>
+          <p style={{ fontSize: 22, fontWeight: 800, color: '#4a7a9b' }}>{last}</p>
+          <p style={{ fontSize: 11, color: '#9e998e', marginTop: 2 }}>最终分</p>
+        </div>
+        <div style={{ flex: 1, background: '#f5f3ef', borderRadius: 12, padding: '10px', textAlign: 'center' }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: '#5c5850', marginTop: 4 }}>{trend}</p>
+          <p style={{ fontSize: 11, color: '#9e998e', marginTop: 2 }}>趋势</p>
+        </div>
+      </div>
+      <p style={{ fontSize: 12, color: '#7a7870', lineHeight: 1.55, marginBottom: 14 }}>
+        {best >= PASS_SCORE
+          ? `最高达到 ${best} 分，已超过达标线，今天这个句子打卡成功！`
+          : `今天练了 ${attempts.length} 次，最高 ${best} 分。明天再来，肌肉记忆会越来越稳。`}
+      </p>
+      <button onClick={onReset} style={{
+        width: '100%', minHeight: 44, borderRadius: 12, border: 'none',
+        background: 'linear-gradient(135deg, #f28040, #e05020)',
+        color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+      }}>
+        换一句继续练
+      </button>
+    </div>
+  )
+}
+
 const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
   const { status, audioBlob, audioUrl, error, startRecording, stopRecording, reset, getBase64WithMime, analyserRef } = useAudioRecorder()
   const [analyzePhase, setAnalyzePhase] = useState(null)  // null | 'processing' | 'analyzing'
@@ -209,6 +317,8 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
   const prefetchAborts = useRef([])                    // AbortControllers for in-flight prefetches
   const [history, setHistory] = useState([])
   const [showHistory, setShowHistory] = useState(false)
+  // Session tracking: multiple attempts at the same target sentence
+  const [sessionAttempts, setSessionAttempts] = useState([])   // [{score, dimension_scores}]
 
   useEffect(() => {
     if (userId && lessonId) {
@@ -305,6 +415,10 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
       setResult(feedback)
       if (!feedback.fallback) {
         recordPronunciationWeaknesses(feedback, targetZh || targetText || '发音练习')
+        setSessionAttempts(prev => [...prev, {
+          score: feedback.overall_score,
+          dimension_scores: feedback.dimension_scores,
+        }])
       }
       if (!feedback.fallback && userId && lessonId && audioBlob) {
         saveRecording(userId, lessonId, audioBlob, feedback.overall_score, feedback).catch(() => {})
@@ -316,7 +430,8 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
     }
   }
 
-  const handleReset = () => {
+  // 重试：保留 session 记录，只重置录音状态
+  const handleRetry = () => {
     cancelPrefetches()
     reset()
     setResult(null)
@@ -330,6 +445,12 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
     setTipDemoUrls({})
     setActiveDemo(null)
     setDemoPaused(false)
+  }
+
+  // 完全重置：清掉 session，回到第一次状态
+  const handleReset = () => {
+    handleRetry()
+    setSessionAttempts([])
   }
 
   const handleReplay = () => {
@@ -480,8 +601,43 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
       )}
 
       {/* AI 分析结果 */}
-      {result && (
+      {result && (() => {
+        const attemptNum = sessionAttempts.length
+        const prevScore = sessionAttempts.length >= 2
+          ? sessionAttempts[sessionAttempts.length - 2].score
+          : null
+        const passed = !result.fallback && result.overall_score >= PASS_SCORE
+        const maxReached = attemptNum >= MAX_SESSION_ATTEMPTS
+
+        return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} className="fade-in">
+
+          {/* Session 进度指示 */}
+          {!result.fallback && attemptNum > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: '#f5f3ef', borderRadius: 12, padding: '10px 14px',
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#5c5850' }}>
+                第 {attemptNum} 次练习
+              </span>
+              <div style={{ display: 'flex', gap: 5 }}>
+                {Array.from({ length: MAX_SESSION_ATTEMPTS }).map((_, i) => {
+                  const a = sessionAttempts[i]
+                  return (
+                    <div key={i} style={{
+                      width: 28, height: 7, borderRadius: 4,
+                      background: a
+                        ? a.score >= PASS_SCORE ? '#3a9a5f' : '#e8672a'
+                        : i === attemptNum ? '#dedad0' : '#ece9e0',
+                    }} />
+                  )
+                })}
+              </div>
+              <span style={{ fontSize: 11, color: '#9e998e' }}>目标 {PASS_SCORE}+</span>
+            </div>
+          )}
+
           {result.fallback && (
             <div style={{
               background: '#fff8ea', border: '1px solid #f3d08b',
@@ -601,17 +757,50 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
           )}
 
           {/* 下次重点 */}
-          {result.next_focus && (
+          {result.next_focus && !passed && (
             <div style={{ background: '#fdf0ea', border: '1px solid #f5c4a8', borderRadius: 12, padding: '12px 16px' }}>
               <p style={{ fontSize: 13, color: '#b85f3e' }}>🎯 下次练习重点：{result.next_focus}</p>
             </div>
           )}
 
-          <Button onClick={handleReset} style={{ width: '100%', minHeight: 48, justifyContent: 'center' }}>
-            再练一次
-          </Button>
+          {/* 达标庆祝 */}
+          {passed && <PassBanner score={result.overall_score} attemptNum={attemptNum} />}
+
+          {/* 未达标：重试引导 */}
+          {!result.fallback && !passed && !maxReached && (
+            <RetryNudge result={result} attemptNum={attemptNum} prevScore={prevScore} />
+          )}
+
+          {/* 达到最大次数：本轮总结 */}
+          {maxReached && !passed && (
+            <SessionSummary attempts={sessionAttempts} onReset={handleReset} />
+          )}
+
+          {/* 操作按钮 */}
+          {!maxReached && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              {!passed && (
+                <Button onClick={handleRetry} style={{ flex: 1, minHeight: 48, justifyContent: 'center',
+                  background: 'linear-gradient(135deg, #f28040, #e05020)', color: '#fff', border: 'none' }}>
+                  {attemptNum > 0 ? `再来一次（第 ${attemptNum + 1} 次）` : '再练一次'}
+                </Button>
+              )}
+              {passed && (
+                <Button onClick={handleReset} style={{ flex: 1, minHeight: 48, justifyContent: 'center',
+                  background: 'linear-gradient(135deg, #3a9a5f, #2a7a4a)', color: '#fff', border: 'none' }}>
+                  换一句继续
+                </Button>
+              )}
+              {attemptNum > 0 && (
+                <Button variant="secondary" onClick={handleReset} style={{ minHeight: 48, padding: '0 16px' }}>
+                  重新开始
+                </Button>
+              )}
+            </div>
+          )}
         </div>
-      )}
+        )
+      })()}
 
       {/* 历史记录 */}
       {history.length > 0 && !result && (

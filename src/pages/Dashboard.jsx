@@ -593,7 +593,47 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* ── Diagnostic / Today Plan ── */}
+        {/* ── 英雄行动卡：唯一最优先任务 ── */}
+        {progress.length > 0 && todayPlan.length > 0 && (() => {
+          const hero = todayPlan[2] || todayPlan[0]  // 主线/补弱 优先
+          const isCheckedIn = checkedInToday
+          return (
+            <div
+              onClick={() => navigate(hero.to)}
+              style={{
+                background: 'linear-gradient(135deg, #f28040 0%, #e05020 100%)',
+                borderRadius: 20, padding: '20px 20px', marginBottom: 16,
+                boxShadow: '0 6px 24px rgba(232,103,42,0.30)',
+                cursor: 'pointer', color: '#fff',
+                display: 'flex', alignItems: 'center', gap: 16,
+                WebkitTapHighlightColor: 'transparent',
+                transition: 'filter 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.06)'}
+              onMouseLeave={e => e.currentTarget.style.filter = ''}
+            >
+              <div style={{
+                width: 52, height: 52, borderRadius: 17, flexShrink: 0,
+                background: 'rgba(255,255,255,0.22)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 24,
+              }}>{hero.icon}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: 800, opacity: 0.82, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {isCheckedIn ? '现在就做这件事' : '打卡后立刻开始'}
+                </p>
+                <p style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.25, marginBottom: 3 }}>{hero.title}</p>
+                <p style={{ fontSize: 12, opacity: 0.85, lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{hero.sub}</p>
+              </div>
+              <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                <p style={{ fontSize: 20, fontWeight: 800 }}>{hero.minutes}</p>
+                <p style={{ fontSize: 10, opacity: 0.75, marginTop: 1 }}>分钟</p>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* ── Diagnostic / Today Plan（折叠为次要信息） ── */}
         <div style={{
           background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
           borderRadius: 20, padding: '18px 18px', marginBottom: 20,

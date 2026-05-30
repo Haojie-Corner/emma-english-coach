@@ -15,6 +15,7 @@ import VocabChip from './ui/VocabChip'
 import { buildEmmaLearningContext } from '../utils/learningContext'
 import { LEARNING_STATE_SYNCED, notifyLearningStateChanged } from '../utils/learningStateSync'
 import { dismissEmmaCoachNudge, getEmmaCoachNudge } from '../utils/learningReview'
+import { saveEmmaSession, getEmmaMemoryPrompt, getLastSessionHint } from '../utils/emmaMemory'
 
 const parseVocabFromMessage = (content) => {
   const match = content.match(/💡\s*(?:新词汇|学到了)[：:]\s*([\s\S]*?)(?=\n\n|\*\*|$)/)
@@ -211,12 +212,25 @@ const EmmaBubble = () => {
     }
   }, [])
 
-  /* 每次打开时根据当前情境生成开场白 */
+  /* 每次打开时根据当前情境 + 记忆生成开场白 */
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      const greeting = routeCtx.description
-        ? `嗨 ${name}！我看到你${routeCtx.description.replace(/^正在/, '正在')}，有什么可以帮你的？😊`
-        : `嗨 ${name}！有什么可以帮你的？😊`
+      const lastSession = getLastSessionHint()
+      let greeting
+      if (lastSession) {
+        const daysSince = Math.round((Date.now() - new Date(lastSession.date)) / 86400000)
+        const when = daysSince === 0 ? '今天早些时候' : daysSince === 1 ? '昨天' : `${daysSince}天前`
+        if (lastSession.tags?.length) {
+          const tagLabel = { pronunciation:'发音', grammar:'语法', fluency:'流利度', vocabulary:'词汇', ielts:'雅思', intonation:'语调' }[lastSession.tags[0]] || lastSession.tags[0]
+          greeting = `嗨 ${name}！${when}你问过关于${tagLabel}的问题，今天继续还是有新问题？😊`
+        } else {
+          greeting = `嗨 ${name}！${when}我们聊过，今天又来练英语了，有什么可以帮你的？😊`
+        }
+      } else if (routeCtx.description) {
+        greeting = `嗨 ${name}！我看到你${routeCtx.description.replace(/^正在/, '正在')}，有什么可以帮你的？😊`
+      } else {
+        greeting = `嗨 ${name}！有什么可以帮你的？😊`
+      }
       setMessages([{ role: 'emma', content: greeting }])
     }
   }, [isOpen, messages.length, name, routeCtx.description])
@@ -251,6 +265,10 @@ const EmmaBubble = () => {
   }, [messages, loading, isKeyboardOpen, viewport.height])
 
   const handleClose = () => {
+    // 关闭时保存本次会话记忆（有意义的对话才存）
+    if (messages.length >= 2) {
+      saveEmmaSession(messages, routeCtx.label, progressSummary)
+    }
     close()
     setInput('')
   }
@@ -267,7 +285,8 @@ const EmmaBubble = () => {
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content,
       }))
-      const reply = await chatWithEmma(apiMessages, progressSummary, routeCtx.description, buildEmmaLearningContext())
+      const memoryContext = getEmmaMemoryPrompt()
+      const reply = await chatWithEmma(apiMessages, progressSummary, routeCtx.description, buildEmmaLearningContext(), memoryContext)
       setMessages(prev => [...prev, { role: 'emma', content: reply }])
     } catch {
       setMessages(prev => [...prev, { role: 'emma', content: '抱歉，连接出了问题，请稍后再试 😅' }])

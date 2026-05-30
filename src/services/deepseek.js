@@ -1,28 +1,13 @@
-const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY
-const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions'
+import { supabase } from './supabase'
 
+// 通过 Supabase Edge Function 代理，DeepSeek API Key 不暴露给浏览器
 const callDeepSeek = async (messages, systemPrompt) => {
-  const res = await fetch(DEEPSEEK_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages,
-      ],
-      temperature: 0.7,
-    }),
+  const { data, error } = await supabase.functions.invoke('deepseek-proxy', {
+    body: { messages, systemPrompt },
   })
-  if (res.status === 429) throw new Error('AI 服务繁忙，请稍后重试（请求频率超限）')
-  if (res.status === 402) throw new Error('AI 服务积分不足，请联系管理员')
-  if (res.status === 401 || res.status === 403) throw new Error('AI 服务授权失败，请检查配置')
-  if (!res.ok) throw new Error(`AI 服务暂时不可用（${res.status}），请稍后重试`)
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content ?? ''
+  if (error) throw new Error(error.message || 'AI 服务调用失败，请稍后重试')
+  if (data?.error) throw new Error(data.error)
+  return data?.content ?? ''
 }
 
 export const chatWithScene = async (sceneId, sceneName, sceneDesc, messages, userRole = '', aiRole = '', roleSwitched = false) => {
@@ -239,7 +224,7 @@ ${dialogue}
   return callDeepSeek([{ role: 'user', content: '请复盘这段对话练习' }], systemPrompt)
 }
 
-export const chatWithEmma = async (messages, progressSummary, pageContext = '', learningContext = '') => {
+export const chatWithEmma = async (messages, progressSummary, pageContext = '', learningContext = '', memoryContext = '') => {
   const { name, streak, totalCompleted, moduleProgress, dueVocabCount } = progressSummary
 
   const modLines = Object.entries(moduleProgress)
@@ -247,7 +232,7 @@ export const chatWithEmma = async (messages, progressSummary, pageContext = '', 
     .join('；')
 
   const contextLine = pageContext ? `\n当前情境：用户${pageContext}，请根据情境给出针对性回答。` : ''
-  const memoryLine = learningContext ? `\n长期学习记忆：\n${learningContext}` : ''
+  const learningLine = learningContext ? `\n长期学习记忆：\n${learningContext}` : ''
 
   const systemPrompt = `你是 Emma，一位专业的 AI 英语学习顾问，专门帮助中文母语零基础成人学习英语。你了解用户的完整学习档案，能给出个性化、具体可执行的建议。
 
@@ -256,7 +241,7 @@ export const chatWithEmma = async (messages, progressSummary, pageContext = '', 
 - 连续打卡：${streak} 天
 - 已完成课程：${totalCompleted} 节
 - 各模块进度：${modLines}
-- 到期词汇：${dueVocabCount} 个${contextLine}${memoryLine}
+- 到期词汇：${dueVocabCount} 个${contextLine}${learningLine}${memoryContext}
 
 你的三大职责：
 1. **学习路径建议**：根据当前进度，告诉用户接下来应该学什么、为什么、大概需要多久
@@ -269,6 +254,7 @@ export const chatWithEmma = async (messages, progressSummary, pageContext = '', 
 - 鼓励为主，给具体行动建议（"去学第X课"而非"继续努力"）
 - 适当用 emoji 增加亲切感
 - 如果是知识点问题，给一个简单例句帮助理解
+- 若记忆历史显示用户关注某方向，可以自然衔接（但不要每句都提，显得刻意）
 - 当解释词汇或常用表达时，可在回答末尾加一行（可选）：💡 新词汇：word（释义）；word2（释义2）`
 
   return callDeepSeek(messages, systemPrompt)
