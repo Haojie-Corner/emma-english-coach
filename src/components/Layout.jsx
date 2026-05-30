@@ -1,10 +1,16 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import useUserStore from '../store/userStore'
 import EmmaBubble from './EmmaBubble'
 import Toast from './ui/Toast'
 import OfflineBanner from './ui/OfflineBanner'
 import { LEARNING_STATE_CHANGED, pushLearningState, syncLearningState } from '../utils/learningStateSync'
+
+const ScrollToTop = () => {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }) }, [pathname])
+  return null
+}
 
 /* ── SVG Nav Icons ── */
 const HomeIcon = ({ active }) => {
@@ -295,6 +301,7 @@ const Layout = () => {
         <Outlet />
       </main>
       {!isDesktop && <BottomNav />}
+      <ScrollToTop />
       <OfflineBanner />
       <EmmaBubble />
       <Toast />

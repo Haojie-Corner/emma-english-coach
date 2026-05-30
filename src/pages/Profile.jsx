@@ -609,6 +609,42 @@ const Profile = () => {
         }}>
           {savingIeltsGoal ? '✓ 已保存' : '保存雅思目标'}
         </button>
+        {ieltsAttempts.length >= 3 && (() => {
+          const bands = ieltsAttempts.slice(-10).map(a => Number(a.band)).filter(b => !isNaN(b))
+          if (bands.length < 2) return null
+          const W = 220, H = 44
+          const minB = Math.min(...bands, 4), maxB = Math.max(...bands, 9)
+          const range = maxB - minB || 1
+          const pts = bands.map((b, i) => {
+            const x = (i / (bands.length - 1)) * W
+            const y = H - ((b - minB) / range) * H * 0.85
+            return `${x},${y}`
+          }).join(' ')
+          const latest = bands[bands.length - 1]
+          const color = latest >= 7 ? '#3a9a5f' : latest >= 5.5 ? '#7b5ea7' : '#e8672a'
+          return (
+            <div style={{ marginTop: 14, borderTop: '1px solid #eee9df', paddingTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <p style={{ fontSize: 12, fontWeight: 800, color: '#0f0e0c' }}>Band Score 进步曲线</p>
+                <span style={{ fontSize: 12, fontWeight: 800, color }}>最近 Band {latest}</span>
+              </div>
+              <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+                <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                {bands.map((b, i) => {
+                  const x = (i / (bands.length - 1)) * W
+                  const y = H - ((b - minB) / range) * H * 0.85
+                  const isLast = i === bands.length - 1
+                  return (
+                    <g key={i}>
+                      <circle cx={x} cy={y} r={isLast ? 4 : 2.5} fill={color} opacity={isLast ? 1 : 0.5} />
+                      {isLast && <text x={x} y={y - 7} textAnchor="middle" fontSize="9" fontWeight="700" fill={color} fontFamily="-apple-system,Arial,sans-serif">{b}</text>}
+                    </g>
+                  )
+                })}
+              </svg>
+            </div>
+          )
+        })()}
         {recentIeltsAttempts.length > 0 && (
           <div style={{ marginTop: 14, borderTop: '1px solid #eee9df', paddingTop: 12 }}>
             <p style={{ fontSize: 12, fontWeight: 800, color: '#0f0e0c', marginBottom: 8 }}>最近雅思练习</p>
