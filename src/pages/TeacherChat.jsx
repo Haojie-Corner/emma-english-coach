@@ -6,6 +6,7 @@ import { modules, phonicsLessons } from '../data/phonics'
 import { chatWithEmma } from '../services/deepseek'
 import { buildEmmaLearningContext } from '../utils/learningContext'
 import { saveEmmaSession, getEmmaMemoryPrompt, getLastSessionHint } from '../utils/emmaMemory'
+import VoiceInputButton from '../components/ui/VoiceInputButton'
 
 /* ── Emma 头像 ── */
 const EmmaAvatar = ({ size = 40 }) => (
@@ -422,7 +423,8 @@ const TeacherChat = () => {
         padding: '12px 16px',
         paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
       }}>
-        <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+        <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <VoiceInputButton onResult={(text) => setInput(text)} disabled={loading} />
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
