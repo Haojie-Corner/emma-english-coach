@@ -5,6 +5,7 @@ import './index.css'
 import { router } from './router'
 import useUserStore from './store/userStore'
 import { checkAndFireReminder } from './utils/notifications'
+import ErrorBoundary from './components/ErrorBoundary'
 
 const App = () => {
   const { init, loading } = useUserStore()
@@ -30,6 +31,8 @@ const App = () => {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

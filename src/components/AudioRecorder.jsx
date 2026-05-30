@@ -294,28 +294,65 @@ const SessionSummary = ({ attempts, onReset }) => {
   const best = Math.max(...attempts.map(a => a.score))
   const last = attempts[attempts.length - 1]?.score
   const trend = attempts.length >= 2
-    ? last > attempts[0].score ? '稳步上升' : last === attempts[0].score ? '持平' : '有波动'
+    ? last > attempts[0].score ? '📈 进步' : last === attempts[0].score ? '→ 持平' : '↓ 有波动'
     : '首次完成'
+
+  const dimTotals = {}
+  attempts.forEach(a => {
+    if (!a.dimension_scores) return
+    Object.entries(a.dimension_scores).forEach(([k, v]) => {
+      if (!dimTotals[k]) dimTotals[k] = []
+      dimTotals[k].push(v)
+    })
+  })
+  const dimAvgs = Object.entries(dimTotals).map(([k, vals]) => ({
+    key: k, avg: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length), meta: DIM_META[k],
+  })).sort((a, b) => a.avg - b.avg)
+  const weakest = dimAvgs[0]
+
   return (
-    <div style={{
-      background: '#fff', border: '1px solid #e5e1d8',
-      borderRadius: 16, padding: '18px',
-    }}>
-      <p style={{ fontSize: 13, fontWeight: 800, color: '#0f0e0c', marginBottom: 12 }}>📊 本轮练习总结（{attempts.length} 次）</p>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
-        <div style={{ flex: 1, background: '#f5f3ef', borderRadius: 12, padding: '10px', textAlign: 'center' }}>
-          <p style={{ fontSize: 22, fontWeight: 800, color: '#e8672a' }}>{best}</p>
-          <p style={{ fontSize: 11, color: '#9e998e', marginTop: 2 }}>最高分</p>
-        </div>
-        <div style={{ flex: 1, background: '#f5f3ef', borderRadius: 12, padding: '10px', textAlign: 'center' }}>
-          <p style={{ fontSize: 22, fontWeight: 800, color: '#4a7a9b' }}>{last}</p>
-          <p style={{ fontSize: 11, color: '#9e998e', marginTop: 2 }}>最终分</p>
-        </div>
-        <div style={{ flex: 1, background: '#f5f3ef', borderRadius: 12, padding: '10px', textAlign: 'center' }}>
-          <p style={{ fontSize: 14, fontWeight: 800, color: '#5c5850', marginTop: 4 }}>{trend}</p>
-          <p style={{ fontSize: 11, color: '#9e998e', marginTop: 2 }}>趋势</p>
-        </div>
+    <div style={{ background: '#fff', border: '1px solid #e5e1d8', borderRadius: 16, padding: '18px' }}>
+      <p style={{ fontSize: 13, fontWeight: 800, color: '#0f0e0c', marginBottom: 12 }}>
+        📊 本轮总结 · {attempts.length} 次练习
+      </p>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+        {[
+          { label: '最高分', value: best, color: best >= PASS_SCORE ? '#3a9a5f' : '#e8672a', bg: best >= PASS_SCORE ? '#edf8f2' : '#fff3ee' },
+          { label: '最终分', value: last, color: '#4a7a9b', bg: '#eef4fb' },
+          { label: '趋势', value: trend, color: '#5c5850', bg: '#f5f3ef', small: true },
+        ].map(s => (
+          <div key={s.label} style={{ flex: 1, background: s.bg, borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}>
+            <p style={{ fontSize: s.small ? 12 : 22, fontWeight: 800, color: s.color, lineHeight: 1.2 }}>{s.value}</p>
+            <p style={{ fontSize: 11, color: '#9e998e', marginTop: 3 }}>{s.label}</p>
+          </div>
+        ))}
       </div>
+
+      {weakest && dimAvgs.length > 0 && (
+        <div style={{
+          background: '#fff8f4', border: '1px solid #f3c4a2',
+          borderRadius: 12, padding: '10px 13px', marginBottom: 14,
+        }}>
+          <p style={{ fontSize: 12, fontWeight: 800, color: '#d97757', marginBottom: 4 }}>
+            🎯 今日最需要练：{weakest.meta?.label || weakest.key}（均分 {weakest.avg}）
+          </p>
+          <p style={{ fontSize: 12, color: '#5c5850', lineHeight: 1.5 }}>
+            {weakest.meta?.tip || '建议有针对性地多练几次'}
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            {dimAvgs.map(d => (
+              <div key={d.key} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 11, color: '#7a7870' }}>{d.meta?.label || d.key}</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 800,
+                  color: d.avg >= 80 ? '#3a9a5f' : d.avg >= 60 ? '#e8672a' : '#d94040',
+                }}>{d.avg}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <p style={{ fontSize: 12, color: '#7a7870', lineHeight: 1.55, marginBottom: 14 }}>
         {best >= PASS_SCORE
           ? `最高达到 ${best} 分，已超过达标线，今天这个句子打卡成功！`

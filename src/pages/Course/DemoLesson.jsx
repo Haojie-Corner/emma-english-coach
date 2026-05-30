@@ -160,6 +160,9 @@ const DemoLesson = () => {
           onMouseEnter={e => e.currentTarget.style.color = '#1a1917'}
           onMouseLeave={e => e.currentTarget.style.color = '#7a7870'}
         >← 场景演绎</button>
+        <span style={{ fontSize: 12, color: '#9e998e', fontWeight: 600 }}>
+          {currentIndex + 1} / {demoLessons.length}
+        </span>
         <div style={{ display: 'flex', gap: 6 }}>
           <button disabled={!prevLesson} onClick={() => { stopSpeaking(); prevLesson && navigate(`/course/demo/${prevLesson.id}`) }} style={{
             padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,

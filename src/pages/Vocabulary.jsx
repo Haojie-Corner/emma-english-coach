@@ -744,13 +744,36 @@ const Vocabulary = () => {
           <h1 className="font-title" style={{ fontSize: 28, color: '#0f0e0c', marginBottom: 4 }}>词汇本</h1>
           <p style={{ fontSize: 13, color: '#9e998e', lineHeight: 1.55 }}>遗忘曲线 · 词块搭配 · 科学复习</p>
         </div>
-        <button onClick={() => setShowAdd(true)} style={{
-          background: 'linear-gradient(135deg, #f28040, #e05020)',
-          color: '#fff', border: 'none', borderRadius: 12,
-          minHeight: 42, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-          boxShadow: '0 3px 12px rgba(232,103,42,0.28)',
-          fontFamily: 'inherit', flexShrink: 0,
-        }}>+ 添加</button>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          {words.length > 0 && (
+            <button
+              onClick={() => {
+                const lines = ['单词\t音标\t含义\t例句\t掌握度']
+                words.forEach(w => {
+                  const level = FAMILIARITY_LABEL[w.familiarity] || '陌生'
+                  lines.push([w.word, w.phonetic || '', w.meaning || '', w.example || '', level].join('\t'))
+                })
+                const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/tab-separated-values;charset=utf-8' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url; a.download = `词汇本_${new Date().toISOString().split('T')[0]}.tsv`
+                a.click(); URL.revokeObjectURL(url)
+              }}
+              style={{
+                background: '#f5f3ef', color: '#5c5850', border: '1.5px solid #e5e1d8',
+                borderRadius: 12, minHeight: 42, padding: '9px 12px', fontSize: 12, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >⬇ 导出</button>
+          )}
+          <button onClick={() => setShowAdd(true)} style={{
+            background: 'linear-gradient(135deg, #f28040, #e05020)',
+            color: '#fff', border: 'none', borderRadius: 12,
+            minHeight: 42, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            boxShadow: '0 3px 12px rgba(232,103,42,0.28)',
+            fontFamily: 'inherit',
+          }}>+ 添加</button>
+        </div>
       </div>
 
       {/* Vocab stats strip */}

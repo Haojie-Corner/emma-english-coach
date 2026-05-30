@@ -1,6 +1,15 @@
 import { useState, useRef, useCallback } from 'react'
 import { blobToBase64WithMime, buildAudioBlob, createAudioRecorder } from '../utils/audio'
 
+const acquireWakeLock = async () => {
+  if (!('wakeLock' in navigator)) return null
+  try {
+    return await navigator.wakeLock.request('screen')
+  } catch {
+    return null
+  }
+}
+
 const useAudioRecorder = () => {
   const [status, setStatus] = useState('idle') // idle | recording | processing | done | error
   const [audioBlob, setAudioBlob] = useState(null)
@@ -11,6 +20,7 @@ const useAudioRecorder = () => {
   const chunksRef = useRef([])
   const analyserRef = useRef(null)
   const audioCtxRef = useRef(null)
+  const wakeLockRef = useRef(null)
 
   const startRecording = useCallback(async () => {
     setError(null)
@@ -23,6 +33,9 @@ const useAudioRecorder = () => {
       const mimeType = recorder.mimeType || 'audio/webm'
       mediaRecorderRef.current = recorder
       setAudioMimeType(mimeType)
+
+      // Prevent screen from sleeping during recording
+      acquireWakeLock().then(lock => { wakeLockRef.current = lock })
 
       // Set up Web Audio analyser for waveform
       const ctx = new (window.AudioContext || window.webkitAudioContext)()
@@ -47,6 +60,8 @@ const useAudioRecorder = () => {
         analyserRef.current = null
         audioCtxRef.current?.close().catch(() => {})
         audioCtxRef.current = null
+        wakeLockRef.current?.release().catch(() => {})
+        wakeLockRef.current = null
       }
 
       recorder.start()
@@ -66,6 +81,8 @@ const useAudioRecorder = () => {
 
   const reset = useCallback(() => {
     if (audioUrl) URL.revokeObjectURL(audioUrl)
+    wakeLockRef.current?.release().catch(() => {})
+    wakeLockRef.current = null
     setStatus('idle')
     setAudioBlob(null)
     setAudioUrl(null)

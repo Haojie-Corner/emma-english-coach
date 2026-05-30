@@ -121,8 +121,12 @@ const getPersonalizedOpening = (name, streak, totalCompleted, moduleProgress) =>
 const QUICK_QUESTIONS = [
   '我现在应该学什么？',
   '分析我的学习弱点',
-  '帮我制定学习计划',
-  '自然拼读有什么技巧？',
+  '帮我制定今天的学习计划',
+  '怎么快速提升口语流利度？',
+  '自然拼读有什么记忆技巧？',
+  '雅思口语 Band 6 怎么练？',
+  '中国人英语最常见的错误是什么？',
+  '怎么突破开口说英语的心理障碍？',
 ]
 
 const SIDEBAR_W = 220

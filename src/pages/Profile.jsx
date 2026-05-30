@@ -14,48 +14,57 @@ import { LEARNING_STATE_SYNCED, LEARNING_SYNC_STATUS_CHANGED, getLearningSyncSta
 import DiagnosticModal, { DIAGNOSTIC_KEY, getStoredDiagnostic, getDiagnosticSummary } from '../components/DiagnosticModal'
 import { getNotifPrefs, saveNotifPrefs, isNotifSupported, requestPermission } from '../utils/notifications'
 
-/* ── 30天打卡热图 ── */
+/* ── 60天打卡热图（带月份标签）── */
 const CheckInHeatmap = ({ history }) => {
   const today = new Date()
+  const DAYS = 60
   const days = []
-  for (let i = 29; i >= 0; i--) {
+  for (let i = DAYS - 1; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
     days.push(d.toISOString().split('T')[0])
   }
   const historySet = new Set(history)
-  const weekDays = ['日', '一', '二', '三', '四', '五', '六']
   const todayStr = today.toISOString().split('T')[0]
+  const recentCount = history.filter(d => days.includes(d)).length
+  const monthLabels = []
+  let lastMonth = -1
+  days.forEach((day, idx) => {
+    const m = new Date(day + 'T12:00:00').getMonth()
+    if (m !== lastMonth) { monthLabels.push({ idx, label: `${m + 1}月` }); lastMonth = m }
+  })
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {days.map(day => {
-          const checked = historySet.has(day)
-          const isToday = day === todayStr
-          const d = new Date(day + 'T12:00:00')
-          return (
-            <div key={day} title={`${day} ${weekDays[d.getDay()]}`} style={{
-              width: 22, height: 22, borderRadius: 6,
-              background: checked ? '#e8672a' : '#edeae3',
-              border: isToday ? '2px solid #0f0e0c' : '2px solid transparent',
-              transition: 'background 0.2s',
-              flexShrink: 0,
-            }} />
-          )
-        })}
+      <div style={{ position: 'relative', marginBottom: 6 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {days.map(day => {
+            const checked = historySet.has(day)
+            const isToday = day === todayStr
+            const intensity = checked ? 1 : 0
+            return (
+              <div key={day} title={day} style={{
+                width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                background: intensity ? '#e8672a' : '#edeae3',
+                border: isToday ? '1.5px solid #0f0e0c' : '1.5px solid transparent',
+                transition: 'background 0.2s',
+              }} />
+            )
+          })}
+        </div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-        <span style={{ fontSize: 10, color: '#9e998e' }}>30 天前</span>
-        <span style={{ fontSize: 10, color: '#9e998e' }}>今天</span>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
+        {monthLabels.map(m => (
+          <span key={m.idx} style={{ fontSize: 10, color: '#9e998e' }}>{m.label}</span>
+        ))}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-        <div style={{ width: 14, height: 14, borderRadius: 4, background: '#e8672a' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 12, height: 12, borderRadius: 3, background: '#e8672a' }} />
         <span style={{ fontSize: 11, color: '#5c5850' }}>已打卡</span>
-        <div style={{ width: 14, height: 14, borderRadius: 4, background: '#edeae3', marginLeft: 8 }} />
+        <div style={{ width: 12, height: 12, borderRadius: 3, background: '#edeae3', marginLeft: 8 }} />
         <span style={{ fontSize: 11, color: '#5c5850' }}>未打卡</span>
         <span style={{ fontSize: 11, color: '#e8672a', marginLeft: 8, fontWeight: 700 }}>
-          {history.length} / 30 天
+          近 {DAYS} 天：{recentCount} 天
         </span>
       </div>
     </div>

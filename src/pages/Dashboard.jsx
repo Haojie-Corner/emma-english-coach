@@ -469,22 +469,60 @@ const Dashboard = () => {
             padding: '22px 22px', marginBottom: 20,
             boxShadow: '0 4px 20px rgba(232,103,42,0.1)',
           }}>
-            <p style={{ fontSize: 24, marginBottom: 10 }}>👋</p>
-            <p className="font-title" style={{ fontSize: 17, color: '#0f0e0c', marginBottom: 8 }}>
-              欢迎来到 AI 英语陪练！
-            </p>
-            <p style={{ fontSize: 13, color: '#5c5850', lineHeight: 1.65, marginBottom: 18 }}>
-              你的英语学习之旅从这里开始。先从「自然拼读」打好发音基础，
-              后面的语调、对话、场景课会一路解锁。
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 16, flexShrink: 0,
+                background: 'linear-gradient(135deg, #f28040, #e05020)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22, boxShadow: '0 4px 14px rgba(232,103,42,0.3)',
+              }}>🎓</div>
+              <div>
+                <p className="font-title" style={{ fontSize: 17, color: '#0f0e0c', marginBottom: 3 }}>
+                  欢迎来到 AI 英语陪练！
+                </p>
+                <p style={{ fontSize: 12, color: '#9e998e' }}>3 步开始你的个性化学习之旅</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
+              {[
+                { step: '01', title: '做 1 分钟诊断', desc: '告诉 AI 你的起点和目标，它会自动安排每日计划', icon: '🎯', done: !!diagnostic },
+                { step: '02', title: '完成第一课', desc: '从「自然拼读 Lesson 1」开始，AI 打分反馈发音', icon: '🔤', done: false },
+                { step: '03', title: '每天打卡坚持', desc: '连续打卡激活进度追踪和弱点分析系统', icon: '🔥', done: checkedInToday },
+              ].map(item => (
+                <div key={item.step} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  background: item.done ? '#edf8f2' : '#fff',
+                  border: `1px solid ${item.done ? '#b5e0c8' : '#f3c4a2'}`,
+                  borderRadius: 14, padding: '10px 14px',
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                    background: item.done ? '#3a9a5f' : '#fef2ea',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: item.done ? 14 : 16,
+                    color: item.done ? '#fff' : undefined,
+                    fontWeight: 800,
+                  }}>{item.done ? '✓' : item.icon}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: item.done ? '#3a9a5f' : '#0f0e0c', marginBottom: 2 }}>{item.title}</p>
+                    <p style={{ fontSize: 11, color: '#7a756c', lineHeight: 1.45 }}>{item.desc}</p>
+                  </div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 800, borderRadius: 20, padding: '2px 8px',
+                    color: item.done ? '#3a9a5f' : '#e8672a',
+                    background: item.done ? '#d8f0e8' : '#fff3ee',
+                  }}>{item.done ? '已完成' : item.step}</span>
+                </div>
+              ))}
+            </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button onClick={() => setShowDiagnostic(true)} style={{
+              <button onClick={() => diagnostic ? navigate('/course/phonics/phonics_01') : setShowDiagnostic(true)} style={{
                 background: 'linear-gradient(135deg, #f28040, #e05020)', color: '#fff',
-                border: 'none', borderRadius: 12, minHeight: 44, padding: '10px 18px',
+                border: 'none', borderRadius: 12, minHeight: 44, padding: '10px 18px', flex: 1,
                 fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 boxShadow: '0 3px 12px rgba(232,103,42,0.3)',
               }}>
-                做 1 分钟诊断 →
+                {diagnostic ? '开始第一课 →' : '做 1 分钟诊断 →'}
               </button>
               <button onClick={() => navigate('/teacher')} style={{
                 background: '#fff', color: '#e8672a', border: '1.5px solid #f3c4a2',
