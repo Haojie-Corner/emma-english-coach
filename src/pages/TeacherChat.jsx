@@ -179,7 +179,7 @@ const buildEmmaActions = (content) => {
 const ActionButtons = ({ actions, onNavigate }) => {
   if (actions.length === 0) return null
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
       {actions.map(action => (
         <button
           key={`${action.to}-${action.label}`}
@@ -317,7 +317,7 @@ const TeacherChat = () => {
       )}
 
       {/* ── 消息区 ── */}
-      <div style={{ padding: '20px 20px 8px' }}>
+      <div style={{ padding: '20px 20px 0' }}>
         {messages.map((msg, i) => {
           const actions = msg.role === 'emma' ? buildEmmaActions(msg.content) : []
           return (
@@ -372,7 +372,7 @@ const TeacherChat = () => {
 
       {/* ── 快捷问题（仅对话初期显示）── */}
       {messages.length <= 1 && !loading && (
-        <div style={{ padding: '0 20px 16px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ padding: '12px 20px 16px', borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {QUICK_QUESTIONS.map(q => (
             <button
               key={q}
