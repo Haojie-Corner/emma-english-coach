@@ -249,12 +249,18 @@ const TeacherChat = () => {
 
   const progressSummary = { name, streak, totalCompleted, moduleProgress, dueVocabCount }
 
+  const emmaMemory = (() => {
+    try { return JSON.parse(localStorage.getItem('emma_long_memory') || '[]') } catch { return [] }
+  })()
+  const tagLabel = { pronunciation:'发音', grammar:'语法', fluency:'流利度', vocabulary:'词汇', ielts:'雅思', intonation:'语调' }
+
   const [messages, setMessages] = useState([
     { role: 'emma', content: getPersonalizedOpening(name, streak, totalCompleted, moduleProgress) }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPath, setShowPath] = useState(false)
+  const [showMemory, setShowMemory] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -319,25 +325,86 @@ const TeacherChat = () => {
           <p style={{ fontSize: 11, color: '#9e998e' }}>AI 学习顾问 · 随时解答</p>
         </div>
 
-        <button
-          onClick={() => setShowPath(v => !v)}
-          style={{
-            fontSize: 12, fontWeight: 600,
-            color: showPath ? '#d97757' : '#6b6760',
-            background: showPath ? '#fdf0ea' : '#fff',
-            border: `1px solid ${showPath ? '#f5c4a8' : '#e8e4dc'}`,
-            borderRadius: 8, padding: '5px 11px', cursor: 'pointer',
-            transition: 'all 0.15s',
-          }}
-        >
-          {showPath ? '收起分析' : '学习分析'}
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={() => setShowPath(v => !v)}
+            style={{
+              fontSize: 12, fontWeight: 600,
+              color: showPath ? '#d97757' : '#6b6760',
+              background: showPath ? '#fdf0ea' : '#fff',
+              border: `1px solid ${showPath ? '#f5c4a8' : '#e8e4dc'}`,
+              borderRadius: 8, padding: '5px 11px', cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            {showPath ? '收起分析' : '学习分析'}
+          </button>
+          {emmaMemory.length > 0 && (
+            <button
+              onClick={() => setShowMemory(v => !v)}
+              style={{
+                fontSize: 12, fontWeight: 600,
+                color: showMemory ? '#7b5ea7' : '#6b6760',
+                background: showMemory ? '#f3eeff' : '#fff',
+                border: `1px solid ${showMemory ? '#d5c5f0' : '#e8e4dc'}`,
+                borderRadius: 8, padding: '5px 11px', cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              Emma 的记忆
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── 学习路径分析（展开/收起）── */}
       {showPath && (
         <div style={{ padding: '16px 20px 0' }} className="fade-in">
           <PathAnalysisCard moduleProgress={moduleProgress} />
+        </div>
+      )}
+
+      {/* ── Emma 记忆面板 ── */}
+      {showMemory && emmaMemory.length > 0 && (
+        <div style={{ padding: '12px 20px 0' }} className="fade-in">
+          <div style={{
+            background: '#f3eeff', border: '1px solid #d5c5f0',
+            borderRadius: 14, padding: '14px 16px',
+          }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#7b5ea7', marginBottom: 10 }}>
+              🧠 Emma 记得你…（最近 {emmaMemory.length} 次对话）
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {emmaMemory.slice(0, 3).map((s, i) => {
+                const daysSince = Math.round((Date.now() - new Date(s.date)) / 86400000)
+                const when = daysSince === 0 ? '今天' : daysSince === 1 ? '昨天' : `${daysSince}天前`
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, color: '#7b5ea7',
+                      background: '#e8e0f8', borderRadius: 20, padding: '2px 8px',
+                      flexShrink: 0, marginTop: 2,
+                    }}>{when}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 12, color: '#0f0e0c', lineHeight: 1.5 }}>
+                        「{s.firstQuestion}」
+                      </p>
+                      {s.tags?.length > 0 && (
+                        <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
+                          {s.tags.map(t => (
+                            <span key={t} style={{
+                              fontSize: 10, color: '#7b5ea7', background: '#e8e0f8',
+                              borderRadius: 20, padding: '1px 7px',
+                            }}>{tagLabel[t] || t}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       )}
 

@@ -843,6 +843,23 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
             </div>
           )}
 
+          {/* 新记录庆祝 */}
+          {!result.fallback && history.length > 0 && (() => {
+            const prevBest = Math.max(...history.map(h => h.ai_score).filter(s => s != null), 0)
+            return result.overall_score > prevBest ? (
+              <div style={{
+                background: 'linear-gradient(135deg, #fef6e0, #fff9ee)',
+                border: '1.5px solid #f0c040', borderRadius: 14,
+                padding: '12px 16px', textAlign: 'center',
+              }} className="fade-in">
+                <p style={{ fontSize: 18, marginBottom: 4 }}>🏆</p>
+                <p style={{ fontSize: 14, fontWeight: 800, color: '#b8860b' }}>
+                  新纪录！超过历史最高 {prevBest} 分
+                </p>
+              </div>
+            ) : null
+          })()}
+
           {/* 达标庆祝 */}
           {passed && <PassBanner score={result.overall_score} attemptNum={attemptNum} />}
 
