@@ -378,13 +378,16 @@ const Dashboard = () => {
           {/* Streak badge */}
           {streak > 0 ? (
             <div style={{
-              background: '#fff5ea', border: '1.5px solid #f3c4a2',
+              background: streak >= 30 ? 'linear-gradient(135deg, #fff3ea, #ffe0c0)' : '#fff5ea',
+              border: `1.5px solid ${streak >= 30 ? '#e8a050' : '#f3c4a2'}`,
               borderRadius: 18, padding: '10px 14px', textAlign: 'center', minWidth: 74,
-              boxShadow: '0 2px 8px rgba(232,103,42,0.15)',
+              boxShadow: streak >= 30 ? '0 4px 14px rgba(232,103,42,0.25)' : '0 2px 8px rgba(232,103,42,0.15)',
             }}>
-              <p style={{ fontSize: 22, lineHeight: 1, marginBottom: 4 }}>🔥</p>
+              <p style={{ fontSize: 22, lineHeight: 1, marginBottom: 4 }}>{streak >= 30 ? '⚡' : streak >= 7 ? '🔥' : '🔥'}</p>
               <p style={{ fontSize: 24, fontWeight: 800, color: '#e8672a', letterSpacing: -0.03, lineHeight: 1 }}>{streak}</p>
-              <p style={{ fontSize: 10, color: '#9e998e', fontWeight: 600, marginTop: 3 }}>天连续</p>
+              <p style={{ fontSize: 10, color: streak >= 30 ? '#c45c1a' : '#9e998e', fontWeight: 600, marginTop: 3 }}>
+                {streak >= 30 ? '天传奇' : streak >= 7 ? '天连续' : '天连续'}
+              </p>
             </div>
           ) : (
             <div style={{

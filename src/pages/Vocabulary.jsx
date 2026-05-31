@@ -18,6 +18,7 @@ const WordCard = ({ word, onFamiliarityChange, onDelete }) => {
   const [expanded, setExpanded] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [updating, setUpdating] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const nextReviewDate = word.next_review ? new Date(word.next_review) : null
   const isDue = nextReviewDate && nextReviewDate <= new Date()
 
@@ -29,8 +30,10 @@ const WordCard = ({ word, onFamiliarityChange, onDelete }) => {
   }
 
   const handleDelete = async () => {
-    if (deleting || !window.confirm(`确定删除「${word.word}」？`)) return
+    if (!confirmDelete) { setConfirmDelete(true); return }
+    if (deleting) return
     setDeleting(true)
+    setConfirmDelete(false)
     await onDelete(word.word)
   }
 
@@ -114,9 +117,24 @@ const WordCard = ({ word, onFamiliarityChange, onDelete }) => {
               下次复习：{isDue ? <span style={{ color: '#e8672a', fontWeight: 600 }}>今天</span> : nextReviewDate.toLocaleDateString('zh-CN')}
             </p>
           )}
-          <button onClick={handleDelete} style={{ marginTop: 12, minHeight: 34, fontSize: 12, color: '#d94040', background: '#fdf0f0', border: '1px solid #f5b0b0', borderRadius: 10, cursor: 'pointer', padding: '6px 10px' }}>
-            {deleting ? '删除中…' : '🗑 删除'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button onClick={handleDelete} style={{
+              minHeight: 34, fontSize: 12, borderRadius: 10, cursor: 'pointer', padding: '6px 12px',
+              color: confirmDelete ? '#fff' : '#d94040',
+              background: confirmDelete ? '#d94040' : '#fdf0f0',
+              border: `1px solid ${confirmDelete ? '#d94040' : '#f5b0b0'}`,
+              transition: 'all 0.15s', fontFamily: 'inherit',
+            }}>
+              {deleting ? '删除中…' : confirmDelete ? '确认删除' : '🗑 删除'}
+            </button>
+            {confirmDelete && (
+              <button onClick={() => setConfirmDelete(false)} style={{
+                minHeight: 34, fontSize: 12, borderRadius: 10, cursor: 'pointer', padding: '6px 10px',
+                color: '#5c5850', background: '#f5f3ef', border: '1px solid #e5e1d8',
+                fontFamily: 'inherit',
+              }}>取消</button>
+            )}
+          </div>
         </div>
       )}
     </div>
