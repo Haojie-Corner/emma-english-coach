@@ -33,7 +33,6 @@ const COLLOCATION_BANK = {
   note: ['take notes', 'make a note', 'keynote'],
   speech: ['give a speech', 'deliver a speech', 'public speech'],
   feedback: ['give feedback', 'receive feedback', 'constructive feedback'],
-  mistake: ['make a mistake', 'repeat a mistake', 'correct a mistake'],
   research: ['do research', 'conduct research', 'research shows'],
   interest: ['show interest', 'take an interest', 'areas of interest'],
   support: ['offer support', 'emotional support', 'provide support'],

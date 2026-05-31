@@ -804,6 +804,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
                       {issue.tip_demo && (
                         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                           <button
+                            // eslint-disable-next-line react-hooks/refs -- click handler reads prefetch refs only after user interaction
                             onClick={() => handleTipDemo(issue.word, issue.tip_demo)}
                             style={{
                               minHeight: 34, padding: '5px 10px', borderRadius: 9, fontSize: 11, fontWeight: 700,

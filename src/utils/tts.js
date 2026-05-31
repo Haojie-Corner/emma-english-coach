@@ -3,6 +3,7 @@ import { supabase } from '../services/supabase'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const TTS_TIMEOUT_MS = 30000
 
 // Debounce TTS error toasts — don't spam if multiple calls fail at once
 let _lastTtsToastAt = 0
@@ -47,6 +48,14 @@ const elevenLabsFetch = async (text, modelId, rate, onEnd, signal = null) => {
   if (currentAbort) currentAbort.abort()
   const abort = new AbortController()
   currentAbort = abort
+  let timedOut = false
+  let timeoutId = null
+  if (!signal) {
+    timeoutId = window.setTimeout(() => {
+      timedOut = true
+      abort.abort()
+    }, TTS_TIMEOUT_MS)
+  }
 
   // 合并外部 signal（prefetch 用）
   const effectiveSignal = signal || abort.signal
@@ -74,8 +83,11 @@ const elevenLabsFetch = async (text, modelId, rate, onEnd, signal = null) => {
       }),
     })
   } catch (e) {
+    if (timedOut) throw new Error('语音服务请求超时，请稍后重试', { cause: e })
     if (e.name === 'AbortError') return
     throw e
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId)
   }
 
   if (currentAbort !== abort && !signal) return
@@ -152,11 +164,15 @@ export const speakMultilingual = async (text, onEnd = null) => {
  * Returns a blob URL (call URL.revokeObjectURL when done), or null on error.
  */
 export const prefetchAudio = async (text, modelId = MODEL_FAST, signal = null) => {
+  let timeoutId = null
   try {
     const token = await getAuthToken()
+    const timeoutAbort = new AbortController()
+    timeoutId = window.setTimeout(() => timeoutAbort.abort(), TTS_TIMEOUT_MS)
+    signal?.addEventListener('abort', () => timeoutAbort.abort(), { once: true })
     const res = await fetch(`${SUPABASE_URL}/functions/v1/tts-proxy`, {
       method: 'POST',
-      signal,
+      signal: timeoutAbort.signal,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
@@ -174,6 +190,8 @@ export const prefetchAudio = async (text, modelId = MODEL_FAST, signal = null) =
   } catch (e) {
     if (e.name !== 'AbortError') console.warn('[TTS] prefetch error:', e.message)
     return null
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId)
   }
 }
 

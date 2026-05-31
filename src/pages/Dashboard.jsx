@@ -17,7 +17,7 @@ import { getIeltsGoal, getIeltsGoalSummary } from '../utils/ieltsGoal'
 import { LEARNING_STATE_SYNCED, LEARNING_SYNC_STATUS_CHANGED, getLearningSyncStatus, notifyLearningStateChanged, syncLearningState } from '../utils/learningStateSync'
 import InstallAppCard from '../components/ui/InstallAppCard'
 import { buildTodayLearningReview, saveDailyLearningReview } from '../utils/learningReview'
-import DiagnosticModal, { DIAGNOSTIC_KEY, DIAGNOSTIC_STEPS, getStoredDiagnostic } from '../components/DiagnosticModal'
+import DiagnosticModal, { DIAGNOSTIC_KEY, getStoredDiagnostic } from '../components/DiagnosticModal'
 
 const routeMap = {
   phonics: '/course/phonics', intonation: '/course/intonation', mindset: '/course/mindset',

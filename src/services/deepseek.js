@@ -1,10 +1,30 @@
 import { supabase } from './supabase'
 
+const DEEPSEEK_TIMEOUT_MS = 45000
+
+const callDeepSeekWithTimeout = async (messages, systemPrompt) => {
+  let timeoutId
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error('AI 回复超时，请检查网络后重试'))
+    }, DEEPSEEK_TIMEOUT_MS)
+  })
+
+  try {
+    return await Promise.race([
+      supabase.functions.invoke('deepseek-proxy', {
+        body: { messages, systemPrompt },
+      }),
+      timeout,
+    ])
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 // 通过 Supabase Edge Function 代理，DeepSeek API Key 不暴露给浏览器
 const callDeepSeek = async (messages, systemPrompt) => {
-  const { data, error } = await supabase.functions.invoke('deepseek-proxy', {
-    body: { messages, systemPrompt },
-  })
+  const { data, error } = await callDeepSeekWithTimeout(messages, systemPrompt)
   if (error) throw new Error(error.message || 'AI 服务调用失败，请稍后重试')
   if (data?.error) throw new Error(data.error)
   return data?.content ?? ''

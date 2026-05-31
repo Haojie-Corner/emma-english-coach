@@ -1,10 +1,30 @@
 import { supabase } from './supabase'
 
+const GEMINI_TIMEOUT_MS = 45000
+
+const fetchGeminiWithTimeout = async (parts) => {
+  let timeoutId
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error('Gemini 分析超时，请检查网络后重试'))
+    }, GEMINI_TIMEOUT_MS)
+  })
+
+  try {
+    return await Promise.race([
+      supabase.functions.invoke('gemini-proxy', {
+        body: { parts },
+      }),
+      timeout,
+    ])
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 // 通过 Supabase Edge Function 代理，API Key 不暴露给浏览器
 const callGemini = async (parts) => {
-  const { data, error } = await supabase.functions.invoke('gemini-proxy', {
-    body: { parts },
-  })
+  const { data, error } = await fetchGeminiWithTimeout(parts)
   if (error) {
     const msg = error.message || String(error)
     throw new Error(msg)
