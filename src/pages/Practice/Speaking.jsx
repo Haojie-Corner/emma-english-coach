@@ -182,8 +182,13 @@ const GrammarTab = () => {
           {loading ? '分析中…' : '🤖 AI 语法检查'}
         </Button>
         {error && (
-          <div style={{ background: '#fdf0f0', border: '1px solid #f5b0b0', borderRadius: 10, padding: '8px 12px', fontSize: 13, color: '#d94040', marginTop: 10 }}>
-            {error}
+          <div style={{ background: '#fdf0f0', border: '1px solid #f5b0b0', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#d94040', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span>{error}</span>
+            <button onClick={handleCheck} disabled={loading || !text.trim()} style={{
+              fontSize: 12, fontWeight: 700, color: '#d94040', background: '#fff',
+              border: '1px solid #f5b0b0', borderRadius: 20, padding: '4px 10px',
+              cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit',
+            }}>重试</button>
           </div>
         )}
       </Card>

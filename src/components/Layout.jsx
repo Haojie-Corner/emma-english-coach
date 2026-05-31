@@ -12,6 +12,15 @@ const ScrollToTop = () => {
   return null
 }
 
+const PageTransition = () => {
+  const { pathname } = useLocation()
+  return (
+    <div key={pathname} className="page-enter">
+      <Outlet />
+    </div>
+  )
+}
+
 /* ── SVG Nav Icons ── */
 const HomeIcon = ({ active }) => {
   const c = active ? '#e8672a' : '#9e998e'
@@ -197,7 +206,7 @@ const SidebarNav = ({ onLogout }) => (
 )
 
 const BottomNav = () => (
-  <nav style={{
+  <nav aria-label="主导航" style={{
     position: 'fixed', bottom: 0, left: 0, right: 0,
     background: 'rgba(255, 255, 255, 0.88)',
     backdropFilter: 'blur(20px) saturate(180%)',
@@ -210,7 +219,7 @@ const BottomNav = () => (
     zIndex: 100,
   }}>
     {navItems.map(({ to, Icon, label }) => (
-      <NavLink key={to} to={to} style={{ flex: 1, textDecoration: 'none' }}>
+      <NavLink key={to} to={to} aria-label={label} style={{ flex: 1, textDecoration: 'none' }}>
         {({ isActive }) => (
           <div style={{
             display: 'flex', flexDirection: 'column',
@@ -298,7 +307,7 @@ const Layout = () => {
         paddingBottom: isDesktop ? 40 : 'calc(104px + env(safe-area-inset-bottom))',
         minHeight: '100vh',
       }}>
-        <Outlet />
+        <PageTransition />
       </main>
       {!isDesktop && <BottomNav />}
       <ScrollToTop />

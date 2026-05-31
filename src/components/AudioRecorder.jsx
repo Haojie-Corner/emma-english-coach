@@ -622,6 +622,7 @@ const AudioRecorder = ({ targetText, targetZh, userId, lessonId }) => {
             onClick={status === 'recording' ? stopRecording : startRecording}
             disabled={status === 'processing' || !!analyzePhase}
             className={status === 'recording' ? 'recording-pulse' : ''}
+            aria-label={status === 'recording' ? '停止录音（Space键）' : '开始录音（Space键）'}
             style={{
               width: 84, height: 84, borderRadius: '50%', border: 'none',
               fontSize: 26, cursor: status === 'processing' || !!analyzePhase ? 'not-allowed' : 'pointer',
