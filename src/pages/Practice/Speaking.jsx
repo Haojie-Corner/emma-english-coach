@@ -1727,6 +1727,18 @@ const Speaking = () => {
   const activeTab = getTabMeta(mode)
   const recommendedTab = getRecommendedTab()
 
+  const ieltsTabCounts = (() => {
+    try {
+      const attempts = JSON.parse(localStorage.getItem('ielts_speaking_attempts') || '[]')
+      const today = new Date().toISOString().split('T')[0]
+      return {
+        part1: attempts.filter(a => a.part === 'Part 1' && a.createdAt?.startsWith(today)).length,
+        cuecard: attempts.filter(a => a.part === 'Part 2' && a.createdAt?.startsWith(today)).length,
+        part3: attempts.filter(a => a.part === 'Part 3' && a.createdAt?.startsWith(today)).length,
+      }
+    } catch { return {} }
+  })()
+
   useEffect(() => {
     if (!queryTab || !TABS.some(tab => tab.key === queryTab) || queryTab === mode) return
     setMode(queryTab)
@@ -1796,6 +1808,12 @@ const Speaking = () => {
               <span>{label}</span>
               {mode === key && (
                 <span style={{ display: 'block', fontSize: 9.5, color: '#e8672a', marginTop: 1, lineHeight: 1.1 }}>{group}</span>
+              )}
+              {ieltsTabCounts[key] > 0 && (
+                <span style={{
+                  position: 'absolute', bottom: 4, right: 5, fontSize: 8, fontWeight: 900,
+                  color: '#7b5ea7', lineHeight: 1,
+                }}>{ieltsTabCounts[key]}次</span>
               )}
               {isRecommended && (
                 <span style={{
