@@ -11,7 +11,7 @@ import useUserStore from '../../store/userStore'
 import { addVocabularyWord } from '../../services/supabase'
 import { recordGrammarWeaknesses } from '../../utils/weakness'
 import { recordIeltsAttempt } from '../../utils/ieltsGoal'
-import { notifyLearningStateChanged } from '../../utils/learningStateSync'
+import { LEARNING_STATE_SYNCED, notifyLearningStateChanged } from '../../utils/learningStateSync'
 import { blobToBase64WithMime, buildAudioBlob, createAudioRecorder } from '../../utils/audio'
 
 const IELTS_DIM_META = {
@@ -1720,7 +1720,18 @@ const TABS = [
   { key: 'tech', label: '编程', icon: '💻', group: '工具', desc: '看懂英文报错、命令和技术文档里的关键表达。' },
 ]
 
+const LAST_PRACTICE_TAB_KEY = 'last_practice_tab'
+
 const getTabMeta = (key) => TABS.find(tab => tab.key === key) || TABS[0]
+
+const getInitialPracticeTab = (queryTab) => {
+  if (TABS.some(tab => tab.key === queryTab)) return queryTab
+  try {
+    const last = localStorage.getItem(LAST_PRACTICE_TAB_KEY)
+    if (TABS.some(tab => tab.key === last)) return last
+  } catch { /* ignore private browsing restrictions */ }
+  return 'free'
+}
 
 const GOAL_RECOMMENDED_TAB = {
   pronunciation: 'free',
@@ -1742,11 +1753,14 @@ const Speaking = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const drillWord = searchParams.get('drill') || ''
   const queryTab = searchParams.get('tab')
-  const initialTab = TABS.some(tab => tab.key === queryTab) ? queryTab : 'free'
+  const initialTab = getInitialPracticeTab(queryTab)
   const [mode, setMode] = useState(initialTab)
   const tabRefs = useRef({})
   const activeTab = getTabMeta(mode)
   const recommendedTab = getRecommendedTab()
+  const activeIndex = Math.max(0, TABS.findIndex(tab => tab.key === mode))
+  const prevTab = TABS[(activeIndex - 1 + TABS.length) % TABS.length]
+  const nextTab = TABS[(activeIndex + 1) % TABS.length]
 
   const ieltsTabCounts = (() => {
     try {
@@ -1766,8 +1780,34 @@ const Speaking = () => {
   }, [queryTab, mode])
 
   useEffect(() => {
+    if (queryTab) return undefined
+    const refreshSyncedTab = () => {
+      try {
+        const saved = localStorage.getItem(LAST_PRACTICE_TAB_KEY)
+        if (TABS.some(tab => tab.key === saved) && saved !== mode) setMode(saved)
+      } catch { /* ignore */ }
+    }
+    window.addEventListener(LEARNING_STATE_SYNCED, refreshSyncedTab)
+    window.addEventListener('storage', refreshSyncedTab)
+    return () => {
+      window.removeEventListener(LEARNING_STATE_SYNCED, refreshSyncedTab)
+      window.removeEventListener('storage', refreshSyncedTab)
+    }
+  }, [mode, queryTab])
+
+  useEffect(() => {
     tabRefs.current[mode]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
   }, [mode])
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LAST_PRACTICE_TAB_KEY)
+      if (saved === mode) return
+      if (!saved && mode === 'free' && !queryTab) return
+      localStorage.setItem(LAST_PRACTICE_TAB_KEY, mode)
+      notifyLearningStateChanged()
+    } catch { /* ignore private browsing restrictions */ }
+  }, [mode, queryTab])
 
   const changeMode = (key) => {
     setMode(key)
@@ -1846,6 +1886,43 @@ const Speaking = () => {
             </button>
           )
         })}
+      </div>
+
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 8, margin: '-12px 0 18px',
+      }}>
+        <button
+          onClick={() => changeMode(prevTab.key)}
+          aria-label={`切换到上一个练习：${prevTab.label}`}
+          style={{
+            minHeight: 38, borderRadius: 12, border: '1px solid #e5e1d8',
+            background: '#fff', color: '#5c5850', padding: '7px 10px',
+            fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+            flexShrink: 0,
+          }}
+        >
+          ← {prevTab.label}
+        </button>
+        <p style={{
+          flex: 1, minWidth: 0, textAlign: 'center',
+          fontSize: 12, color: '#7a756c', lineHeight: 1.35,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {activeTab.icon} 当前：<strong style={{ color: '#0f0e0c' }}>{activeTab.label}</strong>
+        </p>
+        <button
+          onClick={() => changeMode(nextTab.key)}
+          aria-label={`切换到下一个练习：${nextTab.label}`}
+          style={{
+            minHeight: 38, borderRadius: 12, border: '1px solid #e5e1d8',
+            background: '#fff', color: '#5c5850', padding: '7px 10px',
+            fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+            flexShrink: 0,
+          }}
+        >
+          {nextTab.label} →
+        </button>
       </div>
 
       {mode === 'free' && (

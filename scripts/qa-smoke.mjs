@@ -32,9 +32,24 @@ const checks = [
     patterns: ['setSearchParams', 'aria-selected', 'scrollIntoView'],
   },
   {
+    name: '练习中心可跨设备接续上次模式',
+    file: 'src/pages/Practice/Speaking.jsx',
+    patterns: ['last_practice_tab', 'LEARNING_STATE_SYNCED', 'refreshSyncedTab'],
+  },
+  {
     name: 'Emma 回复可直接跳转',
     file: 'src/pages/TeacherChat.jsx',
     patterns: ['buildEmmaActions', '去 Lesson', '打开自然拼读'],
+  },
+  {
+    name: 'Emma 失败后可重发原问题',
+    file: 'src/pages/TeacherChat.jsx',
+    patterns: ['RetryButton', 'retryText', '重新发送刚才的问题'],
+  },
+  {
+    name: '悬浮 Emma 回复可直接跳转',
+    file: 'src/components/EmmaBubble.jsx',
+    patterns: ['buildEmmaActions', 'handleActionNavigate', '去 Lesson'],
   },
   {
     name: '手机录音格式兼容',
@@ -55,6 +70,21 @@ const checks = [
     name: '网络恢复后自动同步',
     file: 'src/components/Layout.jsx',
     patterns: ["addEventListener('online'", "removeEventListener('online'"],
+  },
+  {
+    name: 'AI 服务状态有全局提示',
+    file: 'src/components/ui/ServiceStatusBanner.jsx',
+    patterns: ['SERVICE_STATUS_CHANGED', '关闭服务状态提示', 'AI 服务已恢复'],
+  },
+  {
+    name: '服务故障状态会记录和恢复',
+    file: 'src/utils/serviceStatus.js',
+    patterns: ['reportServiceIssue', 'reportServiceOk', 'SERVICE_STATUS_STALE_MS'],
+  },
+  {
+    name: '同步失败有全局重试入口',
+    file: 'src/components/ui/LearningSyncBanner.jsx',
+    patterns: ['学习记录同步需要检查', 'syncLearningState', '重试', 'already updates the visible sync error state'],
   },
   {
     name: '正式上线前安全提醒仍保留',

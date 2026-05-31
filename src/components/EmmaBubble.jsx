@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import useEmmaStore from '../store/emmaStore'
 import useUserStore from '../store/userStore'
 import useProgressStore from '../store/progressStore'
@@ -31,6 +31,66 @@ const parseVocabFromMessage = (content) => {
       return null
     })
     .filter(Boolean)
+}
+
+const addAction = (actions, action) => {
+  if (!actions.some(item => item.to === action.to && item.label === action.label)) actions.push(action)
+}
+
+const getLessonNumber = (content) => {
+  const match = content.match(/Lesson\s*(\d+)|第\s*(\d+)\s*课/i)
+  const num = Number(match?.[1] || match?.[2])
+  return Number.isFinite(num) && num > 0 ? num : null
+}
+
+const buildEmmaActions = (content) => {
+  const actions = []
+  const lessonNumber = getLessonNumber(content)
+  const phonicsLesson = lessonNumber ? phonicsLessons[lessonNumber - 1] : null
+
+  if (phonicsLesson) {
+    addAction(actions, {
+      label: `去 Lesson ${lessonNumber}`,
+      sub: phonicsLesson.title.replace(/^Lesson\s*\d+\s*[—-]\s*/, ''),
+      to: `/course/phonics/${phonicsLesson.id}`,
+      tone: '#e8672a',
+    })
+  }
+  if (/自然拼读|拼读|phonics|短元音|长元音|魔法e/i.test(content)) {
+    addAction(actions, { label: '打开自然拼读', sub: '打发音地基', to: '/course/phonics', tone: '#e8672a' })
+  }
+  if (/发音|朗读|录音|口音|pronunciation/i.test(content)) {
+    addAction(actions, { label: '去发音练习', sub: '录一句分析', to: '/practice/speaking', tone: '#4a7a9b' })
+  }
+  if (/语法|纠错|grammar/i.test(content)) {
+    addAction(actions, { label: '去语法纠错', sub: '写一句马上改', to: '/practice/speaking?tab=grammar', tone: '#7b5ea7' })
+  }
+  if (/词汇|单词|复习|vocab|word/i.test(content)) {
+    addAction(actions, { label: '打开词汇本', sub: '复习和搭配', to: '/vocabulary', tone: '#3a9a5f' })
+  }
+  if (/听写|dictation/i.test(content)) {
+    addAction(actions, { label: '去听写练习', sub: '听一句写一句', to: '/practice/speaking?tab=dictation', tone: '#3a9a5f' })
+  }
+  if (/听力|listening/i.test(content)) {
+    addAction(actions, { label: '去听力练习', sub: '练对话理解', to: '/practice/speaking?tab=listening', tone: '#4a7a9b' })
+  }
+  if (/part\s*1|雅思.*1/i.test(content)) {
+    addAction(actions, { label: '练 Part 1', sub: '短问短答', to: '/practice/speaking?tab=part1', tone: '#7b5ea7' })
+  }
+  if (/part\s*2|cue\s*card|雅思.*2/i.test(content)) {
+    addAction(actions, { label: '练 Part 2', sub: 'Cue Card', to: '/practice/speaking?tab=cuecard', tone: '#7b5ea7' })
+  }
+  if (/part\s*3|雅思.*3/i.test(content)) {
+    addAction(actions, { label: '练 Part 3', sub: '深度讨论', to: '/practice/speaking?tab=part3', tone: '#7b5ea7' })
+  }
+  if (/学习计划|计划|今天|每天|弱点|分析|复盘/i.test(content)) {
+    addAction(actions, { label: '看今日计划', sub: '回首页开始', to: '/dashboard', tone: '#e8672a' })
+  }
+  if (/场景|对话|conversation|实战/i.test(content)) {
+    addAction(actions, { label: '去场景实战', sub: '真实对话', to: '/course/scenes', tone: '#e8672a' })
+  }
+
+  return actions.slice(0, 3)
 }
 
 /* ── 根据当前路由推断上下文 ── */
@@ -124,6 +184,63 @@ const TypingDots = () => (
   </div>
 )
 
+const ActionButtons = ({ actions, onNavigate }) => {
+  if (actions.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6, marginLeft: 34, paddingRight: 8 }}>
+      {actions.map(action => (
+        <button
+          key={`${action.to}-${action.label}`}
+          onClick={() => onNavigate(action.to)}
+          style={{
+            minHeight: 32,
+            borderRadius: 10,
+            border: `1px solid ${action.tone}33`,
+            background: `${action.tone}10`,
+            color: action.tone,
+            padding: '5px 8px',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            maxWidth: '100%',
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          <span style={{ fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' }}>{action.label}</span>
+          <span style={{ fontSize: 10.5, color: '#7a756c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{action.sub}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+const RetryButton = ({ retryText, onRetry }) => {
+  if (!retryText) return null
+  return (
+    <button
+      onClick={() => onRetry(retryText)}
+      style={{
+        marginTop: 6,
+        marginLeft: 34,
+        minHeight: 32,
+        borderRadius: 10,
+        border: '1px solid #f5c4a8',
+        background: '#fdf0ea',
+        color: '#d97757',
+        padding: '5px 10px',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        fontSize: 11,
+        fontWeight: 800,
+      }}
+    >
+      重新发送刚才的问题
+    </button>
+  )
+}
+
 const BREAKPOINT = 1024
 
 const getVisualViewportState = () => {
@@ -141,6 +258,7 @@ const EmmaBubble = () => {
   const { user } = useUserStore()
   const { progress, streak, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
   const location = useLocation()
+  const navigate = useNavigate()
 
   const [messages, setMessages] = useState(() => {
     try {
@@ -294,8 +412,13 @@ const EmmaBubble = () => {
       const memoryContext = getEmmaMemoryPrompt()
       const reply = await chatWithEmma(apiMessages, progressSummary, routeCtx.description, buildEmmaLearningContext(), memoryContext)
       setMessages(prev => [...prev, { role: 'emma', content: reply }])
-    } catch {
-      setMessages(prev => [...prev, { role: 'emma', content: '抱歉，连接出了问题，请稍后再试 😅' }])
+    } catch (error) {
+      const msg = error?.message ? `\n\n原因：${error.message}` : ''
+      setMessages(prev => [...prev, {
+        role: 'emma',
+        content: `抱歉，连接出了问题，请稍后再试 😅${msg}`,
+        retryText: userMsg.content,
+      }])
     } finally {
       setLoading(false)
     }
@@ -309,6 +432,15 @@ const EmmaBubble = () => {
   const handleNudgePractice = () => {
     if (!coachNudge?.prompt) return
     sendMessage(coachNudge.prompt)
+  }
+
+  const handleActionNavigate = (to) => {
+    if (messages.length >= 2) {
+      saveEmmaSession(messages, routeCtx.label, progressSummary, user?.id)
+    }
+    close()
+    setInput('')
+    navigate(to)
   }
 
   /* 在 /teacher 全屏页隐藏气泡 */
@@ -483,6 +615,7 @@ const EmmaBubble = () => {
           )}
           {messages.map((msg, i) => {
             const vocabs = msg.role === 'emma' ? parseVocabFromMessage(msg.content) : []
+            const actions = msg.role === 'emma' ? buildEmmaActions(msg.content) : []
             const displayContent = msg.role === 'emma'
               ? msg.content.replace(/💡\s*(?:新词汇|学到了)[：:]\s*[\s\S]*$/, '').trim()
               : msg.content
@@ -517,6 +650,12 @@ const EmmaBubble = () => {
                         onSave={handleSaveVocab} />
                     ))}
                   </div>
+                )}
+                {msg.role === 'emma' && (
+                  <ActionButtons actions={actions} onNavigate={handleActionNavigate} />
+                )}
+                {msg.role === 'emma' && (
+                  <RetryButton retryText={msg.retryText} onRetry={sendMessage} />
                 )}
               </div>
             )

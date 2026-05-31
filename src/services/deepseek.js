@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { reportServiceIssue, reportServiceOk } from '../utils/serviceStatus'
 
 const DEEPSEEK_TIMEOUT_MS = 45000
 
@@ -25,8 +26,16 @@ const callDeepSeekWithTimeout = async (messages, systemPrompt) => {
 // 通过 Supabase Edge Function 代理，DeepSeek API Key 不暴露给浏览器
 const callDeepSeek = async (messages, systemPrompt) => {
   const { data, error } = await callDeepSeekWithTimeout(messages, systemPrompt)
-  if (error) throw new Error(error.message || 'AI 服务调用失败，请稍后重试')
-  if (data?.error) throw new Error(data.error)
+  if (error) {
+    const msg = error.message || 'AI 服务调用失败，请稍后重试'
+    reportServiceIssue('DeepSeek', msg)
+    throw new Error(msg)
+  }
+  if (data?.error) {
+    reportServiceIssue('DeepSeek', data.error)
+    throw new Error(data.error)
+  }
+  reportServiceOk('DeepSeek')
   return data?.content ?? ''
 }
 

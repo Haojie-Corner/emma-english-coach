@@ -54,6 +54,14 @@ button {
   font-family: inherit;
 }
 
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 .font-title {
   font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
   font-weight: 700;

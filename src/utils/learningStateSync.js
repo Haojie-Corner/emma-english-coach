@@ -17,6 +17,7 @@ const FIXED_KEYS = [
   'daily_learning_reviews',
   'emma_coach_nudge_dismissed',
   'milestones_seen',
+  'last_practice_tab',
 ]
 
 export const notifyLearningStateChanged = () => {

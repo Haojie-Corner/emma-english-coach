@@ -577,7 +577,7 @@ const AddWordModal = ({ onClose, onAdd, userId }) => {
     setLoading(true); setError('')
     try {
       await addVocabularyWord(userId, form.word.trim(), form.phonetic.trim(), form.meaning.trim(), form.example.trim(), form.example_zh.trim(), 'manual')
-      onAdd()
+      await onAdd()
       onClose()
     } catch (e) {
       setError('添加失败：' + e.message)
@@ -696,14 +696,18 @@ const Vocabulary = () => {
   const [collocationMode, setCollocationMode] = useState(false)
   const [search, setSearch] = useState('')
   const [tagFilter, setTagFilter] = useState(null)
+  const [loadError, setLoadError] = useState('')
 
   const loadWords = useCallback(async () => {
     if (!user) return
     setLoading(true)
+    setLoadError('')
     try {
       const [all, due] = await Promise.all([getVocabulary(user.id), getDueVocabulary(user.id)])
       setWords(all)
       setDueWords(due)
+    } catch (error) {
+      setLoadError(error?.message || '词汇本加载失败，请检查网络后重试')
     } finally {
       setLoading(false)
     }
@@ -793,6 +797,30 @@ const Vocabulary = () => {
           }}>+ 添加</button>
         </div>
       </div>
+
+      {loadError && words.length > 0 && (
+        <div style={{
+          background: '#fff8ea',
+          border: '1px solid #f5d280',
+          borderRadius: 14,
+          padding: '10px 12px',
+          marginBottom: 14,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}>
+          <span style={{ color: '#d48a10', fontWeight: 900 }}>!</span>
+          <p style={{ flex: 1, minWidth: 0, fontSize: 12, color: '#7a5a12', lineHeight: 1.45, overflowWrap: 'anywhere' }}>
+            本次刷新失败，已保留当前词汇列表：{loadError}
+          </p>
+          <button onClick={loadWords} style={{
+            minHeight: 32, borderRadius: 10, border: '1px solid #e9c765',
+            background: '#fff', color: '#9a6a08', padding: '5px 10px',
+            fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
+            flexShrink: 0,
+          }}>重试</button>
+        </div>
+      )}
 
       {/* Vocab stats strip */}
       {words.length > 0 && !loading && (() => {
@@ -986,7 +1014,18 @@ const Vocabulary = () => {
         </div>
       )}
 
-      {loading ? (
+      {loadError && words.length === 0 && !loading ? (
+        <StateBlock
+          icon="!"
+          tone="danger"
+          title="词汇本暂时加载失败"
+          description={loadError}
+          actionLabel="重新加载"
+          onAction={loadWords}
+          secondaryLabel="先去练口语"
+          onSecondary={() => navigate('/practice/speaking')}
+        />
+      ) : loading ? (
         <LoadingBlock
           title="正在整理词汇本"
           description="把已收藏、今日到期和复习状态放到一起。"

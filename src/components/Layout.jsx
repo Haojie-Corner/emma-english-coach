@@ -4,6 +4,8 @@ import useUserStore from '../store/userStore'
 import EmmaBubble from './EmmaBubble'
 import Toast from './ui/Toast'
 import OfflineBanner from './ui/OfflineBanner'
+import ServiceStatusBanner from './ui/ServiceStatusBanner'
+import LearningSyncBanner from './ui/LearningSyncBanner'
 import { LEARNING_STATE_CHANGED, pushLearningState, syncLearningState } from '../utils/learningStateSync'
 
 const ScrollToTop = () => {
@@ -312,6 +314,8 @@ const Layout = () => {
       {!isDesktop && <BottomNav />}
       <ScrollToTop />
       <OfflineBanner />
+      <ServiceStatusBanner />
+      <LearningSyncBanner />
       <EmmaBubble />
       <Toast />
     </div>

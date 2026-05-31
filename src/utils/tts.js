@@ -1,5 +1,6 @@
 import { showToast } from './toast'
 import { supabase } from '../services/supabase'
+import { reportServiceIssue, reportServiceOk } from './serviceStatus'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -107,6 +108,7 @@ const elevenLabsFetch = async (text, modelId, rate, onEnd, signal = null) => {
   currentAudio = audio
   try {
     await audio.play()
+    reportServiceOk('语音')
   } catch (e) {
     URL.revokeObjectURL(url)
     if (currentAudio === audio) currentAudio = null
@@ -134,6 +136,7 @@ const handleTtsError = (e) => {
   } else {
     toastTts('语音服务暂时不可用，请稍后重试')
   }
+  reportServiceIssue('语音', e.message || '语音服务暂时不可用，请稍后重试')
   console.warn('[TTS] error:', e.message)
 }
 

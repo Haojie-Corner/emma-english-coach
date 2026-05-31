@@ -131,6 +131,14 @@ const QUICK_QUESTIONS = [
 
 const SIDEBAR_W = 220
 
+const getVisualViewportState = () => {
+  const vv = window.visualViewport
+  return {
+    height: vv?.height || window.innerHeight,
+    offsetTop: vv?.offsetTop || 0,
+  }
+}
+
 const getLessonNumber = (content) => {
   const match = content.match(/Lesson\s*(\d+)|第\s*(\d+)\s*课/i)
   const num = Number(match?.[1] || match?.[2])
@@ -222,16 +230,55 @@ const ActionButtons = ({ actions, onNavigate }) => {
   )
 }
 
+const RetryButton = ({ retryText, onRetry }) => {
+  if (!retryText) return null
+  return (
+    <button
+      onClick={() => onRetry(retryText)}
+      style={{
+        marginTop: 10,
+        minHeight: 36,
+        borderRadius: 11,
+        border: '1px solid #f5c4a8',
+        background: '#fdf0ea',
+        color: '#d97757',
+        padding: '7px 12px',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        fontSize: 12,
+        fontWeight: 800,
+      }}
+    >
+      重新发送刚才的问题
+    </button>
+  )
+}
+
 const TeacherChat = () => {
   const navigate = useNavigate()
   const { user } = useUserStore()
   const { progress, streak, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
+  const [viewport, setViewport] = useState(() => getVisualViewportState())
 
   useEffect(() => {
     const onResize = () => setIsDesktop(window.innerWidth >= 1024)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useEffect(() => {
+    const updateViewport = () => setViewport(getVisualViewportState())
+    const vv = window.visualViewport
+    updateViewport()
+    window.addEventListener('resize', updateViewport)
+    vv?.addEventListener('resize', updateViewport)
+    vv?.addEventListener('scroll', updateViewport)
+    return () => {
+      window.removeEventListener('resize', updateViewport)
+      vv?.removeEventListener('resize', updateViewport)
+      vv?.removeEventListener('scroll', updateViewport)
+    }
   }, [])
 
   const name = user?.user_metadata?.display_name || user?.email?.split('@')[0] || '同学'
@@ -262,10 +309,18 @@ const TeacherChat = () => {
   const [showPath, setShowPath] = useState(false)
   const [showMemory, setShowMemory] = useState(false)
   const bottomRef = useRef(null)
+  const keyboardInset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+  const isKeyboardOpen = !isDesktop && keyboardInset > 90
+  const inputBottom = isKeyboardOpen ? keyboardInset : 0
+  const pageBottomPadding = isDesktop ? 96 : 96 + inputBottom
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  useEffect(() => {
+    if (isKeyboardOpen) bottomRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [isKeyboardOpen, viewport.height])
 
   const sendMessage = async (text) => {
     if (!text.trim() || loading) return
@@ -285,15 +340,20 @@ const TeacherChat = () => {
       const updatedMsgs = [...newMsgs, { role: 'emma', content: reply }]
       setMessages(updatedMsgs)
       saveEmmaSession(updatedMsgs, 'Emma 老师', progressSummary)
-    } catch {
-      setMessages(prev => [...prev, { role: 'emma', content: '抱歉，连接出了点问题，请稍后再试 😅' }])
+    } catch (error) {
+      const msg = error?.message ? `\n\n原因：${error.message}` : ''
+      setMessages(prev => [...prev, {
+        role: 'emma',
+        content: `抱歉，连接出了点问题，请稍后再试 😅${msg}`,
+        retryText: userMsg.content,
+      }])
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto', paddingBottom: 80 }}>
+    <div style={{ maxWidth: 680, margin: '0 auto', paddingBottom: pageBottomPadding }}>
       <NavBlocker when={messages.length > 2} title="离开 Emma 老师？" body="对话记录将不会保存，确定要离开吗？" />
       {/* ── 顶部 Header ── */}
       <div style={{
@@ -441,6 +501,9 @@ const TeacherChat = () => {
                 {msg.role === 'emma' && (
                   <ActionButtons actions={actions} onNavigate={navigate} />
                 )}
+                {msg.role === 'emma' && (
+                  <RetryButton retryText={msg.retryText} onRetry={sendMessage} />
+                )}
               </div>
             </div>
           )
@@ -487,7 +550,7 @@ const TeacherChat = () => {
 
       {/* ── 输入框（fixed 铺满内容区底部）── */}
       <div style={{
-        position: 'fixed', bottom: 0, left: isDesktop ? SIDEBAR_W : 0, right: 0, zIndex: 20,
+        position: 'fixed', bottom: inputBottom, left: isDesktop ? SIDEBAR_W : 0, right: 0, zIndex: 20,
         background: 'rgba(255,255,255,0.92)',
         backdropFilter: 'blur(24px) saturate(180%)',
         WebkitBackdropFilter: 'blur(24px) saturate(180%)',

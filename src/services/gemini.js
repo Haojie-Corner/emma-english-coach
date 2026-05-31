@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { reportServiceIssue, reportServiceOk } from '../utils/serviceStatus'
 
 const GEMINI_TIMEOUT_MS = 45000
 
@@ -27,9 +28,14 @@ const callGemini = async (parts) => {
   const { data, error } = await fetchGeminiWithTimeout(parts)
   if (error) {
     const msg = error.message || String(error)
+    reportServiceIssue('Gemini', msg)
     throw new Error(msg)
   }
-  if (data?.error) throw new Error(data.error)
+  if (data?.error) {
+    reportServiceIssue('Gemini', data.error)
+    throw new Error(data.error)
+  }
+  reportServiceOk('Gemini')
   return data?.text ?? ''
 }
 
