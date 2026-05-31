@@ -148,10 +148,26 @@ const GrammarTab = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Card>
-        <p style={{ fontSize: 13, color: '#9e998e', marginBottom: 14 }}>输入一段英文，AI 帮你找出语法问题并给出修改建议</p>
+        <p style={{ fontSize: 13, color: '#9e998e', marginBottom: 10 }}>输入一段英文，AI 帮你找出语法问题并给出修改建议</p>
+        {!text && !result && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            {[
+              'I go to school yesterday.',
+              'She don\'t know what to do.',
+              'We was very busy last week.',
+              'He can speaks English very well.',
+            ].map(eg => (
+              <button key={eg} onClick={() => setText(eg)} style={{
+                fontSize: 11, color: '#5c5850', background: '#f5f3ef',
+                border: '1px solid #e5e1d8', borderRadius: 20,
+                padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit',
+              }}>{eg}</button>
+            ))}
+          </div>
+        )}
         <textarea
           value={text} onChange={e => setText(e.target.value)}
-          placeholder="Type your English here... e.g. I go to school yesterday."
+          placeholder="Type your English here..."
           rows={4}
           style={{
             width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',

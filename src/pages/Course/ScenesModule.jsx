@@ -18,6 +18,12 @@ const ScenesModule = () => {
     return progress.some(p => p.lesson_id === sceneId && p.status === 'completed')
   }
 
+  const recentlyPracticed = useMemo(() => {
+    const completedIds = new Set(progress.filter(p => p.status === 'completed').map(p => p.lesson_id))
+    const allScenes = sceneCategories.flatMap(cat => cat.scenes.map(s => ({ ...s, categoryName: cat.name, categoryColor: cat.color })))
+    return allScenes.filter(s => completedIds.has(s.id)).slice(0, 3)
+  }, [progress])
+
   const filteredScenes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     if (!q) return null
@@ -45,6 +51,27 @@ const ScenesModule = () => {
           </h1>
           <p style={{ fontSize: 13, color: '#9e998e' }}>与 AI 角色扮演，练真实英语对话 · 10 大主题 · 100 个场景</p>
         </div>
+
+        {/* 最近练习 */}
+        {recentlyPracticed.length > 0 && !searchQuery && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: '#9e998e', letterSpacing: '0.06em', marginBottom: 8, textTransform: 'uppercase' }}>最近练习</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {recentlyPracticed.map(scene => (
+                <button key={scene.id} onClick={() => navigate(`/course/scenes/${scene.id}`)} style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+                  borderRadius: 20, padding: '6px 12px', cursor: 'pointer',
+                  fontSize: 12, color: '#5c5850', fontFamily: 'inherit',
+                  boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+                }}>
+                  <span style={{ color: scene.categoryColor, fontWeight: 800, fontSize: 10 }}>✓</span>
+                  {scene.title}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 搜索框 */}
         <div style={{ position: 'relative', marginBottom: 20 }}>
