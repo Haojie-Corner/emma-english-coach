@@ -1,9 +1,13 @@
 import { getLearningStateItems, upsertLearningStateItems } from '../services/supabase'
+import { isE2EMode } from './e2eMode'
 
 export const LEARNING_STATE_CHANGED = 'learning-state-changed'
 export const LEARNING_STATE_SYNCED = 'learning-state-synced'
 export const LEARNING_SYNC_STATUS_CHANGED = 'learning-sync-status-changed'
 export const LEARNING_SYNC_STATUS_KEY = 'learning_sync_status'
+export const LEARNING_DEVICE_ID_KEY = 'learning_device_id'
+export const LEARNING_LAST_ROUTE_KEY = 'last_route'
+export const LEARNING_DEVICE_PROFILE_KEY = 'learning_device_profile'
 
 const FIXED_KEYS = [
   'dailyGoal',
@@ -18,6 +22,8 @@ const FIXED_KEYS = [
   'emma_coach_nudge_dismissed',
   'milestones_seen',
   'last_practice_tab',
+  LEARNING_LAST_ROUTE_KEY,
+  LEARNING_DEVICE_PROFILE_KEY,
 ]
 
 export const notifyLearningStateChanged = () => {
@@ -40,6 +46,37 @@ const setLearningSyncStatus = (status, message = '') => {
     updatedAt: new Date().toISOString(),
   }))
   window.dispatchEvent(new Event(LEARNING_SYNC_STATUS_CHANGED))
+}
+
+const getOrCreateDeviceId = () => {
+  let id = localStorage.getItem(LEARNING_DEVICE_ID_KEY)
+  if (!id) {
+    id = `device_${Date.now()}_${Math.random().toString(16).slice(2)}`
+    localStorage.setItem(LEARNING_DEVICE_ID_KEY, id)
+  }
+  return id
+}
+
+export const getLearningDeviceProfile = () => {
+  const profile = {
+    id: getOrCreateDeviceId(),
+    deviceType: window.innerWidth < 768 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop',
+    userAgent: navigator.userAgent,
+    lastSeenAt: new Date().toISOString(),
+  }
+  localStorage.setItem(LEARNING_DEVICE_PROFILE_KEY, JSON.stringify(profile))
+  return profile
+}
+
+export const markLearningRoute = (route) => {
+  if (!route || route === '/login') return
+  const prev = readLocalValue(LEARNING_LAST_ROUTE_KEY)
+  if (prev.exists && prev.value?.path === route) return
+  localStorage.setItem(LEARNING_LAST_ROUTE_KEY, JSON.stringify({
+    path: route,
+    updatedAt: new Date().toISOString(),
+  }))
+  notifyLearningStateChanged()
 }
 
 const getSyncErrorMessage = (error) => {
@@ -119,6 +156,13 @@ const collectLocalItems = () => getSyncKeys()
 
 export const pushLearningState = async (userId) => {
   try {
+    if (isE2EMode()) {
+      getLearningDeviceProfile()
+      setLearningSyncStatus('synced', 'E2E 模式：学习记录已模拟同步')
+      window.dispatchEvent(new Event(LEARNING_STATE_SYNCED))
+      return
+    }
+    getLearningDeviceProfile()
     const items = collectLocalItems()
     if (items.length === 0) return
     setLearningSyncStatus('syncing', '正在把本机学习记录同步到云端')
@@ -132,6 +176,13 @@ export const pushLearningState = async (userId) => {
 
 export const syncLearningState = async (userId) => {
   try {
+    if (isE2EMode()) {
+      getLearningDeviceProfile()
+      setLearningSyncStatus('synced', 'E2E 模式：手机和电脑学习记录已模拟合并')
+      window.dispatchEvent(new Event(LEARNING_STATE_SYNCED))
+      return
+    }
+    getLearningDeviceProfile()
     setLearningSyncStatus('syncing', '正在合并手机和电脑学习记录')
     const remoteRows = await getLearningStateItems(userId)
     const remoteMap = new Map(remoteRows.map(row => [row.state_key, row.value]))
@@ -165,5 +216,18 @@ export const syncLearningState = async (userId) => {
   } catch (error) {
     setLearningSyncStatus('error', getSyncErrorMessage(error))
     throw error
+  }
+}
+
+export const getLearningSyncReadiness = () => {
+  const status = getLearningSyncStatus()
+  const lastRoute = readLocalValue(LEARNING_LAST_ROUTE_KEY)
+  return {
+    status,
+    device: getLearningDeviceProfile(),
+    lastRoute: lastRoute.exists ? lastRoute.value : null,
+    localItemsCount: collectLocalItems().length,
+    trackedKeysCount: getSyncKeys().length,
+    checkedAt: new Date().toISOString(),
   }
 }

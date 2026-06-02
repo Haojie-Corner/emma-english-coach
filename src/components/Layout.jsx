@@ -6,7 +6,7 @@ import Toast from './ui/Toast'
 import OfflineBanner from './ui/OfflineBanner'
 import ServiceStatusBanner from './ui/ServiceStatusBanner'
 import LearningSyncBanner from './ui/LearningSyncBanner'
-import { LEARNING_STATE_CHANGED, pushLearningState, syncLearningState } from '../utils/learningStateSync'
+import { LEARNING_STATE_CHANGED, markLearningRoute, pushLearningState, syncLearningState } from '../utils/learningStateSync'
 
 const ScrollToTop = () => {
   const { pathname } = useLocation()
@@ -262,6 +262,7 @@ const BREAKPOINT = 1024
 const Layout = () => {
   const { user, logout } = useUserStore()
   const navigate = useNavigate()
+  const { pathname, search } = useLocation()
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= BREAKPOINT)
 
   useEffect(() => {
@@ -269,6 +270,11 @@ const Layout = () => {
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
   }, [])
+
+  useEffect(() => {
+    if (!user?.id) return
+    markLearningRoute(`${pathname}${search}`)
+  }, [user?.id, pathname, search])
 
   useEffect(() => {
     if (!user?.id) return
@@ -302,12 +308,15 @@ const Layout = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f3ef' }}>
+    <div style={{ minHeight: '100vh', background: '#f5f3ef', overflowX: 'clip' }}>
       {isDesktop && <SidebarNav onLogout={handleLogout} />}
       <main style={{
         marginLeft: isDesktop ? SIDEBAR_W : 0,
         paddingBottom: isDesktop ? 40 : 'calc(104px + env(safe-area-inset-bottom))',
         minHeight: '100vh',
+        width: isDesktop ? `calc(100% - ${SIDEBAR_W}px)` : '100%',
+        maxWidth: '100vw',
+        overflowX: 'clip',
       }}>
         <PageTransition />
       </main>

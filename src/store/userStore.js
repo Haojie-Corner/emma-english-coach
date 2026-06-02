@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase, signIn, signUp, signOut } from '../services/supabase'
 import { syncLearningState } from '../utils/learningStateSync'
+import { E2E_SESSION, E2E_USER, isE2EMode, seedE2ELocalState } from '../utils/e2eMode'
 
 const useUserStore = create((set) => ({
   user: null,
@@ -8,6 +9,11 @@ const useUserStore = create((set) => ({
   loading: true,
 
   init: async () => {
+    if (isE2EMode()) {
+      seedE2ELocalState()
+      set({ session: E2E_SESSION, user: E2E_USER, loading: false })
+      return
+    }
     const { data: { session } } = await supabase.auth.getSession()
     set({ session, user: session?.user ?? null, loading: false })
     if (session?.user) {

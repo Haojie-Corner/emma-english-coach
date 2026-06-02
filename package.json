@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "qa": "node scripts/qa-smoke.mjs",
+    "e2e": "node scripts/e2e-smoke.mjs",
     "voice:check": "node scripts/voice-health.mjs",
     "preview": "vite preview"
   },
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.60.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",

@@ -37,6 +37,26 @@ const checks = [
     patterns: ['last_practice_tab', 'LEARNING_STATE_SYNCED', 'refreshSyncedTab'],
   },
   {
+    name: '同步体检会记录设备和最近入口',
+    file: 'src/utils/learningStateSync.js',
+    patterns: ['learning_device_profile', 'last_route', 'getLearningSyncReadiness'],
+  },
+  {
+    name: '首页有双端同步体检',
+    file: 'src/pages/Dashboard.jsx',
+    patterns: ['双端同步体检', '继续上次位置', 'getLearningSyncReadiness'],
+  },
+  {
+    name: '真实浏览器 E2E 脚本已配置',
+    file: 'package.json',
+    patterns: ['"e2e": "node scripts/e2e-smoke.mjs"'],
+  },
+  {
+    name: 'E2E 模式不会影响生产登录',
+    file: 'src/utils/e2eMode.js',
+    patterns: ['import.meta.env.DEV', 'VITE_E2E_MODE', 'seedE2ELocalState'],
+  },
+  {
     name: 'Emma 回复可直接跳转',
     file: 'src/pages/TeacherChat.jsx',
     patterns: ['buildEmmaActions', '去 Lesson', '打开自然拼读'],

@@ -14,7 +14,7 @@ import { speak } from '../utils/tts'
 import { getTodayStudyMinutes } from '../utils/studyTime'
 import { getWeaknessSummary } from '../utils/weakness'
 import { getIeltsGoal, getIeltsGoalSummary } from '../utils/ieltsGoal'
-import { LEARNING_STATE_SYNCED, LEARNING_SYNC_STATUS_CHANGED, getLearningSyncStatus, notifyLearningStateChanged, syncLearningState } from '../utils/learningStateSync'
+import { LEARNING_STATE_SYNCED, LEARNING_SYNC_STATUS_CHANGED, getLearningSyncReadiness, getLearningSyncStatus, notifyLearningStateChanged, syncLearningState } from '../utils/learningStateSync'
 import InstallAppCard from '../components/ui/InstallAppCard'
 import { buildTodayLearningReview, saveDailyLearningReview } from '../utils/learningReview'
 import DiagnosticModal, { DIAGNOSTIC_KEY, getStoredDiagnostic } from '../components/DiagnosticModal'
@@ -152,6 +152,43 @@ const buildLoopSteps = ({ checkedInToday, todayMinutes, todayCompleted, targetMi
   ]
 }
 
+const getLoopStepRoute = (label, fallbackRoute) => {
+  const map = {
+    签到: fallbackRoute,
+    输入: fallbackRoute,
+    输出: '/practice/speaking',
+    复盘: '/teacher',
+  }
+  return map[label] || fallbackRoute
+}
+
+const getReadinessChecks = ({ user, readiness }) => {
+  const status = readiness?.status?.status || 'pending'
+  const lastRoute = readiness?.lastRoute?.path
+  return [
+    {
+      label: '同一账号',
+      done: !!user?.id,
+      hint: user?.email || '登录后才能手机电脑接续',
+    },
+    {
+      label: '云端同步',
+      done: status === 'synced' || status === 'syncing',
+      hint: readiness?.status?.message || '等待同步体检',
+    },
+    {
+      label: '最近入口',
+      done: !!lastRoute,
+      hint: lastRoute || '打开任意学习页后会记住位置',
+    },
+    {
+      label: '本机记录',
+      done: Number(readiness?.localItemsCount || 0) > 0,
+      hint: `${readiness?.localItemsCount || 0} 项可同步`,
+    },
+  ]
+}
+
 const Dashboard = () => {
   const { user } = useUserStore()
   const { progress, streak, checkedInToday, loading: progressLoading, weeklyLessonCounts, fetchProgress, doCheckIn, getModuleCompletion, isModuleUnlocked, dueVocabCount } = useProgressStore()
@@ -164,6 +201,7 @@ const Dashboard = () => {
   const [showDiagnostic, setShowDiagnostic] = useState(false)
   const [weaknessSummary, setWeaknessSummary] = useState(() => getWeaknessSummary())
   const [syncStatus, setSyncStatus] = useState(() => getLearningSyncStatus())
+  const [syncReadiness, setSyncReadiness] = useState(() => getLearningSyncReadiness())
 
   useEffect(() => { if (user) fetchProgress(user.id) }, [user, fetchProgress])
   useEffect(() => { setTodayMinutes(getTodayStudyMinutes()) }, [])
@@ -193,11 +231,18 @@ const Dashboard = () => {
   }, [])
   useEffect(() => {
     const refreshSyncStatus = () => setSyncStatus(getLearningSyncStatus())
+    const refreshReadiness = () => setSyncReadiness(getLearningSyncReadiness())
     window.addEventListener(LEARNING_SYNC_STATUS_CHANGED, refreshSyncStatus)
     window.addEventListener(LEARNING_STATE_SYNCED, refreshSyncStatus)
+    window.addEventListener(LEARNING_SYNC_STATUS_CHANGED, refreshReadiness)
+    window.addEventListener(LEARNING_STATE_SYNCED, refreshReadiness)
+    window.addEventListener('focus', refreshReadiness)
     return () => {
       window.removeEventListener(LEARNING_SYNC_STATUS_CHANGED, refreshSyncStatus)
       window.removeEventListener(LEARNING_STATE_SYNCED, refreshSyncStatus)
+      window.removeEventListener(LEARNING_SYNC_STATUS_CHANGED, refreshReadiness)
+      window.removeEventListener(LEARNING_STATE_SYNCED, refreshReadiness)
+      window.removeEventListener('focus', refreshReadiness)
     }
   }, [])
 
@@ -317,6 +362,10 @@ const Dashboard = () => {
   const loopDoneCount = loopSteps.filter(step => step.done).length
   const nextLoopStep = loopSteps.find(step => !step.done)
   const syncMeta = getSyncStatusMeta(syncStatus)
+  const readinessChecks = getReadinessChecks({ user, readiness: syncReadiness })
+  const readinessDoneCount = readinessChecks.filter(item => item.done).length
+  const lastSyncedRoute = syncReadiness?.lastRoute?.path
+  const nextLoopRoute = getLoopStepRoute(nextLoopStep?.label, todayPlan[2]?.to || nextLessonInfo.getPath(nextLessonInfo.lesson.id))
   const todayReview = useMemo(() => buildTodayLearningReview({
     todayMinutes,
     targetMinutes,
@@ -346,6 +395,11 @@ const Dashboard = () => {
   const handleManualSync = () => {
     if (!user?.id) return
     syncLearningState(user.id).catch(() => {})
+  }
+
+  const handleResumeSyncedRoute = () => {
+    if (!lastSyncedRoute) return
+    navigate(lastSyncedRoute)
   }
 
   return (
@@ -677,6 +731,24 @@ const Dashboard = () => {
                 ? '今天的学习从打卡、输入、输出到复盘都闭合了，明天系统会继续根据弱点安排。'
                 : nextLoopStep?.hint || '继续完成今天剩下的学习步骤。'}
             </p>
+            {loopDoneCount < 4 && (
+              <button onClick={() => nextLoopStep?.label === '签到' ? doCheckIn(user.id) : navigate(nextLoopRoute)} style={{
+                marginTop: 12,
+                width: '100%',
+                minHeight: 42,
+                borderRadius: 12,
+                border: 'none',
+                background: 'linear-gradient(135deg, #f28040, #e05020)',
+                color: '#fff',
+                fontSize: 13,
+                fontWeight: 900,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: '0 3px 12px rgba(232,103,42,0.22)',
+              }}>
+                去完成：{nextLoopStep?.label}
+              </button>
+            )}
           </div>
 
           <div style={{
@@ -704,6 +776,72 @@ const Dashboard = () => {
               borderRadius: 10, minHeight: 36, padding: '6px 10px', cursor: 'pointer',
               fontFamily: 'inherit', flexShrink: 0,
             }}>刷新</button>
+          </div>
+
+          <div style={{
+            background: '#fff',
+            border: '1px solid rgba(0,0,0,0.07)',
+            borderRadius: 18,
+            padding: '15px 16px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: 800, color: '#4a7a9b', marginBottom: 4 }}>双端同步体检</p>
+                <p style={{ fontSize: 14.5, fontWeight: 800, color: '#0f0e0c' }}>
+                  {readinessDoneCount}/4 项就绪
+                </p>
+              </div>
+              <button onClick={handleManualSync} style={{
+                minHeight: 34,
+                borderRadius: 10,
+                border: '1px solid #c8dde8',
+                background: '#eef7fb',
+                color: '#4a7a9b',
+                padding: '6px 10px',
+                fontSize: 11,
+                fontWeight: 900,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                flexShrink: 0,
+              }}>立即体检</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+              {readinessChecks.map(item => (
+                <div key={item.label} style={{
+                  borderRadius: 12,
+                  border: `1px solid ${item.done ? '#b5e0c8' : '#ede9e1'}`,
+                  background: item.done ? '#edf8f2' : '#faf9f6',
+                  padding: '9px 10px',
+                  minWidth: 0,
+                }}>
+                  <p style={{ fontSize: 11.5, fontWeight: 900, color: item.done ? '#3a9a5f' : '#5c5850', marginBottom: 2 }}>
+                    {item.done ? '✓' : '○'} {item.label}
+                  </p>
+                  <p style={{ fontSize: 10.5, color: '#7a756c', lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.hint}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <p style={{ fontSize: 12, color: '#7a756c', lineHeight: 1.5, flex: '1 1 210px' }}>
+                手机和电脑用同一账号打开时，会合并学习分钟、词汇、Emma 记忆和最近练习入口。
+              </p>
+              <button onClick={handleResumeSyncedRoute} disabled={!lastSyncedRoute} style={{
+                minHeight: 38,
+                borderRadius: 11,
+                border: `1px solid ${lastSyncedRoute ? '#f3c4a2' : '#e5e1d8'}`,
+                background: lastSyncedRoute ? '#fef2ea' : '#f5f3ef',
+                color: lastSyncedRoute ? '#e8672a' : '#9e998e',
+                padding: '8px 12px',
+                fontSize: 12,
+                fontWeight: 900,
+                cursor: lastSyncedRoute ? 'pointer' : 'default',
+                fontFamily: 'inherit',
+                flexShrink: 0,
+              }}>继续上次位置</button>
+            </div>
           </div>
         </div>
 

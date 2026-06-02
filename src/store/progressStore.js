@@ -1,6 +1,15 @@
 import { create } from 'zustand'
 import { getProgress, saveProgress, getTodayCheckIn, checkIn, getStreak, getCheckInHistory, getWeeklyLessonCounts, getDueVocabulary } from '../services/supabase'
 import { modules } from '../data/phonics'
+import { isE2EMode } from '../utils/e2eMode'
+
+const today = () => new Date().toISOString().split('T')[0]
+
+const e2eProgress = [
+  { module_id: 'phonics', lesson_id: 'phonics_01', status: 'completed', score: 86, updated_at: new Date().toISOString() },
+  { module_id: 'phonics', lesson_id: 'phonics_02', status: 'completed', score: 72, updated_at: new Date().toISOString() },
+  { module_id: 'phonics', lesson_id: 'phonics_03', status: 'in_progress', score: null, updated_at: new Date().toISOString() },
+]
 
 const useProgressStore = create((set, get) => ({
   progress: [],
@@ -13,6 +22,18 @@ const useProgressStore = create((set, get) => ({
 
   fetchProgress: async (userId) => {
     if (get().loading) return
+    if (isE2EMode()) {
+      set({
+        progress: e2eProgress,
+        streak: 3,
+        checkedInToday: true,
+        loading: false,
+        checkInHistory: [today()],
+        weeklyLessonCounts: { [today()]: 1 },
+        dueVocabCount: 2,
+      })
+      return
+    }
     set({ loading: true })
     const [progress, streak, todayCheckIn, checkInHistory, weeklyLessonCounts, dueVocab] = await Promise.all([
       getProgress(userId),
@@ -26,12 +47,21 @@ const useProgressStore = create((set, get) => ({
   },
 
   updateProgress: async (userId, moduleId, lessonId, status, score) => {
+    if (isE2EMode()) {
+      const current = get().progress.filter(p => p.lesson_id !== lessonId)
+      set({ progress: [...current, { module_id: moduleId, lesson_id: lessonId, status, score, updated_at: new Date().toISOString() }] })
+      return
+    }
     await saveProgress(userId, moduleId, lessonId, status, score)
     const progress = await getProgress(userId)
     set({ progress: progress || [] })
   },
 
   doCheckIn: async (userId) => {
+    if (isE2EMode()) {
+      set({ checkedInToday: true, streak: Math.max(get().streak, 1) })
+      return
+    }
     await checkIn(userId)
     const streak = await getStreak(userId)
     set({ checkedInToday: true, streak })
