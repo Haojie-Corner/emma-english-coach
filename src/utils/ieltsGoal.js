@@ -5,9 +5,14 @@ export const IELTS_ATTEMPTS_KEY = 'ielts_speaking_attempts'
 
 export const DEFAULT_IELTS_GOAL = {
   targetBand: 6.5,
-  currentBand: 5.5,
+  currentBand: 0,
   examDate: '',
   dailyMinutes: 30,
+}
+
+const normalizeBand = (value, fallback) => {
+  const band = Number(value)
+  return Number.isFinite(band) ? band : fallback
 }
 
 export const getIeltsGoal = () => {
@@ -21,8 +26,8 @@ export const getIeltsGoal = () => {
 
 export const saveIeltsGoal = (goal) => {
   const normalized = {
-    targetBand: Number(goal.targetBand) || DEFAULT_IELTS_GOAL.targetBand,
-    currentBand: Number(goal.currentBand) || DEFAULT_IELTS_GOAL.currentBand,
+    targetBand: normalizeBand(goal.targetBand, DEFAULT_IELTS_GOAL.targetBand),
+    currentBand: normalizeBand(goal.currentBand, DEFAULT_IELTS_GOAL.currentBand),
     examDate: goal.examDate || '',
     dailyMinutes: Number(goal.dailyMinutes) || DEFAULT_IELTS_GOAL.dailyMinutes,
     updatedAt: new Date().toISOString(),

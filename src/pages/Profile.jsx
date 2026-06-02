@@ -116,6 +116,9 @@ const SectionTitle = ({ children }) => (
   </p>
 )
 
+const TARGET_BANDS = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9]
+const CURRENT_BANDS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, ...TARGET_BANDS]
+
 const getSyncStatusMeta = (syncStatus) => {
   const status = syncStatus?.status || 'pending'
   const map = {
@@ -562,7 +565,7 @@ const Profile = () => {
               width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
               borderRadius: 12, padding: '10px 12px', fontSize: 14, color: '#0f0e0c', fontFamily: 'inherit',
             }}>
-              {[5.5, 6, 6.5, 7, 7.5, 8].map(b => <option key={b} value={b}>{b}</option>)}
+              {TARGET_BANDS.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </div>
           <div>
@@ -571,7 +574,7 @@ const Profile = () => {
               width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
               borderRadius: 12, padding: '10px 12px', fontSize: 14, color: '#0f0e0c', fontFamily: 'inherit',
             }}>
-              {[4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5].map(b => <option key={b} value={b}>{b}</option>)}
+              {CURRENT_BANDS.map(b => <option key={b} value={b}>{b === 0 ? '0 / 未起步' : b}</option>)}
             </select>
           </div>
           <div>
