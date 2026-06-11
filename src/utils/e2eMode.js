@@ -26,9 +26,13 @@ export const seedE2ELocalState = () => {
       minutes: 20,
       updatedAt: now,
     }),
+    weakness_records: JSON.stringify([
+      { type: 'pronunciation', label: '发音准确度', detail: '短元音还需要复练', createdAt: now },
+    ]),
     learningWeaknesses: JSON.stringify([
       { type: 'pronunciation', label: '发音准确度', detail: '短元音还需要复练', createdAt: now },
     ]),
+    vocab_output_challenges: JSON.stringify([]),
     last_route: JSON.stringify({ path: '/practice/speaking?tab=grammar', updatedAt: now }),
     [`studyMinutes_${today}`]: '8',
   }

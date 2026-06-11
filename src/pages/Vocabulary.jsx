@@ -8,6 +8,7 @@ import { expandVocabulary } from '../services/gemini'
 import { rateSentence } from '../services/deepseek'
 import { speak } from '../utils/tts'
 import { buildCollocationDrills } from '../utils/collocations'
+import { notifyLearningStateChanged } from '../utils/learningStateSync'
 
 const FAMILIARITY_LABEL = ['陌生', '模糊', '熟悉', '掌握']
 const FAMILIARITY_COLOR = ['#d94040', '#e8672a', '#5a8c4a', '#3a9a5f']
@@ -546,6 +547,123 @@ const CollocationPractice = ({ words, onFinish }) => {
   )
 }
 
+/* ── 今日输出挑战 ── */
+const VocabularyOutputChallenge = ({ words }) => {
+  const candidates = useMemo(() => words.filter(w => w.word && w.meaning).slice(0, 8), [words])
+  const [index, setIndex] = useState(0)
+  const [answer, setAnswer] = useState('')
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const current = candidates[index % Math.max(candidates.length, 1)]
+
+  const saveChallenge = (payload) => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('vocab_output_challenges') || '[]')
+      localStorage.setItem('vocab_output_challenges', JSON.stringify([...existing, payload].slice(-100)))
+      notifyLearningStateChanged()
+    } catch { /* ignore local storage restrictions */ }
+  }
+
+  const handleSubmit = async () => {
+    if (!current || !answer.trim() || loading) return
+    setLoading(true)
+    setResult(null)
+    try {
+      const raw = await rateSentence(current.word, answer.trim())
+      const parsed = JSON.parse(raw)
+      setResult(parsed)
+      saveChallenge({
+        word: current.word,
+        answer: answer.trim(),
+        score: parsed.score,
+        feedback: parsed.feedback,
+        createdAt: new Date().toISOString(),
+      })
+    } catch {
+      const fallback = { score: 0, feedback: 'AI 暂时没有评分成功，但这句输出已经算一次有效练习。', corrected: null }
+      setResult(fallback)
+      saveChallenge({
+        word: current.word,
+        answer: answer.trim(),
+        score: 0,
+        feedback: fallback.feedback,
+        createdAt: new Date().toISOString(),
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!current) return null
+
+  return (
+    <div style={{
+      background: '#fff', border: '1px solid rgba(0,0,0,0.07)',
+      borderRadius: 18, padding: '16px 18px', marginBottom: 16,
+      boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: 11, fontWeight: 900, color: '#e8672a', marginBottom: 4 }}>今天必须说出来</p>
+          <p style={{ fontSize: 16, fontWeight: 900, color: '#0f0e0c', lineHeight: 1.35 }}>
+            用 <span style={{ color: '#e8672a' }}>{current.word}</span> 造 1 句自己的英文
+          </p>
+          <p style={{ fontSize: 12, color: '#5c5850', marginTop: 4 }}>{current.meaning}</p>
+        </div>
+        <button onClick={() => speak(current.word)} style={{
+          width: 38, height: 38, borderRadius: 12,
+          border: '1px solid #f3c4a2', background: '#fff3ee',
+          color: '#e8672a', fontSize: 15, cursor: 'pointer',
+          flexShrink: 0,
+        }}>🔊</button>
+      </div>
+      <textarea
+        value={answer}
+        onChange={e => { setAnswer(e.target.value); setResult(null) }}
+        placeholder={`e.g. I try to use "${current.word}" in real conversations.`}
+        rows={2}
+        style={{
+          width: '100%', background: '#f5f3ef', border: '1.5px solid #e5e1d8',
+          borderRadius: 13, padding: '11px 13px', fontSize: 14,
+          color: '#0f0e0c', outline: 'none', resize: 'none',
+          boxSizing: 'border-box', fontFamily: 'inherit',
+        }}
+      />
+      {result && (
+        <div style={{
+          marginTop: 10,
+          background: Number(result.score) >= 70 ? '#edf8f2' : '#fff8ea',
+          border: `1px solid ${Number(result.score) >= 70 ? '#b5e0c8' : '#f5d280'}`,
+          borderRadius: 12,
+          padding: '10px 12px',
+        }}>
+          <p style={{ fontSize: 12, fontWeight: 900, color: Number(result.score) >= 70 ? '#3a9a5f' : '#d48a10', marginBottom: 4 }}>
+            输出评分：{result.score || 0}
+          </p>
+          <p style={{ fontSize: 12.5, color: '#5c5850', lineHeight: 1.55 }}>{result.feedback}</p>
+          {result.corrected && <p style={{ fontSize: 12.5, color: '#3a9a5f', marginTop: 5 }}>建议：{result.corrected}</p>}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        <button onClick={handleSubmit} disabled={!answer.trim() || loading} style={{
+          flex: '1 1 160px', minHeight: 42, borderRadius: 12,
+          border: 'none',
+          background: answer.trim() && !loading ? 'linear-gradient(135deg, #f28040, #e05020)' : '#e5e1d8',
+          color: answer.trim() && !loading ? '#fff' : '#9e998e',
+          fontSize: 13, fontWeight: 900, cursor: answer.trim() && !loading ? 'pointer' : 'default',
+          fontFamily: 'inherit',
+        }}>{loading ? 'AI 评分中…' : '提交输出'}</button>
+        <button onClick={() => { setIndex(i => i + 1); setAnswer(''); setResult(null) }} style={{
+          flex: '1 1 110px', minHeight: 42, borderRadius: 12,
+          border: '1px solid #e5e1d8', background: '#fff',
+          color: '#5c5850', fontSize: 13, fontWeight: 900,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>换一个词</button>
+      </div>
+    </div>
+  )
+}
+
 /* ── 添加单词弹窗 ── */
 const AddWordModal = ({ onClose, onAdd, userId }) => {
   const [form, setForm] = useState({ word: '', phonetic: '', meaning: '', example: '', example_zh: '' })
@@ -848,6 +966,8 @@ const Vocabulary = () => {
           </div>
         )
       })()}
+
+      {words.length > 0 && !loading && <VocabularyOutputChallenge words={dueWords.length > 0 ? dueWords : words} />}
 
       {words.length > 0 && (
         <div style={{

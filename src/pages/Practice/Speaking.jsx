@@ -88,6 +88,90 @@ const IeltsDrillCard = ({ scores }) => {
   )
 }
 
+// ─── Shadowing 跟读训练 ─────────────────────────────────────────────────
+const SHADOWING_LINES = [
+  {
+    level: '基础开口',
+    text: 'I am making steady progress every day.',
+    zh: '我每天都在稳定进步。',
+    focus: '把 steady progress 连成一个自然词块，progress 重读。',
+  },
+  {
+    level: '雅思 Part 1',
+    text: 'I think it helps me build confidence when I speak English.',
+    zh: '我觉得这能帮助我在说英语时建立自信。',
+    focus: 'I think it helps me 弱读，build confidence 重读。',
+  },
+  {
+    level: '雅思 Part 2',
+    text: 'One experience that left a deep impression on me was my first public speech.',
+    zh: '一个给我留下深刻印象的经历是我第一次公开演讲。',
+    focus: '长句分成 3 个意群：One experience / that left... / was...',
+  },
+  {
+    level: '雅思 Part 3',
+    text: 'Although technology saves time, it can also make people less patient.',
+    zh: '虽然科技节省时间，但它也可能让人变得没那么有耐心。',
+    focus: 'Although 后停一下，转折处 can also 轻读。',
+  },
+]
+
+const ShadowingTab = () => {
+  const [index, setIndex] = useState(0)
+  const current = SHADOWING_LINES[index]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ background: '#eef7fb', border: '1px solid #c8dde8', borderRadius: 16, padding: '12px 16px' }}>
+        <p style={{ fontSize: 13, color: '#4a7a9b', lineHeight: 1.6 }}>
+          🎧 Shadowing 跟读：先听原句，再模仿节奏录音。目标不是背句子，而是把重音、停顿和连读练到嘴上。
+        </p>
+      </div>
+
+      <Card>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 900, color: '#4a7a9b',
+            background: '#eef7fb', border: '1px solid #c8dde8',
+            borderRadius: 20, padding: '4px 10px',
+          }}>{current.level}</span>
+          <span style={{ fontSize: 12, color: '#9e998e' }}>{index + 1}/{SHADOWING_LINES.length}</span>
+        </div>
+        <p className="font-title" style={{ fontSize: 21, lineHeight: 1.45, color: '#0f0e0c', marginBottom: 8 }}>{current.text}</p>
+        <p style={{ fontSize: 13, color: '#5c5850', lineHeight: 1.55, marginBottom: 12 }}>{current.zh}</p>
+        <div style={{
+          background: '#f5f3ef', border: '1px solid #e5e1d8',
+          borderRadius: 13, padding: '10px 12px', marginBottom: 12,
+        }}>
+          <p style={{ fontSize: 12, color: '#5c5850', lineHeight: 1.55 }}>
+            <strong style={{ color: '#0f0e0c' }}>本句只盯一个点：</strong>{current.focus}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => speak(current.text, 0.75)} style={{
+            flex: '1 1 150px', minHeight: 42, borderRadius: 12,
+            border: '1px solid #c8dde8', background: '#eef7fb',
+            color: '#4a7a9b', fontSize: 13, fontWeight: 900,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>听原句</button>
+          <button onClick={() => setIndex(i => (i + 1) % SHADOWING_LINES.length)} style={{
+            flex: '1 1 130px', minHeight: 42, borderRadius: 12,
+            border: '1px solid #e5e1d8', background: '#fff',
+            color: '#5c5850', fontSize: 13, fontWeight: 900,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>换一句</button>
+        </div>
+      </Card>
+
+      <AudioRecorder
+        targetText={current.text}
+        targetZh={`Shadowing 跟读：${current.zh}`}
+        lessonId={`shadowing_${index + 1}`}
+      />
+    </div>
+  )
+}
+
 // ─── 语法纠错 ────────────────────────────────────────────────────────────
 const GrammarTab = () => {
   const { user } = useUserStore()
@@ -1710,6 +1794,7 @@ const Part3Tab = () => {
 
 const TABS = [
   { key: 'free', label: '录音', icon: '🎤', group: '口语', desc: '自由开口，AI 会分析发音、流利度、重音和语调。' },
+  { key: 'shadowing', label: '跟读', icon: '🎧', group: '口语', desc: '一句一句模仿原音，训练重音、停顿和连读。' },
   { key: 'grammar', label: '语法', icon: '📝', group: '表达', desc: '输入英文句子，马上看到错误、改法和可积累的新词。' },
   { key: 'dictation', label: '听写', icon: '✍️', group: '输入', desc: '听一句、写一句，训练耳朵和拼写的连接。' },
   { key: 'listening', label: '听力', icon: '🎧', group: '输入', desc: '生成分级对话和理解题，练真实场景里的抓重点能力。' },
@@ -1734,7 +1819,7 @@ const getInitialPracticeTab = (queryTab) => {
 }
 
 const GOAL_RECOMMENDED_TAB = {
-  pronunciation: 'free',
+  pronunciation: 'shadowing',
   conversation: 'free',
   grammar: 'grammar',
   ielts: 'part1',
@@ -1951,6 +2036,7 @@ const Speaking = () => {
         </div>
       )}
 
+      {mode === 'shadowing' && <ShadowingTab />}
       {mode === 'grammar' && <GrammarTab />}
       {mode === 'listening' && <ListeningTab />}
       {mode === 'tech' && <TechTab />}

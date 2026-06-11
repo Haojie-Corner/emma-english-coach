@@ -62,6 +62,9 @@ const buildEmmaActions = (content) => {
   if (/发音|朗读|录音|口音|pronunciation/i.test(content)) {
     addAction(actions, { label: '去发音练习', sub: '录一句分析', to: '/practice/speaking', tone: '#4a7a9b' })
   }
+  if (/跟读|shadowing|模仿|连读|重音|停顿/i.test(content)) {
+    addAction(actions, { label: '去跟读训练', sub: '听一句模仿一句', to: '/practice/speaking?tab=shadowing', tone: '#4a7a9b' })
+  }
   if (/语法|纠错|grammar/i.test(content)) {
     addAction(actions, { label: '去语法纠错', sub: '写一句马上改', to: '/practice/speaking?tab=grammar', tone: '#7b5ea7' })
   }

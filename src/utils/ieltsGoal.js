@@ -1,6 +1,8 @@
 import { notifyLearningStateChanged } from './learningStateSync'
+import { recordWeakness } from './weakness'
 
 export const IELTS_GOAL_KEY = 'ielts_goal_profile'
+export const IELTS_GOAL_SYNC_KEY = 'ielts_goal'
 export const IELTS_ATTEMPTS_KEY = 'ielts_speaking_attempts'
 
 export const DEFAULT_IELTS_GOAL = {
@@ -17,7 +19,7 @@ const normalizeBand = (value, fallback) => {
 
 export const getIeltsGoal = () => {
   try {
-    const saved = JSON.parse(localStorage.getItem(IELTS_GOAL_KEY) || 'null')
+    const saved = JSON.parse(localStorage.getItem(IELTS_GOAL_KEY) || localStorage.getItem(IELTS_GOAL_SYNC_KEY) || 'null')
     return saved ? { ...DEFAULT_IELTS_GOAL, ...saved } : null
   } catch {
     return null
@@ -33,6 +35,7 @@ export const saveIeltsGoal = (goal) => {
     updatedAt: new Date().toISOString(),
   }
   localStorage.setItem(IELTS_GOAL_KEY, JSON.stringify(normalized))
+  localStorage.setItem(IELTS_GOAL_SYNC_KEY, JSON.stringify(normalized))
   notifyLearningStateChanged()
   return normalized
 }
@@ -77,6 +80,22 @@ export const recordIeltsAttempt = (attempt) => {
   const next = [...getIeltsAttempts(), record].slice(-100)
   localStorage.setItem(IELTS_ATTEMPTS_KEY, JSON.stringify(next))
   notifyLearningStateChanged()
+  Object.entries(record.dimensionScores || {}).forEach(([key, value]) => {
+    const score = Number(value)
+    if (!Number.isFinite(score) || score >= 6) return
+    recordWeakness({
+      type: key,
+      source: `雅思口语${record.part ? ` · ${record.part}` : ''}`,
+      score: Math.round(score * 10),
+      label: {
+        fluency_coherence: '流利连贯',
+        lexical_resource: '词汇资源',
+        grammar_accuracy: '语法准确',
+        pronunciation: '发音准确度',
+      }[key] || key,
+      detail: `${record.topic || '本次题目'} 的 ${key} 维度偏低，建议安排一次定向复练。`,
+    })
+  })
   return record
 }
 

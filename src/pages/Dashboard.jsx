@@ -94,7 +94,7 @@ const buildTodayPlan = ({ profile, ieltsGoal, nextLessonInfo, dueVocabCount, low
     ? { title: '语法纠错热身', sub: '写 2 句英文，让 AI 找出最该改的地方', to: '/practice/speaking?tab=grammar', icon: '📝' }
     : goal === 'ielts'
       ? { title: '雅思口语热身', sub: '先做 1 道 Part 1，观察 Band 反馈', to: '/practice/speaking?tab=part1', icon: '🗣️' }
-      : { title: level === 'starter' ? '发音热身' : '开口热身', sub: '录 1 次短句，先把嘴巴叫醒', to: '/practice/speaking', icon: '🎤' }
+      : { title: level === 'starter' ? '跟读热身' : '开口热身', sub: level === 'starter' ? '先模仿 1 句原音，把节奏练顺' : '录 1 次短句，先把嘴巴叫醒', to: level === 'starter' ? '/practice/speaking?tab=shadowing' : '/practice/speaking', icon: level === 'starter' ? '🎧' : '🎤' }
 
   const outputPractice = goal === 'ielts'
     ? Number(ieltsGoal?.currentBand || 0) >= 6
@@ -380,6 +380,11 @@ const Dashboard = () => {
     : dueVocabCount > 0
       ? '/vocabulary?tab=due'
       : nextLessonInfo.getPath(nextLessonInfo.lesson.id)
+  const coachCommand = weaknessSummary[0]
+    ? `今天别贪多，只盯「${weaknessSummary[0].label}」：先跟读，再输出一句自己的英文。`
+    : ieltsGoal
+      ? `今天按 Band ${ieltsGoal.targetBand} 目标练：先完成一个雅思题，再复盘最低维度。`
+      : `今天只要完成 1 次输入、1 次输出、1 次复盘，就算真正闭环。`
 
   useEffect(() => {
     saveDailyLearningReview(todayReview)
@@ -658,6 +663,22 @@ const Dashboard = () => {
             }}>
               {diagnostic ? '重测' : '开始诊断'}
             </button>
+          </div>
+
+          <div style={{
+            background: '#f5f3ef',
+            border: '1px solid #e5e1d8',
+            borderRadius: 14,
+            padding: '11px 13px',
+            marginBottom: 12,
+            display: 'flex',
+            gap: 10,
+            alignItems: 'flex-start',
+          }}>
+            <span style={{ fontSize: 17, flexShrink: 0, lineHeight: 1.2 }}>🎯</span>
+            <p style={{ fontSize: 12.5, color: '#5c5850', lineHeight: 1.55 }}>
+              <strong style={{ color: '#0f0e0c' }}>Emma 今日指令：</strong>{coachCommand}
+            </p>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>

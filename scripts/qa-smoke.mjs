@@ -32,6 +32,11 @@ const checks = [
     patterns: ['setSearchParams', 'aria-selected', 'scrollIntoView'],
   },
   {
+    name: '练习中心有 Shadowing 跟读训练',
+    file: 'src/pages/Practice/Speaking.jsx',
+    patterns: ['ShadowingTab', 'SHADOWING_LINES', "key: 'shadowing'"],
+  },
+  {
     name: '练习中心可跨设备接续上次模式',
     file: 'src/pages/Practice/Speaking.jsx',
     patterns: ['last_practice_tab', 'LEARNING_STATE_SYNCED', 'refreshSyncedTab'],
@@ -40,6 +45,11 @@ const checks = [
     name: '同步体检会记录设备和最近入口',
     file: 'src/utils/learningStateSync.js',
     patterns: ['learning_device_profile', 'last_route', 'getLearningSyncReadiness'],
+  },
+  {
+    name: '100分计划关键学习状态纳入同步',
+    file: 'src/utils/learningStateSync.js',
+    patterns: ['weakness_records', 'vocab_output_challenges', 'ielts_goal'],
   },
   {
     name: '首页有双端同步体检',
@@ -70,6 +80,11 @@ const checks = [
     name: '悬浮 Emma 回复可直接跳转',
     file: 'src/components/EmmaBubble.jsx',
     patterns: ['buildEmmaActions', 'handleActionNavigate', '去 Lesson'],
+  },
+  {
+    name: 'Emma 能跳转到跟读训练',
+    file: 'src/components/EmmaBubble.jsx',
+    patterns: ['去跟读训练', 'tab=shadowing'],
   },
   {
     name: '手机录音格式兼容',
@@ -105,6 +120,11 @@ const checks = [
     name: '同步失败有全局重试入口',
     file: 'src/components/ui/LearningSyncBanner.jsx',
     patterns: ['学习记录同步需要检查', 'syncLearningState', '重试', 'already updates the visible sync error state'],
+  },
+  {
+    name: '词汇本有今日输出挑战',
+    file: 'src/pages/Vocabulary.jsx',
+    patterns: ['VocabularyOutputChallenge', '今天必须说出来', 'vocab_output_challenges'],
   },
   {
     name: '正式上线前安全提醒仍保留',

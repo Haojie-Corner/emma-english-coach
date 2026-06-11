@@ -169,6 +169,9 @@ const buildEmmaActions = (content) => {
   if (/发音|朗读|录音|口音|pronunciation/i.test(content)) {
     addAction(actions, { label: '去发音练习', sub: '录一句马上分析', to: '/practice/speaking', tone: '#4a7a9b' })
   }
+  if (/跟读|shadowing|模仿|连读|重音|停顿/i.test(content)) {
+    addAction(actions, { label: '去跟读训练', sub: '听一句模仿一句', to: '/practice/speaking?tab=shadowing', tone: '#4a7a9b' })
+  }
   if (/词汇|单词|复习|vocab|word/i.test(content)) {
     addAction(actions, { label: '打开词汇本', sub: '复习到期单词', to: '/vocabulary', tone: '#3a9a5f' })
   }

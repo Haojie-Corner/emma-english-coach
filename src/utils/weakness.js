@@ -1,21 +1,32 @@
 import { notifyLearningStateChanged } from './learningStateSync'
 
-const WEAKNESS_KEY = 'learningWeaknesses'
+const WEAKNESS_KEY = 'weakness_records'
+const LEGACY_WEAKNESS_KEY = 'learningWeaknesses'
 const MAX_RECORDS = 300
 
 export const WEAKNESS_LABELS = {
   pronunciation: '发音准确度',
   fluency: '流利度',
+  fluency_coherence: '流利连贯',
   stress: '重音节奏',
   intonation: '语音语调',
   grammar: '语法准确',
+  grammar_accuracy: '语法准确',
   vocabulary: '词汇表达',
+  lexical_resource: '词汇资源',
   communication: '沟通展开',
 }
 
 export const getWeaknessRecords = () => {
   try {
-    return JSON.parse(localStorage.getItem(WEAKNESS_KEY) || '[]')
+    const current = JSON.parse(localStorage.getItem(WEAKNESS_KEY) || '[]')
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_WEAKNESS_KEY) || '[]')
+    if (!legacy.length) return current
+    const map = new Map()
+    ;[...legacy, ...current].forEach(item => map.set(item.id || `${item.date}_${item.type}_${item.detail}`, item))
+    const merged = Array.from(map.values()).slice(-MAX_RECORDS)
+    localStorage.setItem(WEAKNESS_KEY, JSON.stringify(merged))
+    return merged
   } catch {
     return []
   }
@@ -29,7 +40,9 @@ export const recordWeakness = (record) => {
     date: new Date().toISOString(),
     ...record,
   })
-  localStorage.setItem(WEAKNESS_KEY, JSON.stringify(records.slice(-MAX_RECORDS)))
+  const next = records.slice(-MAX_RECORDS)
+  localStorage.setItem(WEAKNESS_KEY, JSON.stringify(next))
+  localStorage.setItem(LEGACY_WEAKNESS_KEY, JSON.stringify(next))
   notifyLearningStateChanged()
 }
 
