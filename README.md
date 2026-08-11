@@ -1,47 +1,419 @@
-# AI English Teacher
+# Emma English Coach
 
-面向中文母语者的 AI 英语学习应用，覆盖自然拼读、语音语调、认知重塑、场景演绎、真实场景对话、自如交流、词汇复习和雅思口语练习。
+**Emma English Coach** is an AI-powered English learning application designed primarily for Chinese-speaking learners. It combines structured courses, speaking practice, pronunciation analysis, vocabulary review, real-world conversation training, IELTS speaking practice, learning analytics, and an always-available AI learning assistant named **Emma**.
 
-## 当前完成度
+The project is built around a simple idea: English learning should be more than reading lessons or chatting with a generic chatbot. Learners should have a clear path, frequent opportunities to speak, immediate feedback, visible progress, and an AI coach that understands what they are currently learning.
 
-- 课程体系：自然拼读 22 课、语音语调 11 课、认知重塑 30 课、场景演绎 21 课、场景实战 100 个、自如交流 20 课
-- 练习中心：自由录音、语法纠错、听写、听力理解、编程英语、随拍学英语、雅思 Part 1、雅思 Part 2、雅思 Part 3
-- AI 能力：Gemini 发音/视觉/听力/雅思评分，DeepSeek 对话/纠错/复盘，ElevenLabs TTS
-- 学习数据：Supabase 登录、课程进度、录音记录、对话记录、词汇本、打卡统计
-- App 能力：PWA、响应式布局、Emma 全局学习助手、手机/电脑学习状态同步
+Emma English Coach brings those pieces together in one responsive web application that can be used on both desktop and mobile devices.
 
-## 技术栈
+---
 
-- React 19
-- Vite 8
-- Tailwind CSS v4
-- Zustand
-- Supabase
-- Gemini API
-- DeepSeek API
-- ElevenLabs API
+## Table of Contents
 
-## 本地开发
+- [What the Project Does](#what-the-project-does)
+- [Core Learning Experience](#core-learning-experience)
+- [Course System](#course-system)
+- [Practice Center](#practice-center)
+- [Emma AI Learning Coach](#emma-ai-learning-coach)
+- [AI Capabilities](#ai-capabilities)
+- [Learning Data and Progress Tracking](#learning-data-and-progress-tracking)
+- [Cross-Device Sync](#cross-device-sync)
+- [Technology Stack](#technology-stack)
+- [Project Architecture](#project-architecture)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Supabase Setup](#supabase-setup)
+- [Available Scripts](#available-scripts)
+- [PWA and Mobile Usage](#pwa-and-mobile-usage)
+- [Deployment](#deployment)
+- [Security Notes](#security-notes)
+- [Quality Assurance](#quality-assurance)
+- [Current Project Status](#current-project-status)
+- [Roadmap Priorities](#roadmap-priorities)
+
+---
+
+## What the Project Does
+
+Emma English Coach is a full English-learning system rather than a single-purpose AI chat interface.
+
+It currently includes:
+
+- A structured English course path with progressive module unlocking
+- Phonics and pronunciation foundations
+- Intonation, rhythm, stress, and natural speech training
+- Mindset and confidence-oriented lessons for learners who struggle to speak
+- Guided scene demonstrations and role-play exercises
+- 100 real-world conversation scenarios
+- Fluency-focused conversation training
+- Pronunciation recording and AI scoring
+- Grammar correction and sentence improvement
+- Dictation and listening comprehension exercises
+- Vocabulary collection, review, and sentence practice
+- Programming and technical English assistance
+- Image-based English learning using AI vision
+- IELTS Speaking Part 1, Part 2, and Part 3 practice
+- Personalized progress tracking and learning analytics
+- An AI learning coach named Emma
+- Cross-device learning-state synchronization
+- Progressive Web App support for mobile-friendly use
+
+The interface is designed for Chinese-speaking learners, with explanations and coaching primarily delivered in Chinese while keeping English examples and practice content at the center of the learning experience.
+
+---
+
+## Core Learning Experience
+
+The application is organized around five main areas:
+
+### 1. Dashboard
+
+The dashboard acts as the learner's home base. It summarizes learning activity, course progress, streaks, vocabulary review, recommendations, and current learning status.
+
+### 2. Courses
+
+The course center provides a structured progression from pronunciation fundamentals to real-world speaking and fluency. Modules unlock as learners complete prerequisite material.
+
+### 3. Practice
+
+The practice center gives learners a place to actively use English through recording, grammar correction, listening, dictation, IELTS practice, technical English, and AI-assisted exercises.
+
+### 4. Vocabulary
+
+The vocabulary system stores words encountered during lessons and practice sessions, supports review, and connects vocabulary learning back to real learning contexts.
+
+### 5. Profile and Learning Analytics
+
+The profile area tracks progress, pronunciation performance, grammar weaknesses, learning activity, and other useful signals that help learners understand where to focus next.
+
+---
+
+## Course System
+
+The current structured curriculum contains more than 100 lessons and 100 additional real-world scenarios.
+
+| Module | Content | Current Size |
+| --- | --- | ---: |
+| Phonics | Sound-letter relationships, decoding, pronunciation foundations | 22 lessons |
+| Intonation | Stress, rhythm, intonation, and natural speech patterns | 11 lessons |
+| Mindset | Confidence, speaking habits, and cognitive barriers | 30 lessons |
+| Scene Demonstration | Guided situational speaking and model dialogues | 21 lessons |
+| Real-World Scenes | AI role-play across practical everyday situations | 100 scenarios |
+| Fluency | Conversation skills, discourse strategies, and natural communication | 20 lessons |
+
+### Progressive Unlocking
+
+The learning path uses prerequisite-based unlocking so learners are encouraged to build skills in a logical order.
+
+The current progression is approximately:
+
+```text
+Phonics
+   ↓
+Intonation
+   ↓
+Mindset
+   ↓
+Scene Demonstration
+   ↓
+Real-World Scenes
+   ↓
+Fluency
+```
+
+Each module tracks completion and can use progress thresholds to unlock the next stage.
+
+The goal is to keep learners focused while still allowing the application to grow into a more personalized learning system over time.
+
+---
+
+## Practice Center
+
+The practice center extends the structured curriculum with targeted exercises.
+
+Current practice modes include:
+
+### Free Speaking and Recording
+
+Learners can record their voice and receive AI-assisted pronunciation analysis and feedback.
+
+### Grammar Correction
+
+Users can submit English sentences and receive corrections, explanations, and improved alternatives. Grammar mistakes can also contribute to the learner's weakness profile.
+
+### Dictation
+
+Learners listen to English sentences, type what they hear, and receive word-level comparison and feedback.
+
+### Listening Comprehension
+
+AI can generate listening material and comprehension questions for targeted practice.
+
+### Technical and Programming English
+
+A dedicated practice mode helps learners understand technical vocabulary, programming terminology, and English expressions commonly used in software development.
+
+### Snap-to-Learn English
+
+Users can provide an image and use AI vision to learn vocabulary, expressions, and descriptions related to what appears in the image.
+
+### IELTS Speaking
+
+The application includes dedicated IELTS speaking practice for:
+
+- Part 1: short personal questions and answers
+- Part 2: Cue Card preparation and extended speaking
+- Part 3: deeper discussion and opinion-based responses
+
+AI analysis can provide estimated scoring dimensions and targeted improvement suggestions.
+
+---
+
+## Emma AI Learning Coach
+
+**Emma** is the global AI learning assistant built into the application.
+
+Emma is designed to function more like a personal learning coach than a generic chatbot. She can use the learner's current context, learning progress, weaknesses, and recent activity to provide more relevant guidance.
+
+Emma can help with tasks such as:
+
+- Recommending what to study next
+- Explaining pronunciation or grammar questions
+- Identifying learning weaknesses
+- Creating a learning plan for the day
+- Suggesting relevant lessons or practice modes
+- Helping learners overcome speaking anxiety
+- Reviewing learning progress
+- Guiding users toward vocabulary, pronunciation, listening, grammar, IELTS, or conversation practice
+
+Emma is available both as a dedicated teacher page and as a global assistant accessible from other parts of the application.
+
+The application also includes learning-context and memory-related utilities so Emma can progressively become more aware of the learner's history and recent sessions.
+
+---
+
+## AI Capabilities
+
+Emma English Coach uses multiple AI services because different models are better suited to different learning tasks.
+
+### Google Gemini
+
+Gemini is used for multimodal and analysis-heavy features such as:
+
+- Pronunciation analysis
+- Speech transcription
+- Listening exercises
+- Image understanding
+- Vocabulary expansion
+- IELTS speaking analysis
+- Speech similarity and speaking feedback
+
+### DeepSeek
+
+DeepSeek is used primarily for language reasoning and conversational features such as:
+
+- AI role-play conversations
+- Fluency conversations
+- Emma's learning-coach conversations
+- Grammar correction
+- Sentence evaluation
+- Technical English explanations
+- Conversation review and feedback
+- Mindset-related exercise generation
+
+### ElevenLabs
+
+ElevenLabs provides text-to-speech output for high-quality spoken English examples and multilingual coaching audio.
+
+The current application favors consistent high-quality TTS rather than falling back to inconsistent browser speech synthesis.
+
+---
+
+## Learning Data and Progress Tracking
+
+Supabase is used for authentication, persistence, and learning data.
+
+The application currently tracks data such as:
+
+- User authentication and sessions
+- Course progress
+- Lesson completion
+- Scores
+- Audio recordings
+- Conversation history
+- Vocabulary items
+- Check-in and streak activity
+- Learning-state synchronization
+
+Some lightweight learning data is also cached locally for responsiveness and offline-friendly behavior.
+
+Examples include:
+
+- Daily study time
+- Recent grammar errors
+- Word-of-the-day cache
+- Milestone state
+- Temporary learning preferences
+
+---
+
+## Cross-Device Sync
+
+When the same account is used across desktop and mobile, the application can synchronize important learning state through Supabase.
+
+Examples of synchronized data include:
+
+- IELTS goals and recent speaking activity
+- Daily learning minutes and targets
+- Diagnostic profiles
+- Grammar weakness history
+- Combined weakness profiles
+- Emma's recent memory-related learning state
+- Milestone state
+- Recent learning context
+
+Cross-device synchronization depends on the latest `learning_state` table being present in Supabase.
+
+If the table has not been created yet, the application can still run, but locally stored learning state will not persist correctly across devices.
+
+---
+
+## Technology Stack
+
+### Frontend
+
+- **React 19**
+- **Vite 8**
+- **React Router**
+- **Tailwind CSS v4**
+- **Zustand**
+
+### Backend and Data
+
+- **Supabase Auth**
+- **Supabase Database**
+- **Supabase Storage**
+- **Row Level Security**
+
+### AI and Voice
+
+- **Google Gemini API**
+- **DeepSeek API**
+- **ElevenLabs API**
+
+### Testing and Tooling
+
+- **ESLint**
+- **Playwright**
+- Custom smoke-test and service-health scripts
+
+### App Platform
+
+- Responsive web application
+- Progressive Web App support
+- Desktop and mobile layouts
+- Cross-device learning synchronization
+
+---
+
+## Project Architecture
+
+A simplified view of the repository:
+
+```text
+src/
+├── assets/                 # Static application assets
+├── components/             # Shared UI and learning components
+│   ├── AudioRecorder.jsx   # Recording and pronunciation feedback
+│   ├── EmmaBubble.jsx      # Global Emma assistant
+│   └── ui/                 # Reusable UI primitives and status components
+├── data/                   # Course and scenario datasets
+│   ├── phonics.js
+│   ├── intonation.js
+│   ├── mindset.js
+│   ├── demo.js
+│   ├── scenes.js
+│   └── fluency.js
+├── hooks/                  # Shared React hooks
+├── pages/
+│   ├── Course/             # Course modules and lesson pages
+│   ├── Practice/           # Speaking and practice center
+│   ├── Dashboard.jsx
+│   ├── TeacherChat.jsx
+│   ├── Vocabulary.jsx
+│   └── Profile.jsx
+├── services/
+│   ├── gemini.js           # Gemini integration
+│   ├── deepseek.js         # DeepSeek integration
+│   └── supabase.js         # Supabase client and data helpers
+├── store/                  # Zustand state stores
+├── utils/                  # TTS, learning sync, timers, memory, and helpers
+├── main.jsx                # Application entry point
+└── router.jsx              # Route configuration
+
+scripts/
+├── qa-smoke.mjs            # Core application smoke checks
+├── e2e-smoke.mjs           # End-to-end smoke checks
+├── voice-health.mjs        # Voice-service health checks
+└── deploy-functions.sh     # Deployment helper
+
+docs/
+└── qa-checklist.md         # Manual release QA checklist
+
+supabase-setup.sql           # Database, RLS, storage, and learning-state setup
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+Before running the project locally, you should have:
+
+- Node.js installed
+- npm installed
+- A Supabase project
+- A Google Gemini API key
+- A DeepSeek API key
+- An ElevenLabs API key
+
+### Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/Haojie-Corner/emma-english-coach.git
+cd emma-english-coach
+```
+
+Install dependencies:
 
 ```bash
 npm install
+```
+
+Create your local environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+Add your service credentials to `.env.local`, then start the development server:
+
+```bash
 npm run dev
 ```
 
-常用命令：
+Vite will print the local development URL in the terminal.
 
-```bash
-npm run build
-npm run lint
-npm run voice:check
-npm run preview
-```
+---
 
-## 环境变量
+## Environment Variables
 
-复制 `.env.example` 为 `.env.local`，并填入真实服务配置：
+The application currently expects the following environment variables:
 
-```bash
+```env
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_GEMINI_API_KEY=
@@ -49,70 +421,243 @@ VITE_DEEPSEEK_API_KEY=
 VITE_ELEVENLABS_API_KEY=
 ```
 
-## Supabase 初始化
+Do not commit real credentials to the repository.
 
-在 Supabase Dashboard 的 SQL Editor 中运行：
+Use `.env.example` as the template and keep real secrets inside `.env.local` or your deployment platform's environment-variable settings.
 
-```bash
+---
+
+## Supabase Setup
+
+The repository includes:
+
+```text
 supabase-setup.sql
 ```
 
-脚本包含：
+Open the **SQL Editor** in your Supabase project and execute the script.
 
-- 用户课程进度表
-- 录音记录表
-- 对话记录表
-- 词汇表
-- 打卡表
-- 跨设备学习状态表 `learning_state`
-- Row Level Security 策略
-- `recordings` Storage bucket 和用户目录读写策略
+The setup includes the project's core persistence layer, including structures for:
 
-## 手机和电脑同步
+- User course progress
+- Recording records
+- Conversation records
+- Vocabulary
+- Check-in statistics
+- Cross-device learning state
+- Row Level Security policies
+- Recording storage
+- User-scoped storage access rules
 
-同一个账号在手机和电脑登录后，会自动同步这些学习状态：
+The `learning_state` table is particularly important for synchronizing learning preferences and recent learning context between devices.
 
-- 雅思目标和最近口语练习
-- 今日学习分钟、每日目标、诊断档案
-- 语法错题、综合弱点档案
-- Emma 最近对话记忆和里程碑状态
+Whenever the schema evolves, run the latest version of `supabase-setup.sql` before testing cross-device behavior.
 
-注意：必须先在 Supabase SQL Editor 运行最新的 `supabase-setup.sql`，让 `learning_state` 表真实存在。否则应用仍可使用，但这些本地学习档案无法跨设备持久同步。
+---
 
-## 部署建议
+## Available Scripts
 
-临时手机预览可以用 Cloudflare quick tunnel，但这类地址会随本地进程关闭而失效。长期使用建议部署到 Vercel 或 Cloudflare Pages，并配置同一套环境变量。
+Start the development server:
 
-公开上线前，优先把 Gemini、DeepSeek、ElevenLabs 调用迁移到后端代理或 Supabase Edge Functions，避免浏览器暴露 API Key。
+```bash
+npm run dev
+```
 
-## 上线前重点
-
-当前项目适合本地自用或小范围内测。正式公开上线前，建议优先完成：
-
-- 把 Gemini、DeepSeek、ElevenLabs 调用迁移到后端代理，避免浏览器暴露 API Key
-- 部署到稳定公网域名，替代临时 tunnel 预览地址
-- 在 Supabase 上跑通完整冒烟流程：注册、登录、完成课程、录音评分、保存词汇、对话复盘
-- 为核心服务函数补测试或至少补手动 QA 清单
-- 根据真实用户反馈精简课程入口和学习路径
-
-## 质量检查
-
-当前构建可用：
+Create a production build:
 
 ```bash
 npm run build
 ```
 
-代码检查：
+Run ESLint:
 
 ```bash
 npm run lint
 ```
 
-核心冒烟检查：
+Run the core QA smoke checks:
 
 ```bash
 npm run qa
 ```
 
-发布前手动验收清单见 `docs/qa-checklist.md`。
+Run end-to-end smoke checks:
+
+```bash
+npm run e2e
+```
+
+Check voice-related service health:
+
+```bash
+npm run voice:check
+```
+
+Preview the production build locally:
+
+```bash
+npm run preview
+```
+
+---
+
+## PWA and Mobile Usage
+
+Emma English Coach includes Progressive Web App support and is designed to work across desktop and mobile layouts.
+
+On supported browsers, the application can be installed to the home screen and used more like a standalone app.
+
+The current interface includes:
+
+- Mobile bottom navigation
+- Desktop sidebar navigation
+- Responsive learning pages
+- Mobile-friendly recording flows
+- PWA icons and metadata
+- Cross-device account-based learning-state synchronization
+
+For quick mobile testing during development, a temporary tunnel can be used. For persistent access, deploy the application to a stable HTTPS domain.
+
+---
+
+## Deployment
+
+For long-term hosting, suitable options include platforms such as:
+
+- Vercel
+- Cloudflare Pages
+- Other static/frontend hosting platforms that support Vite applications
+
+The deployed application must receive the same required environment variables used during local development.
+
+Before a production launch, validate the complete user journey on the deployed environment:
+
+1. Register or sign in
+2. Open the dashboard
+3. Complete a lesson
+4. Record audio
+5. Receive AI analysis
+6. Save vocabulary
+7. Start an AI conversation
+8. Complete a conversation review
+9. Confirm progress persistence
+10. Confirm mobile/desktop synchronization
+
+---
+
+## Security Notes
+
+### Important
+
+The current architecture can call some external AI APIs directly from the frontend.
+
+That approach is convenient for local development and private testing, but **browser-exposed API keys are not suitable for a public production deployment**.
+
+Before opening the application to untrusted users, move sensitive AI calls behind a server-side layer such as:
+
+- Supabase Edge Functions
+- A dedicated backend API
+- Serverless functions
+- Another trusted proxy layer
+
+The backend should hold private API credentials and expose only the minimum functionality required by the client.
+
+You should also review:
+
+- Supabase Row Level Security policies
+- Storage access rules
+- Authentication flows
+- Rate limits
+- API usage limits
+- Error logging
+- Abuse prevention
+- Data-retention requirements
+
+---
+
+## Quality Assurance
+
+The project includes automated and manual quality checks.
+
+Recommended checks before deployment:
+
+```bash
+npm run build
+npm run lint
+npm run qa
+npm run e2e
+npm run voice:check
+```
+
+A manual release checklist is also available at:
+
+```text
+docs/qa-checklist.md
+```
+
+High-priority user flows should always be tested on both desktop and mobile, especially microphone permissions, recording, AI analysis, authentication, persistence, and cross-device sync.
+
+---
+
+## Current Project Status
+
+Emma English Coach is currently best suited for:
+
+- Personal use
+- Local development
+- Controlled testing
+- Small private beta groups
+
+The core learning experience is already substantial, with structured courses, 100 real-world scenarios, AI-powered speaking practice, vocabulary management, progress analytics, Emma coaching, Supabase persistence, and PWA support.
+
+However, additional production hardening is recommended before a broad public release.
+
+---
+
+## Roadmap Priorities
+
+The most valuable next steps include:
+
+### 1. Move AI Requests to a Secure Backend
+
+Protect Gemini, DeepSeek, and ElevenLabs credentials by routing requests through server-side functions.
+
+### 2. Improve Personalized Daily Learning Plans
+
+Turn the dashboard into a clearer daily learning workflow that automatically combines pronunciation, vocabulary, speaking, and review based on the learner's current weaknesses.
+
+### 3. Expand Fluency Training
+
+Continue adding advanced conversational strategies such as hedging, repair strategies, vague language, discourse markers, and natural conversational fillers.
+
+### 4. Improve Vocabulary Training
+
+Add stronger collocation, phrase, recall, and context-based review modes instead of treating vocabulary as isolated words.
+
+### 5. Deepen Emma's Long-Term Memory
+
+Allow Emma to retain more useful learning context across sessions so recommendations become increasingly personalized.
+
+### 6. Improve IELTS Goal Personalization
+
+Allow learners to set a target band score and adapt IELTS practice difficulty, feedback, and recommendations around that goal.
+
+### 7. Expand Automated Testing
+
+Increase coverage for critical services, authentication, learning-state persistence, AI-response parsing, and user flows.
+
+---
+
+## Project Philosophy
+
+Emma English Coach is built around four principles:
+
+**Speak early.** Learners should start producing English as soon as possible instead of waiting until they feel "ready."
+
+**Get immediate feedback.** Pronunciation, grammar, vocabulary, and conversation practice become more useful when feedback arrives while the attempt is still fresh.
+
+**Follow a path.** A structured learning sequence reduces decision fatigue and helps learners build skills in the right order.
+
+**Make AI context-aware.** An AI coach becomes significantly more useful when it understands the learner's current lesson, recent mistakes, progress, and goals.
+
+The long-term goal is to make Emma feel less like a chatbot added to an English-learning website and more like a persistent personal English coach that connects every part of the learning experience.
