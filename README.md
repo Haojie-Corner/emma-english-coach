@@ -389,8 +389,8 @@ Before running the project locally, you should have:
 Clone the repository:
 
 ```bash
-git clone https://github.com/gg476259862-jpg/AI-english-teacher.git
-cd AI-english-teacher
+git clone https://github.com/Haojie-Corner/emma-english-coach.git
+cd emma-english-coach
 ```
 
 Install dependencies:
