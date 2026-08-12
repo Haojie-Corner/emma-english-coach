@@ -127,9 +127,24 @@ const checks = [
     patterns: ['VocabularyOutputChallenge', '今天必须说出来', 'vocab_output_challenges'],
   },
   {
-    name: '正式上线前安全提醒仍保留',
+    name: 'Gemini 后端代理存在',
+    file: 'supabase/functions/gemini-proxy/index.ts',
+    patterns: ['GEMINI_API_KEY'],
+  },
+  {
+    name: 'DeepSeek 后端代理存在',
+    file: 'supabase/functions/deepseek-proxy/index.ts',
+    patterns: ['DEEPSEEK_API_KEY'],
+  },
+  {
+    name: 'ElevenLabs 后端代理存在',
+    file: 'supabase/functions/tts-proxy/index.ts',
+    patterns: ['ELEVENLABS_API_KEY'],
+  },
+  {
+    name: 'README 包含 Edge Function 部署说明',
     file: 'README.md',
-    patterns: ['迁移到后端代理', '避免浏览器暴露 API Key'],
+    patterns: ['supabase/functions/', 'configure the required provider keys as Supabase secrets'],
   },
 ]
 

@@ -47,6 +47,7 @@ It currently includes:
 - 100 real-world conversation scenarios
 - Fluency-focused conversation training
 - Pronunciation recording and AI scoring
+- Guided Shadowing practice for rhythm, stress, pausing, and connected speech
 - Grammar correction and sentence improvement
 - Dictation and listening comprehension exercises
 - Vocabulary collection, review, and sentence practice
@@ -80,7 +81,7 @@ The practice center gives learners a place to actively use English through recor
 
 ### 4. Vocabulary
 
-The vocabulary system stores words encountered during lessons and practice sessions, supports review, and connects vocabulary learning back to real learning contexts.
+The vocabulary system stores words and collocations encountered during lessons and practice sessions, supports review, and includes output challenges that turn saved vocabulary into spoken sentences.
 
 ### 5. Profile and Learning Analytics
 
@@ -136,6 +137,10 @@ Current practice modes include:
 ### Free Speaking and Recording
 
 Learners can record their voice and receive AI-assisted pronunciation analysis and feedback.
+
+### Shadowing Practice
+
+Learners can listen to model sentences, imitate their rhythm and stress, record themselves, and reuse the pronunciation-analysis flow for targeted feedback.
 
 ### Grammar Correction
 
@@ -271,6 +276,7 @@ Examples of synchronized data include:
 - Emma's recent memory-related learning state
 - Milestone state
 - Recent learning context
+- Vocabulary output challenges and the last practice entry
 
 Cross-device synchronization depends on the latest `learning_state` table being present in Supabase.
 
@@ -383,8 +389,8 @@ Before running the project locally, you should have:
 Clone the repository:
 
 ```bash
-git clone https://github.com/Haojie-Corner/emma-english-coach.git
-cd emma-english-coach
+git clone https://github.com/gg476259862-jpg/AI-english-teacher.git
+cd AI-english-teacher
 ```
 
 Install dependencies:
@@ -424,6 +430,8 @@ VITE_ELEVENLABS_API_KEY=
 Do not commit real credentials to the repository.
 
 Use `.env.example` as the template and keep real secrets inside `.env.local` or your deployment platform's environment-variable settings.
+
+The provider variables in `.env.local` are used by the deployment and service-health scripts. Browser AI requests are sent through the Supabase Edge Function proxies described below.
 
 ---
 
@@ -530,6 +538,8 @@ For long-term hosting, suitable options include platforms such as:
 
 The deployed application must receive the same required environment variables used during local development.
 
+The repository also includes Supabase Edge Functions under `supabase/functions/` for Gemini, DeepSeek, and ElevenLabs. Deploy these functions and configure the required provider keys as Supabase secrets before testing AI features in production. The helper script `scripts/deploy-functions.sh` can perform both steps after the local environment file is configured.
+
 Before a production launch, validate the complete user journey on the deployed environment:
 
 1. Register or sign in
@@ -549,18 +559,13 @@ Before a production launch, validate the complete user journey on the deployed e
 
 ### Important
 
-The current architecture can call some external AI APIs directly from the frontend.
+The current client routes Gemini, DeepSeek, and ElevenLabs requests through these Supabase Edge Functions:
 
-That approach is convenient for local development and private testing, but **browser-exposed API keys are not suitable for a public production deployment**.
+- `supabase/functions/gemini-proxy`
+- `supabase/functions/deepseek-proxy`
+- `supabase/functions/tts-proxy`
 
-Before opening the application to untrusted users, move sensitive AI calls behind a server-side layer such as:
-
-- Supabase Edge Functions
-- A dedicated backend API
-- Serverless functions
-- Another trusted proxy layer
-
-The backend should hold private API credentials and expose only the minimum functionality required by the client.
+These functions keep provider credentials out of browser requests. Production deployments must configure the required provider keys as Supabase secrets and verify that all three functions are deployed. Do not commit real credentials or expose production provider keys through frontend code.
 
 You should also review:
 
@@ -588,6 +593,8 @@ npm run qa
 npm run e2e
 npm run voice:check
 ```
+
+If ElevenLabs reports an exhausted quota, wait for the account quota to reset or add credits. That result is a provider-account limit rather than a frontend failure.
 
 A manual release checklist is also available at:
 
@@ -618,9 +625,9 @@ However, additional production hardening is recommended before a broad public re
 
 The most valuable next steps include:
 
-### 1. Move AI Requests to a Secure Backend
+### 1. Harden AI Proxy Operations
 
-Protect Gemini, DeepSeek, and ElevenLabs credentials by routing requests through server-side functions.
+Add production monitoring, rate limits, and structured error logs around the existing Gemini, DeepSeek, and ElevenLabs Edge Function proxies.
 
 ### 2. Improve Personalized Daily Learning Plans
 
